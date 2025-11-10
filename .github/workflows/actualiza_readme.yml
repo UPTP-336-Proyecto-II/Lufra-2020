@@ -27,16 +27,6 @@ jobs:
       - name: Configura Git
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Haz commit si hay cambios
-        run: |
-          git add .
-          if ! git diff --cached --quiet; then
-            git commit -m "Actualización automática con actualiza_readme.py [skip ci]"
-            git push
-          else
-            echo "No hay cambios para hacer commit."
-          fi
+          git config user.email "github-actions[bot]@users.noreply.github.com"      
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
