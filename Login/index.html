@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesion</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="bg-animate" aria-hidden="true"></div>
+
+    <main class="login-wrapper" role="main">
+        <!-- Columna izquierda: imagen/ilustración decorativa -->
+        <aside class="hero" aria-hidden="false" role="img" aria-label="Imagen decorativa">
+            
+            <img src="images/lufra.jpg" alt="Ilustración decorativa - Lufra">
+        </aside>
+
+        <div class="form-column">
+        <section class="login-card" aria-labelledby="loginTitle">
+            <h1 id="loginTitle">Bienvenido</h1>
+            <p class="demo-note">Usuario demo: <strong>admin</strong> / <strong>admin</strong></p>
+
+            <form id="loginForm" class="form" novalidate>
+                <div class="field">
+                    <label for="username">Usuario</label>
+                    <div class="input-row">
+                        <input type="text" id="username" name="username" required autocomplete="username" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="password">Contraseña</label>
+                    <div class="input-row">
+                        <input type="password" id="password" name="password" required autocomplete="current-password" />
+                        <button type="button" class="toggle-pass" aria-label="Mostrar contraseña">👁️</button>
+                    </div>
+                    <ul class="pw-criteria" id="pwCriteria" aria-live="polite">
+                        <li data-rule="length">Al menos 8 caracteres</li>
+                        <li data-rule="lower">Al menos una letra minúscula</li>
+                        <li data-rule="upper">Al menos una letra mayúscula</li>
+                        <li data-rule="number">Al menos un número</li>
+                        <li data-rule="special">Al menos un carácter especial (!@#$%^&*)</li>
+                    </ul>
+                </div>
+
+                <div class="actions">
+                    <button class="btn primary" type="submit">
+                        <span class="btn-text">Ingresar</span>
+                        <span class="spinner" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </form>
+
+            <div id="message" role="status" aria-live="polite"></div>
+
+            <div class="meta">
+                <a href="#" class="link" id="forgotLink">¿Olvidaste tu contraseña?</a>
+                <br>
+                <a href="#" class="link" id="toRegister">¿No tienes una cuenta registrada?</a>
+            </div>
+
+            <div class="success" id="successCard" aria-hidden="true" style="display:none;">
+                <div class="check">✓</div>
+                <h2>Inicio de sesión exitoso</h2>
+                <p>Redirigiendo...</p>
+            </div>
+        </section>
+
+        <!-- Registro (oculto por defecto) -->
+        <section class="register-card" id="registerCard" aria-hidden="true" style="display:none;">
+            <h1>Crear cuenta</h1>
+            <form id="registerForm" class="form" novalidate>
+                <div class="field">
+                    <label for="regName">Nombre completo</label>
+                    <div class="input-row">
+                        <input type="text" id="regName" name="regName" required />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="regEmail">Correo electrónico</label>
+                    <div class="input-row">
+                        <input type="email" id="regEmail" name="regEmail" required />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="regUsername">Usuario</label>
+                    <div class="input-row">
+                        <input type="text" id="regUsername" name="regUsername" required />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="regPassword">Contraseña</label>
+                    <div class="input-row">
+                        <input type="password" id="regPassword" name="regPassword" required />
+                        <button type="button" class="toggle-pass" aria-label="Mostrar contraseña">👁️</button>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="regPasswordConfirm">Confirmar contraseña</label>
+                    <div class="input-row">
+                        <input type="password" id="regPasswordConfirm" name="regPasswordConfirm" required />
+                        <button type="button" class="toggle-pass" aria-label="Mostrar contraseña">👁️</button>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn primary" type="submit">Crear cuenta</button>
+                </div>
+            </form>
+
+            <div id="regMessage" role="status" aria-live="polite"></div>
+            <div class="meta">
+                <a href="#" class="link" id="backToLogin">Volver al login</a>
+            </div>
+        </section>
+        </div>
+    </main>
+
+    <script src="script.js" defer></script>
+
+</body>
+</html>
