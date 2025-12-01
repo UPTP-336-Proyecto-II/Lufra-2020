@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iniciar Sesion</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styleLogin.css">
 </head>
 <body>
     <div class="bg-animate" aria-hidden="true"></div>
@@ -19,7 +19,7 @@
         <div class="form-column">
         <section class="login-card" aria-labelledby="loginTitle">
             <h1 id="loginTitle">Bienvenido</h1>
-            <p class="demo-note">Usuario demo: <strong>admin</strong> / <strong>admin</strong></p>
+       <!-- <p class="demo-note">Usuario demo: <strong>admin</strong> / <strong>admin</strong></p> -->
 
             <form id="loginForm" class="form" novalidate>
                 <div class="field">
@@ -101,6 +101,17 @@
                 </div>
 
                 <div class="field">
+                    <label for="regRole">Rol</label>
+                    <div class="input-row">
+                        <select id="regRole" name="regRole" required>
+                            <option value="Trabajador">Trabajador</option>
+                            <option value="Administrativo">Administrativo</option>
+                            <option value="SuperUsuario">SuperUsuario</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="field">
                     <label for="regPasswordConfirm">Confirmar contraseña</label>
                     <div class="input-row">
                         <input type="password" id="regPasswordConfirm" name="regPasswordConfirm" required />
@@ -121,7 +132,7 @@
         </div>
     </main>
 
-    <script src="script.js" defer></script>
+    <script src="ScriptLogin.js" defer></script>
 
 </body>
 </html>
