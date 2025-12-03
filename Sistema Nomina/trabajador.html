@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Nóminas - Trabajador</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="sidebar">
+        <h3>Sistema de Nóminas</h3>
+        <div id="user-info" style="text-align:center; padding:10px;">
+            <p id="username-display" style="margin:0; font-weight:600;"></p>
+            <button id="logout-btn" style="margin-top:8px; padding:6px 10px; border-radius:4px; border:none; background:#e74c3c; color:white; cursor:pointer;">Cerrar sesión</button>
+        </div>
+        <div id="module-navigation"></div>
+    </div>
+
+    <div class="main-content">
+        <h1>Panel de Trabajador</h1>
+        <div class="role-selector">
+            <div class="alert-info">Vista dedicada para el rol Trabajador.</div>
+        </div>
+
+        <div class="content-box">
+            <div id="content-header"></div>
+            <div id="content-details"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

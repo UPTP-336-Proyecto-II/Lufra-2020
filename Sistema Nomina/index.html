@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Nóminas - Vistas por Rol</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="sidebar">
+        <h3>Sistema de Nóminas</h3>
+        <div id="user-info" style="text-align:center; padding:10px;">
+            <p id="username-display " style="margin:0; font-weight:600;"></p>
+            <button id="logout-btn" style="margin-top:8px; padding:6px 10px; border-radius:4px; border:none; background:#e74c3c; color:white; cursor:pointer;">Cerrar sesión</button>
+        </div>
+        <div id="module-navigation">
+        </div>
+        <div style="margin-top: 50px; text-align: center;">
+            <p style="font-size: 0.9em; color: #95a5a6;">Simulación de Roles</p>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <h1>Vistas del Sistema por Rol</h1>
+
+        <div class="role-selector">
+            <div class="alert-info">
+                **Haga clic en una pestaña** para simular lo que ve cada tipo de usuario en el sistema.
+            </div>
+            <div style="margin-top: 15px;">
+                <div class="role-tab active" data-role="Administrativo">👩‍💻 Administrativo (Nóminas)</div>
+                <div class="role-tab" data-role="Trabajador">🧑‍💼 Trabajador (Usuario Normal)</div>
+                <div class="role-tab" data-role="SuperUsuario">⚙️ SuperUsuario (Desarrollador)</div>
+            </div>
+        </div>
+
+        <div class="content-box">
+            <div id="content-header"></div>
+            <div id="content-details"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
