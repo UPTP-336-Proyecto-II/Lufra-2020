@@ -2,17 +2,8 @@
 
 @section('content')
   <div class="container-fluid">
-        <?php
-          $esEmpleado = false;
-          if (auth()->check()) {
-            $esEmpleado = \Illuminate\Support\Facades\DB::table('rol_usuario as ru')
-              ->join('roles as r','r.id','=','ru.rol_id')
-              ->where('ru.user_id', auth()->id())
-              ->where('r.nombre','empleado')
-              ->exists();
-          }
-        ?>
         @if($esEmpleado)
+        {{-- VISTA EMPLEADO --}}
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h3 class="card-title mb-0"><i class="fas fa-file-invoice-dollar mr-1"></i> Mis pagos</h3>
@@ -37,26 +28,6 @@
               </div>
             </form>
 
-            <?php 
-            $searchPagos = request('search_pagos');
-            $queryPagos = \Illuminate\Support\Facades\DB::table('pagos as p')
-              ->join('recibos as r','r.id','=','p.recibo_id')
-              ->join('empleados as e','e.id','=','r.empleado_id')
-              ->where('e.user_id', auth()->id())
-              ->select('p.id','p.importe','p.metodo','p.estado','p.referencia','r.id as recibo_id','p.moneda');
-            
-            if ($searchPagos) {
-              $queryPagos->where(function($q) use ($searchPagos) {
-                $q->where('p.importe', 'like', "%{$searchPagos}%")
-                  ->orWhere('p.metodo', 'like', "%{$searchPagos}%")
-                  ->orWhere('p.estado', 'like', "%{$searchPagos}%")
-                  ->orWhere('p.referencia', 'like', "%{$searchPagos}%")
-                  ->orWhere('p.moneda', 'like', "%{$searchPagos}%");
-              });
-            }
-            
-            $pagos = $queryPagos->orderByDesc('p.id')->paginate(20, ['*'], 'pagos_page');
-            ?>
             @if($pagos->count())
               <div class="table-responsive">
                 <table class="table table-sm">
@@ -97,6 +68,7 @@
           </div>
         </div>
         @else
+        {{-- VISTA ADMINISTRADOR --}}
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h3 class="card-title mb-0"><i class="fas fa-file-invoice-dollar mr-1"></i> Períodos de nómina</h3>
@@ -122,21 +94,6 @@
               </div>
             </form>
 
-            <?php 
-            $searchPeriodos = request('search_periodos');
-            $queryPeriodos = \Illuminate\Support\Facades\DB::table('periodos_nomina');
-            
-            if ($searchPeriodos) {
-              $queryPeriodos->where(function($q) use ($searchPeriodos) {
-                $q->where('codigo', 'like', "%{$searchPeriodos}%")
-                  ->orWhere('fecha_inicio', 'like', "%{$searchPeriodos}%")
-                  ->orWhere('fecha_fin', 'like', "%{$searchPeriodos}%")
-                  ->orWhere('estado', 'like', "%{$searchPeriodos}%");
-              });
-            }
-            
-            $periodos = $queryPeriodos->orderByDesc('fecha_inicio')->paginate(15, ['*'], 'periodos_page');
-            ?>
             @if($periodos->count())
               <div class="table-responsive">
                 <table class="table table-sm">
@@ -196,31 +153,6 @@
             </div>
           </div>
           <div class="card-body">
-            <?php
-              $q = request('q');
-              $recibosQuery = \Illuminate\Support\Facades\DB::table('recibos as r')
-                ->leftJoin('pagos as p','p.recibo_id','=','r.id')
-                ->join('empleados as e','e.id','=','r.empleado_id')
-                ->join('periodos_nomina as pn','pn.id','=','r.periodo_nomina_id')
-                ->leftJoin('contratos as c','c.empleado_id','=','r.empleado_id')
-                ->whereNull('p.id')
-                // Mostrar recibos sin pago de cualquier período (abierto o cerrado)
-                ->where(function($w){
-                  $w->whereColumn('c.fecha_inicio','<=','pn.fecha_fin')
-                    ->where(function($w2){
-                      $w2->whereNull('c.fecha_fin')
-                         ->orWhereColumn('c.fecha_fin','>=','pn.fecha_inicio');
-                    });
-                });
-              if ($q) {
-                $recibosQuery->where(function($w) use ($q){
-                  $w->where('e.nombre','like',"%{$q}%")
-                    ->orWhere('e.apellido','like',"%{$q}%");
-                  if (is_numeric($q)) { $w->orWhere('r.id','=',$q); }
-                });
-              }
-              $recibosSinPago = $recibosQuery->select('r.id','e.nombre','e.apellido','r.neto','pn.codigo as periodo_codigo','pn.estado as periodo_estado')->orderByDesc('r.id')->paginate(20, ['*'], 'recibos_page');
-            ?>
             @if(count($recibosSinPago))
               <div class="table-responsive">
                 <table class="table table-sm">
@@ -243,15 +175,6 @@
                             <input type="number" step="0.01" min="0" class="form-control form-control-sm mr-2" name="importe" value="{{ $r->neto }}" required style="width: 100px;">
                         </td>
                         <td>
-                            <?php 
-                              $monedas = \Illuminate\Support\Facades\DB::table('monedas')->orderBy('nombre')->limit(100)->get(); 
-                              if ($monedas->isEmpty()) {
-                                $monedas = collect([
-                                  (object)['codigo' => 'VES', 'nombre' => 'Bolívar', 'simbolo' => 'Bs.'],
-                                  (object)['codigo' => 'USD', 'nombre' => 'Dólar', 'simbolo' => '$']
-                                ]);
-                              }
-                            ?>
                             <select name="moneda" class="form-control form-control-sm mr-2" required style="width: 100px;">
                               @foreach($monedas as $mon)
                                 <option value="{{ $mon->codigo }}">{{ $mon->simbolo }} {{ $mon->codigo }}</option>
@@ -259,16 +182,6 @@
                             </select>
                         </td>
                         <td>
-                            <?php 
-                              $metodos = \Illuminate\Support\Facades\DB::table('metodos_pago')->orderBy('nombre')->limit(100)->get(); 
-                              if ($metodos->isEmpty()) {
-                                $metodos = collect([
-                                  (object)['nombre' => 'Transferencia'],
-                                  (object)['nombre' => 'Efectivo'],
-                                  (object)['nombre' => 'Pago móvil']
-                                ]);
-                              }
-                            ?>
                             <select name="metodo" class="form-control form-control-sm mr-2" required style="width: 120px;">
                               @foreach($metodos as $m)
                                 <option value="{{ $m->nombre }}">{{ $m->nombre }}</option>
@@ -276,17 +189,6 @@
                             </select>
                         </td>
                         <td>
-                            <?php 
-                              $conceptos = \Illuminate\Support\Facades\DB::table('conceptos_pago')->orderBy('nombre')->limit(100)->get(); 
-                              if ($conceptos->isEmpty()) {
-                                $conceptos = collect([
-                                  (object)['nombre' => 'Nómina'],
-                                  (object)['nombre' => 'Bono'],
-                                  (object)['nombre' => 'Anticipo'],
-                                  (object)['nombre' => 'Vacaciones']
-                                ]);
-                              }
-                            ?>
                             <select name="concepto" class="form-control form-control-sm mr-2" style="width: 120px;">
                               <option value="">-- Seleccionar --</option>
                               @foreach($conceptos as $c)
@@ -295,15 +197,6 @@
                             </select>
                         </td>
                         <td>
-                            <?php 
-                              $impuestos = \Illuminate\Support\Facades\DB::table('impuestos')
-                                ->where('activo', true)
-                                ->orderBy('por_defecto', 'desc')
-                                ->orderBy('nombre')
-                                ->limit(100)
-                                ->get(); 
-                              $impuestoPorDefecto = $impuestos->firstWhere('por_defecto', true);
-                            ?>
                             <select name="impuesto_id" class="form-control form-control-sm mr-2" style="width: 120px;">
                               <option value="">-- Sin impuesto --</option>
                               @foreach($impuestos as $imp)
@@ -343,33 +236,6 @@
             <h3 class="card-title"><i class="fas fa-hand-holding-usd mr-1"></i> Pago manual (sin recibo)</h3>
           </div>
           <div class="card-body">
-            <?php 
-              $emps = \Illuminate\Support\Facades\DB::table('empleados')->select('id','nombre','apellido')->orderBy('nombre')->limit(200)->get(); 
-              $monedas = \Illuminate\Support\Facades\DB::table('monedas')->orderBy('nombre')->limit(100)->get(); 
-              if ($monedas->isEmpty()) {
-                $monedas = collect([
-                  (object)['codigo' => 'VES', 'nombre' => 'Bolívar', 'simbolo' => 'Bs.'],
-                  (object)['codigo' => 'USD', 'nombre' => 'Dólar', 'simbolo' => '$']
-                ]);
-              }
-              $metodos = \Illuminate\Support\Facades\DB::table('metodos_pago')->orderBy('nombre')->limit(100)->get(); 
-              if ($metodos->isEmpty()) {
-                $metodos = collect([
-                  (object)['nombre' => 'Transferencia'],
-                  (object)['nombre' => 'Efectivo'],
-                  (object)['nombre' => 'Pago móvil']
-                ]);
-              }
-              $conceptos = \Illuminate\Support\Facades\DB::table('conceptos_pago')->orderBy('nombre')->limit(100)->get(); 
-              if ($conceptos->isEmpty()) {
-                $conceptos = collect([
-                  (object)['nombre' => 'Nómina'],
-                  (object)['nombre' => 'Bono'],
-                  (object)['nombre' => 'Anticipo'],
-                  (object)['nombre' => 'Vacaciones']
-                ]);
-              }
-            ?>
             <form method="POST" action="{{ route('pagos.manual') }}">
               @csrf
               <div class="row">
@@ -378,7 +244,7 @@
                     <label class="small text-muted">Empleado</label>
                     <select name="empleado_id" class="form-control form-control-sm" required>
                       <option value="">-- Seleccionar --</option>
-                      @foreach($emps as $e)
+                      @foreach($empleados as $e)
                         <option value="{{ $e->id }}">{{ $e->nombre }} {{ $e->apellido }}</option>
                       @endforeach
                     </select>

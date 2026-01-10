@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -15,13 +16,8 @@ class ContratoController extends Controller
 
     public function index(Request $request)
     {
-        // Verificar rol
-        $role = DB::table('rol_usuario')
-            ->join('roles', 'roles.id', '=', 'rol_usuario.rol_id')
-            ->where('rol_usuario.user_id', auth()->id())
-            ->value('roles.nombre');
-
-        if ($role !== 'administrador') {
+        // Verificar rol con Spatie
+        if (!auth()->user()->hasRole('administrador')) {
             abort(403);
         }
 
@@ -67,11 +63,8 @@ class ContratoController extends Controller
             ->get();
 
         // Empleados para select
-        // Obtener usuarios que tengan el rol 'empleado'
-        $emps = DB::table('users')
-            ->join('rol_usuario as ru', 'ru.user_id', '=', 'users.id')
-            ->join('roles', 'roles.id', '=', 'ru.rol_id')
-            ->whereRaw('lower(roles.nombre) = ?', ['empleado'])
+        // Obtener usuarios que tengan el rol 'empleado' vía Spatie
+        $emps = User::role('empleado')
             ->select('users.id', 'users.name', 'users.email')
             ->orderBy('users.name')
             ->limit(200)

@@ -132,6 +132,43 @@
                         <!-- Tab Tema -->
                         <div class="tab-pane fade" id="theme" role="tabpanel">
                             <div class="form-group">
+                                <label for="adminlte_version">Versión de AdminLTE</label>
+                                <select class="form-control" name="adminlte_version" id="adminlte_version">
+                                    @php
+                                        $adminlteVersions = [];
+                                        $adminltePath = public_path('adminlte');
+                                        if (is_dir($adminltePath)) {
+                                            $dirs = array_filter(glob($adminltePath . '/*'), 'is_dir');
+                                            foreach ($dirs as $dir) {
+                                                $version = basename($dir);
+                                                $adminlteVersions[] = $version;
+                                            }
+                                        }
+                                        $currentVersion = config('settings.adminlte_version', '3.2.0');
+                                    @endphp
+                                    
+                                    @if(count($adminlteVersions) > 0)
+                                        @foreach($adminlteVersions as $version)
+                                            <option value="{{ $version }}" {{ $currentVersion == $version ? 'selected' : '' }}>
+                                                AdminLTE {{ $version }}
+                                            </option>
+                                        @endforeach
+                                    @else
+                                        <option value="3.2.0" selected>AdminLTE 3.2.0 (Por defecto)</option>
+                                    @endif
+                                </select>
+                                @error('adminlte_version')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                                <small class="form-text text-muted">
+                                    Seleccione la versión de AdminLTE a utilizar. 
+                                    Las versiones disponibles se detectan desde <code>public/adminlte/</code>
+                                </small>
+                            </div>
+                            
+                            <hr>
+                            
+                            <div class="form-group">
                                 <label for="theme">Tema de la aplicación</label>
                                 <select class="form-control" name="theme" id="theme">
                                     <option value="skin-blue" {{ config('settings.theme') == 'skin-blue' ? 'selected' : '' }}>Tema Azul</option>
@@ -250,12 +287,15 @@
                                                     <input type="hidden" name="web_template" id="web_template_input" value="{{ old('web_template', $current) }}">
                                                     <p class="text-muted">Después de seleccionar, guarda los cambios en la parte inferior para aplicar la plantilla.</p>
                                                 </div>
+                                                
                                             </div>
                                         </div>
                                     </div>
                                 @else
                                     <p>No se encontraron plantillas en <code>resources/views/templates</code>.</p>
                                 @endif
+
+                                 <h5>colocando en el navegador /themes-test  podras configurar o agregar themes para la url del frontend  /inicio</h5>
                             </div>
                     </div>
 

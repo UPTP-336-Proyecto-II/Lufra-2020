@@ -301,40 +301,22 @@ class NotificationHelper
     }
 
     /**
-     * Obtener todos los usuarios administradores
+     * Obtener todos los usuarios administradores (usando Spatie)
      */
     private static function getAdminUsers()
     {
-        $rolAdminId = DB::table('roles')->where('nombre', 'administrador')->value('id');
-        if (!$rolAdminId) {
-            return collect();
-        }
-
-        return DB::table('users')
-            ->join('rol_usuario', 'users.id', '=', 'rol_usuario.user_id')
-            ->where('rol_usuario.rol_id', $rolAdminId)
+        return \App\Models\User::role('administrador')
             ->select('users.id', 'users.name', 'users.email')
             ->get();
     }
 
     /**
-     * Obtener usuarios con un permiso específico o rol administrador
+     * Obtener usuarios con un permiso específico o rol administrador (usando Spatie)
      */
     private static function getUsersWithPermission($permisoNombre)
     {
-        // Primero obtener el ID del permiso
-        $permisoId = DB::table('permisos')->where('nombre', $permisoNombre)->value('id');
-        
-        // Si no existe el permiso, devolver solo administradores
-        if (!$permisoId) {
-            return self::getAdminUsers();
-        }
-
-        // Obtener usuarios que tienen el permiso (a través de sus roles)
-        $usersWithPermission = DB::table('users')
-            ->join('rol_usuario', 'users.id', '=', 'rol_usuario.user_id')
-            ->join('permiso_rol', 'rol_usuario.rol_id', '=', 'permiso_rol.rol_id')
-            ->where('permiso_rol.permiso_id', $permisoId)
+        // Obtener usuarios que tienen el permiso via Spatie
+        $usersWithPermission = \App\Models\User::permission($permisoNombre)
             ->select('users.id', 'users.name', 'users.email')
             ->distinct()
             ->get();

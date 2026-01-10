@@ -99,19 +99,61 @@ class ThemeController extends Controller
         if (class_exists('ZipArchive')) {
             $zip = new ZipArchive();
             if ($zip->open($file->getRealPath()) === true) {
+                // Detect if ZIP has a root folder wrapping everything
+                $rootFolder = null;
+                $firstEntry = $zip->getNameIndex(0);
+                if ($firstEntry && strpos($firstEntry, '/') !== false) {
+                    $parts = explode('/', $firstEntry);
+                    $possibleRoot = $parts[0];
+                    // Check if all entries start with this folder
+                    $allHaveRoot = true;
+                    for ($i = 0; $i < $zip->numFiles; $i++) {
+                        $entry = $zip->getNameIndex($i);
+                        if (!Str::startsWith($entry, $possibleRoot . '/')) {
+                            $allHaveRoot = false;
+                            break;
+                        }
+                    }
+                    if ($allHaveRoot) {
+                        $rootFolder = $possibleRoot;
+                    }
+                }
+
                 // Extract safely: iterate entries
                 for ($i = 0; $i < $zip->numFiles; $i++) {
                     $entry = $zip->getNameIndex($i);
                     // Reject entries with ../ or absolute paths
-                    if (Str::contains($entry, ['..', '\\'])) {
+                    if (Str::contains($entry, ['..'])) {
                         $zip->close();
                         return redirect()->back()->withErrors(['zip' => 'El archivo ZIP contiene rutas no permitidas.']);
                     }
-                    $entryPath = $targetDir . DIRECTORY_SEPARATOR . $entry;
+
+                    // Strip root folder if detected
+                    $relativePath = $entry;
+                    if ($rootFolder && Str::startsWith($entry, $rootFolder . '/')) {
+                        $relativePath = substr($entry, strlen($rootFolder) + 1);
+                    }
+
+                    // Skip empty paths (root folder itself)
+                    if (empty($relativePath)) {
+                        continue;
+                    }
+
+                    $entryPath = $targetDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+                    
+                    // Skip if it's a directory entry
+                    if (substr($entry, -1) === '/') {
+                        if (!File::exists($entryPath)) {
+                            File::ensureDirectoryExists($entryPath, 0755, true);
+                        }
+                        continue;
+                    }
+
                     $dir = dirname($entryPath);
                     if (!File::exists($dir)) {
                         File::ensureDirectoryExists($dir, 0755, true);
                     }
+                    
                     $stream = $zip->getStream($entry);
                     if (!$stream) { continue; }
                     $outFile = fopen($entryPath, 'w');

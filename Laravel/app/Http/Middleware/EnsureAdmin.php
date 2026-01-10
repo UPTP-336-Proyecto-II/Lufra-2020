@@ -4,13 +4,12 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class EnsureAdmin
 {
     /**
      * Handle an incoming request.
-     * Allow if user role is 'admin' (either on user model or via rol_usuario join)
+     * Allow if user has any admin role (using Spatie)
      */
     public function handle(Request $request, Closure $next)
     {
@@ -19,27 +18,20 @@ class EnsureAdmin
         }
 
         $user = auth()->user();
-        $role = $user->role ?? null;
-
-        if (!$role) {
-            // attempt to query rol_usuario
-            try {
-                $role = DB::table('rol_usuario')
-                    ->join('roles','roles.id','=','rol_usuario.rol_id')
-                    ->where('rol_usuario.user_id', $user->id)
-                    ->value('roles.nombre');
-            } catch (\Throwable $e) {
-                $role = null;
+        
+        // Check if user has admin role via Spatie
+        $adminRoles = ['administrador', 'admin_nominas', 'admin_rrhh'];
+        foreach ($adminRoles as $role) {
+            if ($user->hasRole($role)) {
+                return $next($request);
             }
         }
-
-        if ($role) {
-            $r = strtolower($role);
-            $allowed = ['admin', 'administrator', 'administrador', 'superadmin', 'owner'];
-            foreach ($allowed as $a) {
-                if (strpos($r, $a) !== false) {
-                    return $next($request);
-                }
+        
+        // Check if any of user's roles contain 'admin'
+        $userRoles = $user->getRoleNames();
+        foreach ($userRoles as $role) {
+            if (str_contains(strtolower($role), 'admin')) {
+                return $next($request);
             }
         }
 

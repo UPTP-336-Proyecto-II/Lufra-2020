@@ -173,6 +173,20 @@
             <p class="text-center mb-0 small">
                 ¿No tienes cuenta? <a href="{{ route('register') }}" class="font-weight-bold">Regístrate aquí</a>
             </p>
+
+            <hr class="my-3">
+
+             <p class="text-left mb-0 small">
+                <b> Cuentas de acceso para usuarios : 
+                <i>Administrador:</i><br>  </b>
+               <b> Correo: </b> admin@example.com<br>
+               <b> Contraseña: </b> password
+                <br>
+               <b> <i>Empleado: </b></i><br>
+               <b> Correo: </b> empleado@example.com<br>
+                <b> Contraseña: </b> password
+              
+            </p>
         </div>
     </div>
 </div>

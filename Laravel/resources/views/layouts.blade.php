@@ -8,6 +8,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+  @if(!empty($activeTheme) && file_exists(public_path('themes/' . $activeTheme . '/css/style.css')))
+    <link rel="stylesheet" href="{{ asset('themes/' . $activeTheme . '/css/style.css') }}">
+  @endif
   <style>
     /* Temas de color */
     .skin-blue .navbar { background-color: #3c8dbc !important; }
@@ -253,51 +256,85 @@
         <a class="list-group-item list-group-item-action" href="{{ route('home') }}">
           <i class="fas fa-home mr-2"></i>Inicio
         </a>
-        @if($role === 'administrador')
-          <a class="list-group-item list-group-item-action" href="{{ route('notificaciones.view') }}">
-            <i class="fas fa-bell mr-2"></i>Notificaciones
-          </a>
-          <a class="list-group-item list-group-item-action" href="{{ route('departamentos.view') }}">
-            <i class="fas fa-sitemap mr-2"></i>Departamentos
-          </a>
-          <a class="list-group-item list-group-item-action" href="{{ route('empleados.index') }}">
-            <i class="fas fa-users mr-2"></i>Empleados
-          </a>
-          <a class="list-group-item list-group-item-action" href="{{ route('contratos.index') }}">
-            <i class="fas fa-file-contract mr-2"></i>Contratos
-          </a>
-          <a class="list-group-item list-group-item-action" href="{{ route('nominas.index') }}">
-            <i class="fas fa-calendar-alt mr-2"></i>Períodos de Nómina
-          </a>
-          <a class="list-group-item list-group-item-action" href="{{ route('recibos_pagos') }}">
-            <i class="fas fa-money-bill-wave mr-2"></i>Recibos y Pagos
-          </a>
-          <a class="list-group-item list-group-item-action" href="{{ route('impuestos.view') }}">
-            <i class="fas fa-percentage mr-2"></i>Impuestos
-          </a>
-          <a class="list-group-item list-group-item-action" href="{{ route('tabuladores.view') }}">
-            <i class="fas fa-list-alt mr-2"></i>Tabuladores Salariales
-          </a>
-          @if(auth()->check() && auth()->user()->puede('asignar_roles'))
-            <a class="list-group-item list-group-item-action" href="{{ url('/roles') }}">
-              <i class="fas fa-user-shield mr-2"></i>Roles
-            </a>
+        
+        <!-- Notificaciones - Todos -->
+        <a class="list-group-item list-group-item-action" href="{{ route('notificaciones.view') }}">
+          <i class="fas fa-bell mr-2"></i>Notificaciones
+        </a>
+
+        <!-- Departamentos - Admin RRHH y Administrador -->
+        @if(auth()->user()->hasAnyRole(['administrador', 'admin_rrhh']))
+        <a class="list-group-item list-group-item-action" href="{{ route('departamentos.view') }}">
+          <i class="fas fa-sitemap mr-2"></i>Departamentos
+        </a>
+        @endif
+        
+        <!-- Empleados - Admin RRHH, Admin Nóminas, Contador, Supervisor, Administrador -->
+        @if(auth()->user()->hasAnyRole(['administrador', 'admin_rrhh', 'admin_nominas', 'contador', 'supervisor']))
+        <a class="list-group-item list-group-item-action" href="{{ route('empleados.index') }}">
+          <i class="fas fa-users mr-2"></i>Empleados
+        </a>
+        @endif
+        
+        <!-- Contratos - Admin RRHH, Administrador -->
+        @if(auth()->user()->hasAnyRole(['administrador', 'admin_rrhh']))
+        <a class="list-group-item list-group-item-action" href="{{ route('contratos.index') }}">
+          <i class="fas fa-file-contract mr-2"></i>Contratos
+        </a>
+        @endif
+        
+        <!-- Nóminas - Admin Nóminas, Contador, Supervisor, Administrador -->
+        @if(auth()->user()->hasAnyRole(['administrador', 'admin_nominas', 'contador', 'supervisor']))
+        <a class="list-group-item list-group-item-action" href="{{ route('nominas.index') }}">
+          <i class="fas fa-calendar-alt mr-2"></i>Períodos de Nómina
+        </a>
+        @endif
+        
+        <!-- Recibos y Pagos - Admin Nóminas, Contador, Administrador, o Empleados (ven sus propios recibos) -->
+        @if(auth()->user()->hasAnyRole(['administrador', 'admin_nominas', 'contador', 'empleado']))
+        <a class="list-group-item list-group-item-action" href="{{ route('recibos_pagos') }}">
+          <i class="fas fa-money-bill-wave mr-2"></i>
+          @if(auth()->user()->hasAnyRole(['administrador', 'admin_nominas', 'contador']))
+            Recibos y Pagos
+          @else
+            Mis Recibos
           @endif
-          @if(auth()->check() && auth()->user()->puede('asignar_roles'))
-            <a class="list-group-item list-group-item-action" href="{{ url('/permissions') }}">
-              <i class="fas fa-key mr-2"></i>Permisos
-            </a>
-          @endif
-          <a class="list-group-item list-group-item-action" href="{{ url('/configuracion') }}">
-            <i class="fas fa-cog mr-2"></i>Configuración
-          </a>
-        @elseif($role === 'empleado')
-          <a class="list-group-item list-group-item-action" href="{{ route('notificaciones.view') }}">
-            <i class="fas fa-bell mr-2"></i>Notificaciones
-          </a>
-          <a class="list-group-item list-group-item-action" href="{{ route('recibos_pagos') }}">
-            <i class="fas fa-money-bill-wave mr-2"></i>Recibos y Pagos
-          </a>
+        </a>
+        @endif
+        
+        <!-- Impuestos - Admin Nóminas, Administrador -->
+        @if(auth()->user()->hasAnyRole(['administrador', 'admin_nominas']))
+        <a class="list-group-item list-group-item-action" href="{{ route('impuestos.view') }}">
+          <i class="fas fa-percentage mr-2"></i>Impuestos
+        </a>
+        @endif
+        
+        <!-- Tabuladores - Admin Nóminas, Administrador -->
+        @if(auth()->user()->hasAnyRole(['administrador', 'admin_nominas']))
+        <a class="list-group-item list-group-item-action" href="{{ route('tabuladores.view') }}">
+          <i class="fas fa-list-alt mr-2"></i>Tabuladores Salariales
+        </a>
+        @endif
+        
+        <!-- Roles - Solo Administrador -->
+        @if(auth()->user()->hasRole('administrador'))
+        <a class="list-group-item list-group-item-action" href="{{ url('/roles') }}">
+          <i class="fas fa-user-shield mr-2"></i>Roles
+        </a>
+        @endif
+        
+        <!-- Permisos - Solo Administrador -->
+        @if(auth()->user()->hasRole('administrador'))
+        <a class="list-group-item list-group-item-action" href="{{ url('/permissions') }}">
+          <i class="fas fa-key mr-2"></i>Permisos
+        </a>
+        @endif
+        
+        <!-- Configuración - Administrador -->
+        @if(auth()->user()->hasRole('administrador'))
+        <a class="list-group-item list-group-item-action" href="{{ url('/configuracion') }}">
+          <i class="fas fa-cog mr-2"></i>Configuración
+        </a>
         @endif
       </div>
     </aside>
@@ -351,6 +388,9 @@
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+@if(!empty($activeTheme) && file_exists(public_path('themes/' . $activeTheme . '/js/main.js')))
+  <script src="{{ asset('themes/' . $activeTheme . '/js/main.js') }}"></script>
+@endif
 <script>
   @auth
   @if(isset($showNotificationsForUser) ? $showNotificationsForUser : true)

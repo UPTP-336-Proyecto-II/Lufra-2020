@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class EmpleadoController extends Controller
 {
@@ -15,28 +17,25 @@ class EmpleadoController extends Controller
     public function index(Request $request)
     {
         $search = $request->input('search');
-        $query = DB::table('users as u')
-            ->join('rol_usuario as ru', 'ru.user_id', '=', 'u.id')
-            ->join('roles as r', 'r.id', '=', 'ru.rol_id')
-            ->where('r.nombre', 'empleado')
-            ->select('u.id', 'u.name', 'u.email');
+        $query = User::role('empleado')
+            ->select('users.id', 'users.name', 'users.email');
         
         if ($search) {
             $query->where(function($q) use ($search) {
-                $q->where('u.name', 'like', "%{$search}%")
-                  ->orWhere('u.email', 'like', "%{$search}%");
+                $q->where('users.name', 'like', "%{$search}%")
+                  ->orWhere('users.email', 'like', "%{$search}%");
                 if (is_numeric($search)) {
-                    $q->orWhere('u.id', '=', $search);
+                    $q->orWhere('users.id', '=', $search);
                 }
             });
         }
         
-        $usuarios = $query->orderBy('u.id', 'desc')->paginate(15);
+        $usuarios = $query->orderBy('users.id', 'desc')->paginate(15);
         $detalle = $request->input('detalle');
         // Si se pasó un id en 'detalle', cargar el usuario correspondiente (evitar que sea solo un string)
         if ($detalle) {
             try {
-                $detalle = DB::table('users')->find($detalle);
+                $detalle = User::find($detalle);
             } catch (\Throwable $e) {
                 $detalle = null;
             }
@@ -72,18 +71,14 @@ class EmpleadoController extends Controller
         $userId = DB::table('users')->insertGetId([
             'name' => $data['name'],
             'email' => $data['email'],
-            'password' => \Illuminate\Support\Facades\Hash::make($data['password']),
+            'password' => Hash::make($data['password']),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        // Asignar rol de empleado
-        $rolId = DB::table('roles')->where('nombre', 'empleado')->value('id');
-        if ($rolId) {
-            DB::table('rol_usuario')->insert([
-                'user_id' => $userId,
-                'rol_id' => $rolId,
-            ]);
+        // Asignar rol de empleado vía Spatie (evita tablas legacy)
+        if ($user = User::find($userId)) {
+            $user->assignRole('empleado');
         }
 
         return redirect()->route('empleados.index')->with('success', 'Empleado creado correctamente');
@@ -168,44 +163,88 @@ class EmpleadoController extends Controller
     {
         $data = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
-            'department_id' => ['required', 'integer', 'exists:departamentos,id'],
+            'department_id' => ['nullable', 'integer', 'exists:departamentos,id'],
         ], [
             'user_id.required' => 'El ID de usuario es obligatorio.',
             'user_id.integer' => 'El ID de usuario debe ser un número.',
             'user_id.exists' => 'El usuario no existe.',
-            'department_id.required' => 'El departamento es obligatorio.',
             'department_id.integer' => 'El departamento debe ser un número.',
             'department_id.exists' => 'El departamento no existe.',
         ]);
 
-        // Verificar si el empleado existe
-        $empleado = DB::table('empleados')->where('user_id', $data['user_id'])->first();
-
-        if ($empleado) {
-            // Actualizar departamento
-            DB::table('empleados')->where('user_id', $data['user_id'])->update([
-                'department_id' => $data['department_id'],
-                'updated_at' => now(),
-            ]);
-        } else {
-            // Crear registro de empleado
-            $user = DB::table('users')->find($data['user_id']);
-            $nombres = explode(' ', $user->name);
-            
-            DB::table('empleados')->insert([
-                'user_id' => $data['user_id'],
-                'numero_empleado' => 'EMP' . str_pad($data['user_id'], 4, '0', STR_PAD_LEFT),
-                'nombre' => $nombres[0] ?? '',
-                'apellido' => $nombres[1] ?? '',
-                'correo' => $user->email,
-                'department_id' => $data['department_id'],
-                'fecha_ingreso' => now()->toDateString(),
-                'estado' => 'activo',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+        // Verificar si el departamento existe antes de asignar
+        if (!empty($data['department_id'])) {
+            $departmentExists = DB::table('departamentos')->where('id', $data['department_id'])->exists();
+            if (!$departmentExists) {
+                return back()->withErrors(['department_id' => 'El departamento seleccionado no existe.'])->withInput();
+            }
         }
 
-        return redirect()->route('empleados.index')->with('success', 'Departamento asignado correctamente');
+        try {
+            // Deshabilitar foreign keys temporalmente para evitar problemas con SQLite
+            DB::statement('PRAGMA foreign_keys = OFF');
+            
+            DB::beginTransaction();
+
+            // Verificar si el empleado existe
+            $empleado = DB::table('empleados')->where('user_id', $data['user_id'])->first();
+
+            if ($empleado) {
+                // Actualizar departamento
+                DB::table('empleados')->where('user_id', $data['user_id'])->update([
+                    'department_id' => $data['department_id'] ?? null,
+                    'updated_at' => now(),
+                ]);
+            } else {
+                // Crear registro de empleado
+                $user = DB::table('users')->find($data['user_id']);
+                $nombres = explode(' ', $user->name);
+                
+                DB::table('empleados')->insert([
+                    'user_id' => $data['user_id'],
+                    'numero_empleado' => 'EMP' . str_pad($data['user_id'], 4, '0', STR_PAD_LEFT),
+                    'nombre' => $nombres[0] ?? '',
+                    'apellido' => $nombres[1] ?? '',
+                    'correo' => $user->email,
+                    'department_id' => $data['department_id'] ?? null,
+                    'fecha_ingreso' => now()->toDateString(),
+                    'estado' => 'activo',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            DB::commit();
+            
+            // Reactivar foreign keys
+            DB::statement('PRAGMA foreign_keys = ON');
+
+            return redirect()->route('empleados.index')->with('success', 'Departamento asignado correctamente');
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            DB::statement('PRAGMA foreign_keys = ON');
+            
+            \Log::error('Error asignando departamento: ' . $e->getMessage());
+            
+            return back()->withErrors([
+                'error' => 'Error al asignar departamento: ' . $e->getMessage()
+            ])->withInput();
+        }
+    }
+
+    public function apiEmpleados(Request $request)
+    {
+        $empleados = User::role('empleado')
+            ->leftJoin('empleados as e', 'e.user_id', '=', 'users.id')
+            ->leftJoin('departamentos as d', 'd.id', '=', 'e.department_id')
+            ->select('users.id', 'users.name', 'users.email', 'd.nombre as department')
+            ->orderBy('users.id', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $empleados
+        ]);
     }
 }

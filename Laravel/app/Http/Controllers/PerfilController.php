@@ -21,11 +21,8 @@ class PerfilController extends Controller
         $contrato = null;
         $contratoInfo = null;
         if ($user) {
-            try {
-                $isEmpleado = $user->tieneRol('empleado') || $user->tieneRol('Empleado');
-            } catch (\Throwable $e) {
-                $isEmpleado = false;
-            }
+            // Use Spatie Permission
+            $isEmpleado = $user->hasRole('empleado');
 
             if ($isEmpleado) {
                 $contrato = DB::table('contratos')

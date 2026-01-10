@@ -28,8 +28,8 @@
                                                 <tbody>
                                                 @foreach($roles as $rol)
                                                     <tr>
-                                                        <td>{{ $rol->nombre }}</td>
-                                                        <td>{{ $rol->descripcion }}</td>
+                                                        <td>{{ $rol->name }}</td>
+                                                        <td>{{ $rol->guard_name ?? 'web' }}</td>
                                                         <td>
                                                             <button class="btn btn-xs btn-secondary" onclick="document.getElementById('edit-rol-{{ $rol->id }}').classList.toggle('d-none')">Editar</button>
                                                             <form method="POST" action="{{ route('roles.eliminar') }}" class="d-inline" onsubmit="return confirm('¿Eliminar rol?')">
@@ -44,8 +44,7 @@
                                                             <form method="POST" action="{{ route('roles.editar') }}" class="form-inline">
                                                                 @csrf
                                                                 <input type="hidden" name="rol_id" value="{{ $rol->id }}">
-                                                                <input type="text" name="nombre" value="{{ $rol->nombre }}" class="form-control form-control-sm mr-2" required>
-                                                                <input type="text" name="descripcion" value="{{ $rol->descripcion }}" class="form-control form-control-sm mr-2" placeholder="Descripción">
+                                                                <input type="text" name="nombre" value="{{ $rol->name }}" class="form-control form-control-sm mr-2" required>
                                                                 <button class="btn btn-sm btn-success">Guardar</button>
                                                             </form>
                                                         </td>
@@ -80,7 +79,7 @@
                                                 </thead>
                                             <tbody>
                                             @foreach($usuarios as $u)
-                                                <?php $rolIds = \Illuminate\Support\Facades\DB::table('rol_usuario')->where('user_id',$u->id)->pluck('rol_id')->toArray(); ?>
+                                                <?php $rolIds = \Illuminate\Support\Facades\DB::table('model_has_roles')->where('model_id',$u->id)->where('model_type', 'App\\Models\\User')->pluck('role_id')->toArray(); ?>
                                                 <tr>
                                                     <td>{{ $u->name }}</td>
                                                     <td>{{ $u->email }}</td>
@@ -90,7 +89,7 @@
                                                             <input type="hidden" name="user_id" value="{{ $u->id }}" />
                                                             @foreach($roles as $r)
                                                                 <label class="mr-2 mb-1">
-                                                                    <input type="checkbox" name="roles[]" value="{{ $r->id }}" {{ in_array($r->id,$rolIds) ? 'checked' : '' }}> {{ $r->nombre }}
+                                                                    <input type="checkbox" name="roles[]" value="{{ $r->id }}" {{ in_array($r->id,$rolIds) ? 'checked' : '' }}> {{ $r->name }}
                                                                 </label>
                                                             @endforeach
                                                             <button class="btn btn-xs btn-secondary ml-2">Guardar</button>
@@ -120,11 +119,11 @@
                                 <h3 class="card-title"><i class="fas fa-key mr-1"></i> Permisos</h3>
                             </div>
                             <div class="card-body">
-                                <?php $permisos = DB::table('permisos')->select('nombre','descripcion')->get(); ?>
+                                <?php $permisos = DB::table('permissions')->select('name','description')->get(); ?>
                                 @if(count($permisos))
                                     <ul class="list-unstyled mb-0">
                                         @foreach($permisos as $p)
-                                            <li><i class="fas fa-check text-success mr-1"></i> {{ $p->nombre }} - {{ $p->descripcion }}</li>
+                                            <li><i class="fas fa-check text-success mr-1"></i> {{ $p->name }}{{ $p->description ? ' - '.$p->description : '' }}</li>
                                         @endforeach
                                     </ul>
                                 @else

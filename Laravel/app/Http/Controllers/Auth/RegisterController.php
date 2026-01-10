@@ -40,14 +40,8 @@ class RegisterController extends Controller
             'password' => $data['password'],
         ]);
 
-        // Asignar rol 'empleado' por defecto para registros desde /registro
-        $rolId = DB::table('roles')->where('nombre', 'empleado')->value('id');
-        if ($rolId) {
-            DB::table('rol_usuario')->insert([
-                'user_id' => $user->id,
-                'rol_id' => $rolId,
-            ]);
-        }
+        // Asignar rol 'empleado' por defecto usando Spatie
+        $user->assignRole('empleado');
 
         Auth::login($user);
         $request->session()->regenerate();

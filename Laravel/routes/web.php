@@ -17,6 +17,7 @@ use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\PermissionController;
+use App\Models\User;
 
 /*
 |--------------------------------------------------------------------------
@@ -68,57 +69,153 @@ Route::get('/home', [DashboardController::class, 'index'])->middleware('auth')->
 
 Route::middleware('auth')->group(function () {
     
-    // Roles y Permisos
-    Route::get('/roles', [RolController::class, 'index'])->name('roles.index');
-    Route::post('/roles/nuevo', [RolController::class, 'store'])->name('roles.nuevo');
-    Route::post('/roles/asignar', [RolController::class, 'asignar'])->name('roles.asignar');
-    Route::post('/roles/editar', [RolController::class, 'update'])->name('roles.editar');
-    Route::post('/roles/eliminar', [RolController::class, 'destroy'])->name('roles.eliminar');
-    Route::get('/permissions', [PermissionController::class, 'index'])->name('permissions.index');
-    Route::post('/permissions/nuevo', [PermissionController::class, 'store'])->name('permissions.nuevo');
-    Route::post('/permissions/asignar', [PermissionController::class, 'asignar'])->name('permissions.asignar');
-    Route::post('/permissions/editar', [PermissionController::class, 'update'])->name('permissions.editar');
-    Route::post('/permissions/eliminar', [PermissionController::class, 'destroy'])->name('permissions.eliminar');
+    // Roles y Permisos - Solo Administrador
+    Route::middleware('role:administrador')->group(function () {
+        Route::get('/roles', [RolController::class, 'index'])->name('roles.index');
+        Route::post('/roles/nuevo', [RolController::class, 'store'])->name('roles.nuevo');
+        Route::post('/roles/asignar', [RolController::class, 'asignar'])->name('roles.asignar');
+        Route::post('/roles/editar', [RolController::class, 'update'])->name('roles.editar');
+        Route::post('/roles/eliminar', [RolController::class, 'destroy'])->name('roles.eliminar');
+        Route::get('/permissions', [PermissionController::class, 'index'])->name('permissions.index');
+        Route::post('/permissions/store', [PermissionController::class, 'store'])->name('permissions.store');
+        Route::post('/permissions/asignar', [PermissionController::class, 'asignar'])->name('permissions.asignar');
+        Route::post('/permissions/update', [PermissionController::class, 'update'])->name('permissions.update');
+        Route::post('/permissions/destroy', [PermissionController::class, 'destroy'])->name('permissions.destroy');
+    });
 
     // Perfil de Usuario
     Route::get('/perfil', [PerfilController::class, 'index'])->name('perfil');
     Route::post('/perfil', [PerfilController::class, 'update'])->name('perfil.update');
     Route::post('/perfil/desactivar', [PerfilController::class, 'desactivar'])->name('perfil.desactivar');
 
-    // Nóminas y Períodos
-    Route::get('/nominas', [NominaController::class, 'index'])->name('nominas.index');
-    Route::post('/nominas/periodo/crear', [PayrollController::class, 'createPeriod'])->name('nominas.periodo.crear');
-    Route::post('/nominas/periodo/cerrar', [PayrollController::class, 'closePeriod'])->name('nominas.periodo.cerrar');
-    Route::post('/nominas/periodo/reabrir', [PayrollController::class, 'reopenPeriod'])->name('nominas.periodo.reabrir');
+    // Nóminas y Períodos - Admin Nóminas y Contador
+    // Nóminas
+    Route::get('/nominas', [NominaController::class, 'index'])
+        ->middleware('role:administrador|admin_nominas|contador|supervisor')
+        ->name('nominas.index');
 
-    // Recibos y Pagos
-    Route::get('/recibos-pagos', [RecibosPagosController::class, 'index'])->name('recibos_pagos');
-    Route::get('/recibos-pagos/reportes', [RecibosPagosController::class, 'reportes'])->name('recibos_pagos.reportes');
-    Route::get('/recibos-pagos/reportes/detalle', [RecibosPagosController::class, 'reportesDetalle'])->name('recibos_pagos.reportes_detalle');
-    Route::get('/recibos-pagos/archivo-banco', [RecibosPagosController::class, 'archivoBanco'])->name('recibos_pagos.archivo_banco');
-    Route::get('/recibos-pagos/obligaciones', [RecibosPagosController::class, 'obligaciones'])->name('recibos_pagos.obligaciones');
-    Route::post('/pagos/asignar', [RecibosPagosController::class, 'asignarPago'])->name('pagos.asignar');
-    Route::post('/pagos/manual', [RecibosPagosController::class, 'pagoManual'])->name('pagos.manual');
-    Route::post('/pagos/{pago}/aceptar', [RecibosPagosController::class, 'aceptar'])->name('pagos.aceptar');
-    Route::post('/pagos/{pago}/rechazar', [RecibosPagosController::class, 'rechazar'])->name('pagos.rechazar');
+    Route::post('/nominas/periodo/crear', [PayrollController::class, 'createPeriod'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('nominas.periodo.crear');
 
+    Route::post('/nominas/periodo/cerrar', [PayrollController::class, 'closePeriod'])
+        ->middleware('role:administrador|admin_nominas|contador')
+        ->name('nominas.periodo.cerrar');
+
+    Route::post('/nominas/periodo/reabrir', [PayrollController::class, 'reopenPeriod'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('nominas.periodo.reabrir');
+
+    // Recibos y Pagos - Admin Nóminas y Contador
+    Route::get('/recibos-pagos', [RecibosPagosController::class, 'index'])
+        ->middleware('role:empleado|administrador|admin_nominas|contador|supervisor')
+        ->name('recibos_pagos');
+    Route::get('/recibos-pagos/reportes', [RecibosPagosController::class, 'reportes'])
+        ->middleware('role:administrador|admin_nominas|contador|supervisor')
+        ->name('recibos_pagos.reportes');
+    Route::get('/recibos-pagos/reportes/detalle', [RecibosPagosController::class, 'reportesDetalle'])
+        ->middleware('role:administrador|admin_nominas|contador|supervisor')
+        ->name('recibos_pagos.reportes_detalle');
+    Route::get('/recibos-pagos/archivo-banco', [RecibosPagosController::class, 'archivoBanco'])
+        ->middleware('role:administrador|admin_nominas|contador|supervisor')
+        ->name('recibos_pagos.archivo_banco');
+    Route::get('/recibos-pagos/obligaciones', [RecibosPagosController::class, 'obligaciones'])
+        ->middleware('role:administrador|admin_nominas|contador|supervisor')
+        ->name('recibos_pagos.obligaciones');
+    Route::post('/pagos/asignar', [RecibosPagosController::class, 'asignarPago'])
+        ->middleware('role:administrador|admin_nominas|contador|supervisor')
+        ->name('pagos.asignar');
+    Route::post('/pagos/manual', [RecibosPagosController::class, 'pagoManual'])
+        ->middleware('role:administrador|admin_nominas|contador|supervisor')
+        ->name('pagos.manual');
+    Route::post('/pagos/{pago}/aceptar', [RecibosPagosController::class, 'aceptar'])
+        ->middleware('role:empleado|administrador|admin_nominas|contador|supervisor')
+        ->name('pagos.aceptar');
+    Route::post('/pagos/{pago}/rechazar', [RecibosPagosController::class, 'rechazar'])
+        ->middleware('role:empleado|administrador|admin_nominas|contador|supervisor')
+        ->name('pagos.rechazar');
+
+    // Empleados - Solo Admin RRHH puede crear/editar/eliminar
     // Empleados
-    Route::get('/empleados', [EmpleadoController::class, 'index'])->name('empleados.index');
-    Route::get('/empleados/detalle/{userId}', [EmpleadoController::class, 'detalle'])->name('empleados.detalle');
-    Route::post('/empleados/crear', [EmpleadoController::class, 'crear'])->name('empleados.crear');
-    Route::post('/empleados/editar', [EmpleadoController::class, 'editar'])->name('empleados.editar');
-    Route::post('/empleados/eliminar', [EmpleadoController::class, 'eliminar'])->name('empleados.eliminar');
-    Route::post('/empleados/password', [EmpleadoController::class, 'cambiarPassword'])->name('empleados.password');
-    Route::post('/empleados/asignar-departamento', [EmpleadoController::class, 'asignarDepartamento'])->name('empleados.asignar_departamento');
+    Route::get('/empleados', [EmpleadoController::class, 'index'])
+        ->middleware('role:administrador|admin_rrhh|admin_nominas|contador|supervisor')
+        ->name('empleados.index');
 
+    Route::get('/empleados/detalle/{userId}', [EmpleadoController::class, 'detalle'])
+        ->middleware('role:administrador|admin_rrhh|admin_nominas|contador|supervisor')
+        ->name('empleados.detalle');
+
+    Route::post('/empleados/crear', [EmpleadoController::class, 'crear'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('empleados.crear');
+
+    Route::post('/empleados/editar', [EmpleadoController::class, 'editar'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('empleados.editar');
+
+    Route::post('/empleados/eliminar', [EmpleadoController::class, 'eliminar'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('empleados.eliminar');
+
+    Route::post('/empleados/password', [EmpleadoController::class, 'cambiarPassword'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('empleados.password');
+
+    Route::post('/empleados/asignar-departamento', [EmpleadoController::class, 'asignarDepartamento'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('empleados.asignar_departamento');
+    
+    // Vista Vue.js
+    Route::get('/empleados-vue', function() {
+        return view('empleados-vue');
+    })->name('empleados.vue');
+    
+    // API para Vue.js
+    Route::get('/api/empleados/vue', [EmpleadoController::class, 'apiEmpleados'])->name('api.empleados.vue');
+    
+    // SPA - Single Page Application
+    Route::get('/spa/{any?}', function() {
+        return view('spa');
+    })->where('any', '.*')->name('spa');
+    
+    // API Stats para Dashboard
+    Route::get('/api/stats', function() {
+        return response()->json([
+            'empleados' => User::role('empleado')->count(),
+            'departamentos' => DB::table('departamentos')->count(),
+            'nominas' => DB::table('periodos_nomina')->where('estado', 'abierto')->count(),
+            'totalPagado' => DB::table('recibos')->sum('neto') ?? 0
+        ]);
+    })->name('api.stats');
+
+
+    // Contratos - Admin RRHH
     // Contratos
-    Route::get('/contratos', [ContratoController::class, 'index'])->name('contratos.index');
-    Route::get('/contratos/{id}', [ContratoController::class, 'show'])->name('contratos.show');
-    Route::get('/contratos/empleado/{userId}', [ContratoController::class, 'byEmployee'])->name('contratos.by_employee');
-    Route::get('/contratos/{id}/edit', [ContratoController::class, 'edit'])->name('contratos.edit');
-    Route::post('/contratos', [ContratoController::class, 'store'])->name('contratos.store');
-    Route::post('/contratos/{id}', [ContratoController::class, 'update'])->name('contratos.update');
-    Route::post('/contratos/{id}/delete', [ContratoController::class, 'destroy'])->name('contratos.destroy');
+    Route::get('/contratos', [ContratoController::class, 'index'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('contratos.index');
+
+    Route::get('/contratos/{id}', [ContratoController::class, 'show'])
+        ->name('contratos.show');
+
+    Route::get('/contratos/empleado/{userId}', [ContratoController::class, 'byEmployee'])
+        ->name('contratos.by_employee');
+
+    Route::get('/contratos/{id}/edit', [ContratoController::class, 'edit'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('contratos.edit');
+
+    Route::post('/contratos', [ContratoController::class, 'store'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('contratos.store');
+
+    Route::post('/contratos/{id}', [ContratoController::class, 'update'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('contratos.update');
+
+    Route::post('/contratos/{id}/delete', [ContratoController::class, 'destroy'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('contratos.destroy');
 
     // Notificaciones
     Route::get('/notificaciones', fn() => view('notificaciones'))->name('notificaciones.view');
@@ -130,49 +227,84 @@ Route::middleware('auth')->group(function () {
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 
     //Configuración del perfil de la empresa
-
-    Route::get('/configuracion', [SettingController::class, 'index'])->name('settings.index');
-    Route::post('/configuracion', [SettingController::class, 'store'])->name('settings.store');
-    Route::get('/templates/preview/{name}', [SettingController::class, 'previewTemplate'])->name('templates.preview');
-    Route::post('/templates/{name}/delete', [SettingController::class, 'deleteTemplate'])->name('templates.delete');
-    
-    // Theme management (upload/install/activate) - admin UI
-    Route::get('/themes', [\App\Http\Controllers\ThemeController::class, 'index'])->name('themes.index');
-    Route::post('/themes/upload', [\App\Http\Controllers\ThemeController::class, 'store'])->name('themes.upload');
-    Route::post('/themes/{theme}/activate', [\App\Http\Controllers\ThemeController::class, 'activate'])->name('themes.activate');
-    Route::post('/themes/{theme}/deactivate', [\App\Http\Controllers\ThemeController::class, 'deactivate'])->name('themes.deactivate');
-    Route::post('/themes/{theme}/delete', [\App\Http\Controllers\ThemeController::class, 'destroy'])->name('themes.delete');
-    // Remove filesystem folder by slug (for unregistered or inactive themes)
-    Route::post('/themes/{slug}/remove', [\App\Http\Controllers\ThemeController::class, 'removeFolder'])->name('themes.remove');
-
-    // Ruta temporal para sincronizar carpetas en public/themes con la tabla themes
-    Route::get('/themes-sync', [\App\Http\Controllers\ThemeController::class, 'sync'])->name('themes.sync');
-    // Registrar un tema (carpeta) en la BD por slug
-    Route::post('/themes/{slug}/register', [\App\Http\Controllers\ThemeController::class, 'register'])->name('themes.register');
+    Route::middleware('role:administrador')->group(function () {
+        Route::get('/configuracion', [SettingController::class, 'index'])->name('settings.index');
+        Route::post('/configuracion', [SettingController::class, 'store'])->name('settings.store');
+        Route::get('/templates/preview/{name}', [SettingController::class, 'previewTemplate'])->name('templates.preview');
+        Route::post('/templates/{name}/delete', [SettingController::class, 'deleteTemplate'])->name('templates.delete');
+        
+        // Theme management (upload/install/activate) - admin UI
+        Route::get('/themes', [\App\Http\Controllers\ThemeController::class, 'index'])->name('themes.index');
+        Route::get('/theme-test', [\App\Http\Controllers\ThemeController::class, 'index'])->name('themes.test');
+        Route::post('/themes/upload', [\App\Http\Controllers\ThemeController::class, 'store'])->name('themes.upload');
+        Route::post('/themes/{theme}/activate', [\App\Http\Controllers\ThemeController::class, 'activate'])->name('themes.activate');
+        Route::post('/themes/{theme}/deactivate', [\App\Http\Controllers\ThemeController::class, 'deactivate'])->name('themes.deactivate');
+        Route::post('/themes/{theme}/delete', [\App\Http\Controllers\ThemeController::class, 'destroy'])->name('themes.delete');
+        Route::post('/themes/{slug}/remove', [\App\Http\Controllers\ThemeController::class, 'removeFolder'])->name('themes.remove');
+        Route::get('/themes-sync', [\App\Http\Controllers\ThemeController::class, 'sync'])->name('themes.sync');
+        Route::post('/themes/{slug}/register', [\App\Http\Controllers\ThemeController::class, 'register'])->name('themes.register');
+    });
 
     // Departamentos
-    Route::get('/departamentos', [App\Http\Controllers\DepartamentoController::class, 'index'])->name('departamentos.view');
-    Route::post('/departamentos', [App\Http\Controllers\DepartamentoController::class, 'store'])->name('departamentos.crear');
-    Route::post('/departamentos/editar', [App\Http\Controllers\DepartamentoController::class, 'update'])->name('departamentos.editar');
-    Route::post('/departamentos/eliminar', [App\Http\Controllers\DepartamentoController::class, 'destroy'])->name('departamentos.eliminar');
+    // Departamentos - Solo Admin RRHH y Super Admin
+    // Departamentos - Solo Admin RRHH y Administrador
+    Route::get('/departamentos', [App\Http\Controllers\DepartamentoController::class, 'index'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('departamentos.view');
 
-    // Conceptos de Pago
-    Route::get('/conceptos', [App\Http\Controllers\ConceptoPagoController::class, 'index'])->name('conceptos.view');
-    Route::post('/conceptos', [App\Http\Controllers\ConceptoPagoController::class, 'store'])->name('conceptos.crear');
-    Route::post('/conceptos/editar', [App\Http\Controllers\ConceptoPagoController::class, 'update'])->name('conceptos.editar');
-    Route::post('/conceptos/eliminar', [App\Http\Controllers\ConceptoPagoController::class, 'destroy'])->name('conceptos.eliminar');
+    Route::post('/departamentos', [App\Http\Controllers\DepartamentoController::class, 'store'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('departamentos.crear');
 
-    // Métodos de Pago
-    Route::get('/metodos', [App\Http\Controllers\MetodoPagoController::class, 'index'])->name('metodos.view');
-    Route::post('/metodos', [App\Http\Controllers\MetodoPagoController::class, 'store'])->name('metodos.crear');
-    Route::post('/metodos/editar', [App\Http\Controllers\MetodoPagoController::class, 'update'])->name('metodos.editar');
-    Route::post('/metodos/eliminar', [App\Http\Controllers\MetodoPagoController::class, 'destroy'])->name('metodos.eliminar');
+    Route::post('/departamentos/editar', [App\Http\Controllers\DepartamentoController::class, 'update'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('departamentos.editar');
 
-    // Monedas
-    Route::get('/monedas', [App\Http\Controllers\MonedaController::class, 'index'])->name('monedas.view');
-    Route::post('/monedas', [App\Http\Controllers\MonedaController::class, 'store'])->name('monedas.crear');
-    Route::post('/monedas/editar', [App\Http\Controllers\MonedaController::class, 'update'])->name('monedas.editar');
-    Route::post('/monedas/eliminar', [App\Http\Controllers\MonedaController::class, 'destroy'])->name('monedas.eliminar');
+    Route::post('/departamentos/eliminar', [App\Http\Controllers\DepartamentoController::class, 'destroy'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('departamentos.eliminar');
+
+    // Conceptos de Pago - Solo Admin Nóminas y Super Admin
+    Route::get('/conceptos', [App\Http\Controllers\ConceptoPagoController::class, 'index'])
+        ->middleware('role:administrador')
+        ->name('conceptos.view');
+    Route::post('/conceptos', [App\Http\Controllers\ConceptoPagoController::class, 'store'])
+        ->middleware('role:administrador')
+        ->name('conceptos.crear');
+    Route::post('/conceptos/editar', [App\Http\Controllers\ConceptoPagoController::class, 'update'])
+        ->middleware('role:administrador')
+        ->name('conceptos.editar');
+    Route::post('/conceptos/eliminar', [App\Http\Controllers\ConceptoPagoController::class, 'destroy'])
+        ->middleware('role:administrador')
+        ->name('conceptos.eliminar');
+
+    // Métodos de Pago - Solo Admin Nóminas y Super Admin
+    Route::get('/metodos', [App\Http\Controllers\MetodoPagoController::class, 'index'])
+        ->middleware('role:administrador')
+        ->name('metodos.view');
+    Route::post('/metodos', [App\Http\Controllers\MetodoPagoController::class, 'store'])
+        ->middleware('role:administrador')
+        ->name('metodos.crear');
+    Route::post('/metodos/editar', [App\Http\Controllers\MetodoPagoController::class, 'update'])
+        ->middleware('role:administrador')
+        ->name('metodos.editar');
+    Route::post('/metodos/eliminar', [App\Http\Controllers\MetodoPagoController::class, 'destroy'])
+        ->middleware('role:administrador')
+        ->name('metodos.eliminar');
+
+    // Monedas - Solo Admin Nóminas y Super Admin
+    Route::get('/monedas', [App\Http\Controllers\MonedaController::class, 'index'])
+        ->middleware('role:administrador')
+        ->name('monedas.view');
+    Route::post('/monedas', [App\Http\Controllers\MonedaController::class, 'store'])
+        ->middleware('role:administrador')
+        ->name('monedas.crear');
+    Route::post('/monedas/editar', [App\Http\Controllers\MonedaController::class, 'update'])
+        ->middleware('role:administrador')
+        ->name('monedas.editar');
+    Route::post('/monedas/eliminar', [App\Http\Controllers\MonedaController::class, 'destroy'])
+        ->middleware('role:administrador')
+        ->name('monedas.eliminar');
 
     // Impuestos
     Route::get('/impuestos', [App\Http\Controllers\ImpuestosController::class, 'index'])->name('impuestos.view');

@@ -1,0 +1,89 @@
+/* ============================================
+   ESTILOS CUSTOM PARA ADMINLTE 3.2.0
+   ============================================ */
+
+/* Sobrescribir estilos específicos de AdminLTE 3.2 */
+
+/* Sidebar Customization */
+.main-sidebar {
+  /* Personalización del sidebar para v3.2 */
+}
+
+/* Content Wrapper */
+.content-wrapper {
+  /* Mejoras visuales para el contenido */
+}
+
+/* Cards */
+.card {
+  /* Estilos personalizados para tarjetas */
+  border-radius: 0.5rem;
+  box-shadow: 0 0 1px rgba(0,0,0,.125), 0 1px 3px rgba(0,0,0,.2);
+}
+
+.card-header {
+  border-bottom: 1px solid rgba(0,0,0,.125);
+  padding: 0.75rem 1.25rem;
+}
+
+/* Botones */
+.btn {
+  border-radius: 0.25rem;
+  font-weight: 500;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Tablas */
+.table {
+  /* Estilos para tablas */
+}
+
+.table-sm td,
+.table-sm th {
+  padding: 0.3rem;
+}
+
+/* Formularios */
+.form-control {
+  border-radius: 0.25rem;
+}
+
+.form-control:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+/* Navbar */
+.main-header {
+  /* Personalización del navbar */
+}
+
+/* Alertas */
+.alert {
+  border-radius: 0.25rem;
+}
+
+/* Modales */
+.modal-content {
+  border-radius: 0.5rem;
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+@media (max-width: 768px) {
+  .content-wrapper {
+    padding: 1rem;
+  }
+}
+
+/* ============================================
+   DARK MODE SUPPORT (AdminLTE 3.2+)
+   ============================================ */
+@media (prefers-color-scheme: dark) {
+  /* Estilos para modo oscuro si se desea */
+}

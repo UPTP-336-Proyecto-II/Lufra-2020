@@ -61,20 +61,8 @@ class SettingController extends Controller
             return redirect()->route('login');
         }
 
-        $user = auth()->user();
-        $role = $user->role ?? null;
-        if (!$role) {
-            try {
-                $role = \Illuminate\Support\Facades\DB::table('rol_usuario')
-                    ->join('roles','roles.id','=','rol_usuario.rol_id')
-                    ->where('rol_usuario.user_id', $user->id)
-                    ->value('roles.nombre');
-            } catch (\Throwable $e) {
-                $role = null;
-            }
-        }
-
-        if (!($role && strtolower($role) === 'administrador')) {
+        // Use Spatie Permission
+        if (!auth()->user()->hasRole('administrador')) {
             abort(403, 'Acceso denegado. Se requieren privilegios de administrador.');
         }
 
@@ -129,11 +117,7 @@ class SettingController extends Controller
         $data['use_home_view'] = $request->has('use_home_view') ? '1' : '0';
 
         // Manejar checkbox show_notifications (global): solo permitir que administradores lo modifiquen
-        try {
-            $isAdmin = auth()->check() && (auth()->user()->tieneRol('Administrador') || auth()->user()->tieneRol('administrador'));
-        } catch (\Throwable $e) {
-            $isAdmin = false;
-        }
+        $isAdmin = auth()->check() && auth()->user()->hasRole('administrador');
         if ($isAdmin) {
             $data['show_notifications'] = $request->has('show_notifications') ? '1' : '0';
         } else {

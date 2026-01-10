@@ -68,15 +68,9 @@ class AppServiceProvider extends ServiceProvider
         View::composer('layouts', function ($view) {
             $role = null;
             if (auth()->check()) {
-                // Intentar obtener el rol del usuario autenticado
-                $role = auth()->user()->role ?? null;
-                // Si no existe, consultar desde la tabla rol_usuario
-                if (!$role) {
-                    $role = DB::table('rol_usuario')
-                        ->join('roles','roles.id','=','rol_usuario.rol_id')
-                        ->where('rol_usuario.user_id', auth()->id())
-                        ->value('roles.nombre');
-                }
+                $user = auth()->user();
+                // Usar Spatie Permission: obtener el primer rol asignado al usuario
+                $role = $user->getRoleNames()->first();
             }
             $view->with('role', $role);
         });

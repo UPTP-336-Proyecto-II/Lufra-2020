@@ -29,17 +29,14 @@ class RolController extends Controller
         
         $usuarios = $queryUsers->paginate(20, ['*'], 'users_page');
         
-        // Búsqueda de roles
+        // Búsqueda de roles (Spatie usa 'name' y guarda 'description' como JSON)
         $searchRoles = $request->input('search_roles');
         $queryRoles = DB::table('roles')
-            ->select('id', 'nombre', 'descripcion')
-            ->orderBy('nombre');
+            ->select('id', 'name', 'guard_name')
+            ->orderBy('name');
         
         if ($searchRoles) {
-            $queryRoles->where(function($q) use ($searchRoles) {
-                $q->where('nombre', 'like', "%{$searchRoles}%")
-                  ->orWhere('descripcion', 'like', "%{$searchRoles}%");
-            });
+            $queryRoles->where('name', 'like', "%{$searchRoles}%");
         }
         
         $roles = $queryRoles->paginate(10, ['*'], 'roles_page');
@@ -55,7 +52,11 @@ class RolController extends Controller
             'nombre.max' => 'El nombre del rol no debe superar 100 caracteres.',
         ]);
         
-        DB::table('roles')->updateOrInsert(['nombre' => $request->nombre], ['descripcion' => null, 'created_at'=>now(),'updated_at'=>now()]);
+        // Spatie: name, guard_name
+        DB::table('roles')->updateOrInsert(
+            ['name' => $request->nombre, 'guard_name' => 'web'], 
+            ['created_at'=>now(),'updated_at'=>now()]
+        );
         
         return redirect()->route('roles.index');
     }
@@ -72,10 +73,15 @@ class RolController extends Controller
         ]);
         
         $uid = (int)$data['user_id'];
-        DB::table('rol_usuario')->where('user_id',$uid)->delete();
+        // Spatie usa model_has_roles con model_type, model_id, role_id
+        DB::table('model_has_roles')->where('model_id',$uid)->where('model_type', 'App\\Models\\User')->delete();
         $roles = $data['roles'] ?? [];
         foreach($roles as $rid){
-            DB::table('rol_usuario')->updateOrInsert(['user_id'=>$uid,'rol_id'=>$rid], []);
+            DB::table('model_has_roles')->insert([
+                'role_id' => $rid,
+                'model_type' => 'App\\Models\\User',
+                'model_id' => $uid
+            ]);
         }
         
         return redirect()->route('roles.index');
@@ -98,8 +104,7 @@ class RolController extends Controller
         ]);
         
         DB::table('roles')->where('id',$data['rol_id'])->update([
-            'nombre'=>$data['nombre'],
-            'descripcion'=>$data['descripcion'] ?? null,
+            'name'=>$data['nombre'],
             'updated_at'=>now()
         ]);
         
@@ -116,8 +121,9 @@ class RolController extends Controller
         ]);
         
         $rid = (int)$data['rol_id'];
-        DB::table('rol_usuario')->where('rol_id',$rid)->delete();
-        DB::table('permiso_rol')->where('rol_id',$rid)->delete();
+        // Limpiar tablas Spatie
+        DB::table('model_has_roles')->where('role_id',$rid)->delete();
+        DB::table('role_has_permissions')->where('role_id',$rid)->delete();
         DB::table('roles')->where('id',$rid)->delete();
         
         return redirect()->route('roles.index');

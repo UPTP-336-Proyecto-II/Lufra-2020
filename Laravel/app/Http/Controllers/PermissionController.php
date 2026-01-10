@@ -14,28 +14,34 @@ class PermissionController extends Controller
 
     public function index(Request $request)
     {
-        // Búsqueda de permisos
+        // Búsqueda de permisos usando Spatie
         $searchPermisos = $request->input('search_permisos');
-        $queryPermisos = DB::table('permisos')
-            ->select('id', 'nombre', 'descripcion')
-            ->orderBy('nombre');
+        $queryPermisos = \Spatie\Permission\Models\Permission::query()
+            ->select('id', 'name', 'description')
+            ->orderBy('name');
         
         if ($searchPermisos) {
             $queryPermisos->where(function($q) use ($searchPermisos) {
-                $q->where('nombre', 'like', "%{$searchPermisos}%")
-                  ->orWhere('descripcion', 'like', "%{$searchPermisos}%");
+                $q->where('name', 'like', "%{$searchPermisos}%")
+                  ->orWhere('description', 'like', "%{$searchPermisos}%");
             });
         }
         
         $lista = $queryPermisos->paginate(15, ['*'], 'permisos_page');
         
-        // Obtener todos los roles para asignación
-        $roles = DB::table('roles')
-            ->select('id', 'nombre')
-            ->orderBy('nombre')
+        // Obtener todos los roles para asignación usando Spatie
+        $roles = \Spatie\Permission\Models\Role::query()
+            ->select('id', 'name')
+            ->orderBy('name')
             ->get();
         
-        return view('permissions', compact('lista', 'roles'));
+        // Obtener todos los permisos para el formulario de asignación
+        $todosPermisos = \Spatie\Permission\Models\Permission::query()
+            ->select('id', 'name', 'description')
+            ->orderBy('name')
+            ->get();
+        
+        return view('permissions', compact('lista', 'roles', 'todosPermisos'));
     }
 
     public function store(Request $request)
@@ -50,7 +56,10 @@ class PermissionController extends Controller
             'descripcion.max' => 'La descripción es demasiado larga.'
         ]);
         
-        DB::table('permisos')->updateOrInsert(['nombre'=>$data['nombre']], ['descripcion'=>$data['descripcion'] ?? null,'created_at'=>now(),'updated_at'=>now()]);
+        \Spatie\Permission\Models\Permission::updateOrCreate(
+            ['name' => $data['nombre']],
+            ['description' => $data['descripcion'] ?? null]
+        );
         
         return redirect()->route('permissions.index');
     }
@@ -66,11 +75,14 @@ class PermissionController extends Controller
             'permisos.array' => 'Los permisos deben enviarse como lista.'
         ]);
         
-        $rid = (int)$data['rol_id'];
-        DB::table('permiso_rol')->where('rol_id',$rid)->delete();
-        foreach(($data['permisos'] ?? []) as $pid){
-            DB::table('permiso_rol')->updateOrInsert(['rol_id'=>$rid,'permiso_id'=>$pid], []);
+        $role = \Spatie\Permission\Models\Role::find($data['rol_id']);
+        if (!$role) {
+            return redirect()->route('permissions.index')->with('error', 'Rol no encontrado');
         }
+        
+        // Sincronizar permisos (elimina los antiguos y agrega los nuevos)
+        $permissions = \Spatie\Permission\Models\Permission::whereIn('id', $data['permisos'] ?? [])->get();
+        $role->syncPermissions($permissions);
         
         return redirect()->route('permissions.index');
     }
@@ -91,11 +103,13 @@ class PermissionController extends Controller
             'descripcion.max' => 'La descripción no debe superar 255 caracteres.',
         ]);
         
-        DB::table('permisos')->where('id',$data['permiso_id'])->update([
-            'nombre'=>$data['nombre'],
-            'descripcion'=>$data['descripcion'] ?? null,
-            'updated_at'=>now()
-        ]);
+        $permission = \Spatie\Permission\Models\Permission::find($data['permiso_id']);
+        if ($permission) {
+            $permission->update([
+                'name' => $data['nombre'],
+                'description' => $data['descripcion'] ?? null
+            ]);
+        }
         
         return redirect()->route('permissions.index');
     }
@@ -109,9 +123,10 @@ class PermissionController extends Controller
             'permiso_id.integer' => 'El ID del permiso debe ser un número.',
         ]);
         
-        $pid = (int)$data['permiso_id'];
-        DB::table('permiso_rol')->where('permiso_id',$pid)->delete();
-        DB::table('permisos')->where('id',$pid)->delete();
+        $permission = \Spatie\Permission\Models\Permission::find($data['permiso_id']);
+        if ($permission) {
+            $permission->delete();
+        }
         
         return redirect()->route('permissions.index');
     }

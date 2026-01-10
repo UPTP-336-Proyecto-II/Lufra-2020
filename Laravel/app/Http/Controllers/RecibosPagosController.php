@@ -14,12 +14,8 @@ class RecibosPagosController extends Controller
 
     public function index(Request $request)
     {
-        // Verificar si es empleado
-        $esEmpleado = DB::table('rol_usuario as ru')
-            ->join('roles as r', 'r.id', '=', 'ru.rol_id')
-            ->where('ru.user_id', auth()->id())
-            ->where('r.nombre', 'empleado')
-            ->exists();
+        // Verificar si es empleado (Spatie)
+        $esEmpleado = auth()->user()->hasRole('empleado');
 
         if ($esEmpleado) {
             return $this->vistaEmpleado($request);
@@ -48,8 +44,9 @@ class RecibosPagosController extends Controller
         }
         
         $pagos = $queryPagos->orderByDesc('p.id')->paginate(20, ['*'], 'pagos_page');
+        $esEmpleado = true;
 
-        return view('recibos_pagos', compact('pagos'));
+        return view('recibos_pagos', compact('pagos', 'esEmpleado'));
     }
 
     private function vistaAdministrador(Request $request)
@@ -77,7 +74,6 @@ class RecibosPagosController extends Controller
             ->join('periodos_nomina as pn', 'pn.id', '=', 'r.periodo_nomina_id')
             ->leftJoin('contratos as c', 'c.empleado_id', '=', 'r.empleado_id')
             ->whereNull('p.id')
-            // Cambio: Mostrar recibos sin pago de cualquier período (abierto o cerrado)
             ->where(function($w) {
                 $w->whereColumn('c.fecha_inicio', '<=', 'pn.fecha_fin')
                   ->where(function($w2) {
@@ -100,7 +96,55 @@ class RecibosPagosController extends Controller
             ->orderByDesc('r.id')
             ->paginate(20, ['*'], 'recibos_page');
 
-        return view('recibos_pagos', compact('periodos', 'recibosSinPago'));
+        // Datos para formularios
+        $empleados = DB::table('empleados')->select('id','nombre','apellido')->orderBy('nombre')->limit(200)->get();
+        
+        $monedas = DB::table('monedas')->orderBy('nombre')->limit(100)->get();
+        if ($monedas->isEmpty()) {
+            $monedas = collect([
+                (object)['codigo' => 'VES', 'nombre' => 'Bolívar', 'simbolo' => 'Bs.'],
+                (object)['codigo' => 'USD', 'nombre' => 'Dólar', 'simbolo' => '$']
+            ]);
+        }
+        
+        $metodos = DB::table('metodos_pago')->orderBy('nombre')->limit(100)->get();
+        if ($metodos->isEmpty()) {
+            $metodos = collect([
+                (object)['nombre' => 'Transferencia'],
+                (object)['nombre' => 'Efectivo'],
+                (object)['nombre' => 'Pago móvil']
+            ]);
+        }
+        
+        $conceptos = DB::table('conceptos_pago')->orderBy('nombre')->limit(100)->get();
+        if ($conceptos->isEmpty()) {
+            $conceptos = collect([
+                (object)['nombre' => 'Nómina'],
+                (object)['nombre' => 'Bono'],
+                (object)['nombre' => 'Anticipo'],
+                (object)['nombre' => 'Vacaciones']
+            ]);
+        }
+
+        $impuestos = DB::table('impuestos')
+            ->where('activo', true)
+            ->orderBy('por_defecto', 'desc')
+            ->orderBy('nombre')
+            ->limit(100)
+            ->get();
+
+        $esEmpleado = false;
+
+        return view('recibos_pagos', compact(
+            'periodos', 
+            'recibosSinPago', 
+            'empleados', 
+            'monedas', 
+            'metodos', 
+            'conceptos',
+            'impuestos',
+            'esEmpleado'
+        ));
     }
 
     public function reportes(Request $request)

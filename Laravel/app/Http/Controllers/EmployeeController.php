@@ -106,16 +106,14 @@ class EmployeeController extends Controller
             $data['estado'] = 'activo';
         }
 
-        // Asegurar usuario con rol "empleado"
+        // Asegurar usuario con rol "empleado" usando Spatie
         $user = User::firstOrCreate(
             ['email' => $data['correo']],
             ['name' => trim($data['nombre'].' '.$data['apellido']) ?: 'Empleado', 'password' => Str::password(12)]
         );
-        $rolId = DB::table('roles')->where('nombre','empleado')->value('id');
-        if (!$rolId) {
-            $rolId = DB::table('roles')->insertGetId(['nombre'=>'empleado','descripcion'=>null,'created_at'=>now(),'updated_at'=>now()]);
+        if (!$user->hasRole('empleado')) {
+            $user->assignRole('empleado');
         }
-        DB::table('rol_usuario')->updateOrInsert(['user_id'=>$user->id,'rol_id'=>$rolId], []);
 
         $data['user_id'] = $user->id;
 

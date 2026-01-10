@@ -17,15 +17,8 @@ class DashboardController extends Controller
         $recibos = DB::table('recibos')->count();
         $pagos = DB::table('pagos')->count();
         
-        // Verificar si el usuario autenticado tiene rol de empleado
-        $esEmpleado = false;
-        if (auth()->check()) {
-            $esEmpleado = DB::table('rol_usuario as ru')
-                ->join('roles as r','r.id','=','ru.rol_id')
-                ->where('ru.user_id', auth()->id())
-                ->where('r.nombre','empleado')
-                ->exists();
-        }
+        // Verificar si el usuario autenticado tiene rol de empleado (Spatie)
+        $esEmpleado = auth()->check() && auth()->user()->hasRole('empleado');
         
         // Obtener el último periodo de nómina
         $ultimoPeriodo = DB::table('periodos_nomina')->orderByDesc('fecha_fin')->first();

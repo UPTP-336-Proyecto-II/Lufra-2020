@@ -6,12 +6,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasRoles;
 
     protected $fillable = [
         'name',
@@ -32,28 +32,20 @@ class User extends Authenticatable
         ];
     }
 
-    // roles del usuario
-    public function roles()
-    {
-        return DB::table('rol_usuario')->where('user_id', $this->id)->pluck('rol_id');
-    }
-
+    /**
+     * Método legacy para compatibilidad - usa Spatie internamente
+     */
     public function tieneRol(string $nombre): bool
     {
-        $rolId = DB::table('roles')->where('nombre', $nombre)->value('id');
-        if (!$rolId) return false;
-        return DB::table('rol_usuario')->where(['user_id' => $this->id, 'rol_id' => $rolId])->exists();
+        return $this->hasRole($nombre);
     }
 
+    /**
+     * Método legacy para compatibilidad - usa Spatie internamente
+     */
     public function puede(string $permiso): bool
     {
-        $permisoId = DB::table('permisos')->where('nombre', $permiso)->value('id');
-        if (!$permisoId) return false;
-        return DB::table('rol_usuario as ru')
-            ->join('permiso_rol as pr', 'ru.rol_id', '=', 'pr.rol_id')
-            ->where('ru.user_id', $this->id)
-            ->where('pr.permiso_id', $permisoId)
-            ->exists();
+        return $this->hasPermissionTo($permiso);
     }
 
     public function notifications()

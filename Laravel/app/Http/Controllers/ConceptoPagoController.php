@@ -14,13 +14,8 @@ class ConceptoPagoController extends Controller
 
     public function index()
     {
-        // Verificar rol de administrador
-        $role = DB::table('rol_usuario')
-            ->join('roles', 'roles.id', '=', 'rol_usuario.rol_id')
-            ->where('rol_usuario.user_id', auth()->id())
-            ->value('roles.nombre');
-
-        if ($role !== 'administrador') {
+        // Verificar rol de administrador (Spatie)
+        if (!auth()->user()->hasRole('administrador')) {
             abort(403);
         }
 
