@@ -110,4 +110,95 @@ class ImpuestosController extends Controller
 
         return redirect()->route('impuestos.view')->with('success', 'Estado actualizado correctamente');
     }
+
+    // API Methods para Vue.js
+    public function apiIndex(Request $request)
+    {
+        $search = $request->input('search');
+        
+        $query = DB::table('impuestos')->orderBy('nombre');
+        
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('nombre', 'like', "%{$search}%")
+                  ->orWhere('codigo', 'like', "%{$search}%");
+            });
+        }
+        
+        return response()->json($query->get());
+    }
+
+    public function apiStore(Request $request)
+    {
+        $data = $request->validate([
+            'nombre' => ['required', 'string', 'max:100'],
+            'codigo' => ['required', 'string', 'max:50', 'unique:impuestos,codigo'],
+            'porcentaje' => ['required', 'numeric', 'min:0', 'max:100'],
+            'descripcion' => ['nullable', 'string'],
+            'por_defecto' => ['boolean'],
+        ]);
+
+        // Si se marca como por defecto, desmarcar otros
+        if ($request->boolean('por_defecto')) {
+            DB::table('impuestos')->update(['por_defecto' => false]);
+        }
+
+        $id = DB::table('impuestos')->insertGetId([
+            'nombre' => $data['nombre'],
+            'codigo' => $data['codigo'],
+            'porcentaje' => $data['porcentaje'],
+            'descripcion' => $data['descripcion'] ?? null,
+            'por_defecto' => $request->boolean('por_defecto'),
+            'activo' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true, 'id' => $id]);
+    }
+
+    public function apiUpdate(Request $request, $id)
+    {
+        $data = $request->validate([
+            'nombre' => ['required', 'string', 'max:100'],
+            'codigo' => ['required', 'string', 'max:50', 'unique:impuestos,codigo,' . $id],
+            'porcentaje' => ['required', 'numeric', 'min:0', 'max:100'],
+            'descripcion' => ['nullable', 'string'],
+            'por_defecto' => ['boolean'],
+        ]);
+
+        // Si se marca como por defecto, desmarcar otros
+        if ($request->boolean('por_defecto')) {
+            DB::table('impuestos')->where('id', '!=', $id)->update(['por_defecto' => false]);
+        }
+
+        DB::table('impuestos')->where('id', $id)->update([
+            'nombre' => $data['nombre'],
+            'codigo' => $data['codigo'],
+            'porcentaje' => $data['porcentaje'],
+            'descripcion' => $data['descripcion'] ?? null,
+            'por_defecto' => $request->boolean('por_defecto'),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function apiDestroy($id)
+    {
+        DB::table('impuestos')->where('id', $id)->delete();
+        return response()->json(['success' => true]);
+    }
+
+    public function apiToggle($id)
+    {
+        $impuesto = DB::table('impuestos')->where('id', $id)->first();
+        
+        DB::table('impuestos')->where('id', $id)->update([
+            'activo' => !$impuesto->activo,
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true]);
+    }
 }

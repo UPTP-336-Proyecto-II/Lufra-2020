@@ -65,6 +65,11 @@ class DepartamentoController extends Controller
         // Notificar a otros administradores
         \App\Http\Controllers\NotificationHelper::notifyDepartamentoCreado($id, $data['nombre'], auth()->id());
 
+        // Responder con JSON si es AJAX, sino redirigir
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Departamento creado correctamente', 'id' => $id]);
+        }
+
         return redirect()->route('departamentos.view')->with('success', 'Departamento creado correctamente');
     }
 
@@ -108,6 +113,11 @@ class DepartamentoController extends Controller
         // Notificar a otros administradores
         \App\Http\Controllers\NotificationHelper::notifyDepartamentoEditado($data['id'], $data['nombre'], auth()->id());
 
+        // Responder con JSON si es AJAX, sino redirigir
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Departamento actualizado correctamente', 'id' => $data['id']]);
+        }
+
         return redirect()->route('departamentos.view')->with('success', 'Departamento actualizado correctamente');
     }
 
@@ -130,6 +140,40 @@ class DepartamentoController extends Controller
         // Notificar a otros administradores
         \App\Http\Controllers\NotificationHelper::notifyDepartamentoEliminado($nombre, auth()->id());
 
+        // Responder con JSON si es AJAX, sino redirigir
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Departamento eliminado correctamente']);
+        }
+
         return redirect()->route('departamentos.view')->with('success', 'Departamento eliminado correctamente');
+    }
+
+    /**
+     * API: Obtener lista de departamentos para Vue
+     */
+    public function apiDepartamentos(Request $request)
+    {
+        try {
+            $query = DB::table('departamentos')
+                ->select('id', 'codigo', 'nombre', 'descripcion')
+                ->orderBy('nombre');
+
+            // Aplicar búsqueda si existe
+            if ($busqueda = $request->input('q')) {
+                $query->where(function($q) use ($busqueda) {
+                    $q->where('nombre', 'like', "%{$busqueda}%")
+                      ->orWhere('codigo', 'like', "%{$busqueda}%");
+                });
+            }
+
+            $departamentos = $query->get();
+
+            return response()->json($departamentos);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al cargar departamentos: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

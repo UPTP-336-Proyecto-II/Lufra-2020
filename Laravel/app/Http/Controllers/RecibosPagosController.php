@@ -278,11 +278,20 @@ class RecibosPagosController extends Controller
             ->groupBy('p.id', 'p.codigo', 'p.fecha_inicio', 'p.fecha_fin')
             ->orderByDesc('p.fecha_inicio');
 
-        if ($desde) {
-            $query->whereDate('p.fecha_inicio', '>=', $desde);
-        }
-        if ($hasta) {
-            $query->whereDate('p.fecha_fin', '<=', $hasta);
+        // Filtro más flexible: muestra períodos que se solapen con el rango seleccionado
+        if ($desde && $hasta) {
+            $query->where(function($q) use ($desde, $hasta) {
+                // El período se solapa si:
+                // - Comienza antes o durante el rango Y termina después o durante el inicio del rango
+                $q->where(function($subq) use ($desde, $hasta) {
+                    $subq->whereDate('p.fecha_inicio', '<=', $hasta)
+                         ->whereDate('p.fecha_fin', '>=', $desde);
+                });
+            });
+        } elseif ($desde) {
+            $query->whereDate('p.fecha_fin', '>=', $desde);
+        } elseif ($hasta) {
+            $query->whereDate('p.fecha_inicio', '<=', $hasta);
         }
 
         $obligaciones = $query->paginate(20);
@@ -427,5 +436,91 @@ class RecibosPagosController extends Controller
         ]);
         
         return redirect()->route('recibos_pagos')->with('success', 'Pago manual creado correctamente');
+    }
+
+    // API para archivo banco
+    public function apiArchivoBanco(Request $request)
+    {
+        $desde = $request->input('desde');
+        $hasta = $request->input('hasta');
+
+        $query = DB::table('pagos as pg')
+            ->join('recibos as r', 'r.id', '=', 'pg.recibo_id')
+            ->join('empleados as e', 'e.id', '=', 'r.empleado_id')
+            ->join('periodos_nomina as p', 'p.id', '=', 'r.periodo_nomina_id')
+            ->where('pg.estado', 'aceptado')
+            ->select(
+                'e.nombre',
+                'e.apellido',
+                'e.cuenta_bancaria as numero_cuenta',
+                'pg.importe',
+                'pg.moneda',
+                'p.codigo as periodo',
+                'pg.created_at'
+            );
+
+        if ($desde) {
+            $query->whereDate('pg.created_at', '>=', $desde);
+        }
+        if ($hasta) {
+            $query->whereDate('pg.created_at', '<=', $hasta);
+        }
+
+        $pagos = $query->orderBy('e.apellido')->orderBy('e.nombre')->get();
+
+        return response()->json([
+            'pagos' => $pagos,
+            'total' => $pagos->sum('importe')
+        ]);
+    }
+
+    // API para obligaciones
+    public function apiObligaciones(Request $request)
+    {
+        $desde = $request->input('desde');
+        $hasta = $request->input('hasta');
+
+        $query = DB::table('recibos as r')
+            ->join('periodos_nomina as p', 'p.id', '=', 'r.periodo_nomina_id')
+            ->join('empleados as e', 'e.id', '=', 'r.empleado_id')
+            ->select(
+                'p.codigo as periodo',
+                'p.fecha_inicio',
+                'p.fecha_fin',
+                DB::raw('COUNT(r.id) as total_recibos'),
+                DB::raw('SUM(r.bruto) as total_bruto'),
+                DB::raw('SUM(r.deducciones) as total_deducciones'),
+                DB::raw('SUM(r.neto) as total_neto')
+            )
+            ->groupBy('p.id', 'p.codigo', 'p.fecha_inicio', 'p.fecha_fin')
+            ->orderByDesc('p.fecha_inicio');
+
+        // Filtro más flexible: muestra períodos que se solapen con el rango seleccionado
+        if ($desde && $hasta) {
+            $query->where(function($q) use ($desde, $hasta) {
+                // El período se solapa si:
+                // - Comienza antes o durante el rango Y termina después o durante el inicio del rango
+                $q->where(function($subq) use ($desde, $hasta) {
+                    $subq->whereDate('p.fecha_inicio', '<=', $hasta)
+                         ->whereDate('p.fecha_fin', '>=', $desde);
+                });
+            });
+        } elseif ($desde) {
+            $query->whereDate('p.fecha_fin', '>=', $desde);
+        } elseif ($hasta) {
+            $query->whereDate('p.fecha_inicio', '<=', $hasta);
+        }
+
+        $obligaciones = $query->get();
+
+        return response()->json([
+            'obligaciones' => $obligaciones,
+            'totales' => [
+                'total_recibos' => $obligaciones->sum('total_recibos'),
+                'total_bruto' => $obligaciones->sum('total_bruto'),
+                'total_deducciones' => $obligaciones->sum('total_deducciones'),
+                'total_neto' => $obligaciones->sum('total_neto')
+            ]
+        ]);
     }
 }

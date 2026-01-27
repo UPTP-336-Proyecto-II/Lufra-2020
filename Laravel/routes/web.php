@@ -17,6 +17,7 @@ use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\PageController;
 use App\Models\User;
 
 /*
@@ -165,18 +166,198 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:administrador|admin_rrhh')
         ->name('empleados.asignar_departamento');
     
+    // Solicitudes de Vacaciones - Redirección a gestionar
+    Route::get('/solicitar-vacaciones', function() {
+        return redirect()->route('vacaciones.gestionar');
+    })->middleware('role:empleado|administrador|admin_rrhh');
+    
+    // Gestión de Vacaciones - Vista principal CRUD (todos pueden ver)
+    Route::get('/vacaciones/gestionar', [App\Http\Controllers\SolicitudVacacionesController::class, 'index'])
+        ->middleware('role:empleado|administrador|admin_rrhh')
+        ->name('vacaciones.gestionar');
+    
+    Route::get('/vacaciones/mis-solicitudes', [App\Http\Controllers\SolicitudVacacionesController::class, 'misSolicitudes'])
+        ->middleware('role:empleado|administrador|admin_rrhh')
+        ->name('vacaciones.mis_solicitudes');
+
+    Route::post('/vacaciones/crear', [App\Http\Controllers\SolicitudVacacionesController::class, 'store'])
+        ->middleware('role:empleado|administrador|admin_rrhh')
+        ->name('vacaciones.crear');
+
+    Route::post('/vacaciones/{id}/cancelar', [App\Http\Controllers\SolicitudVacacionesController::class, 'cancelar'])
+        ->middleware('role:empleado|administrador|admin_rrhh')
+        ->name('vacaciones.cancelar');
+
+    // Solicitudes de Vacaciones - RR.HH. aprueba/rechaza
+    Route::get('/vacaciones/pendientes', [App\Http\Controllers\SolicitudVacacionesController::class, 'pendientes'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('vacaciones.pendientes');
+
+    Route::post('/vacaciones/{id}/aprobar', [App\Http\Controllers\SolicitudVacacionesController::class, 'aprobar'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('vacaciones.aprobar');
+
+    Route::post('/vacaciones/{id}/rechazar', [App\Http\Controllers\SolicitudVacacionesController::class, 'rechazar'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('vacaciones.rechazar');
+    
     // Vista Vue.js
-    Route::get('/empleados-vue', function() {
-        return view('empleados-vue');
-    })->name('empleados.vue');
-    
+    Route::get('/app-vue', function() {
+        return view('vue.app');
+    })->name('app.vue');
+
+
     // API para Vue.js
-    Route::get('/api/empleados/vue', [EmpleadoController::class, 'apiEmpleados'])->name('api.empleados.vue');
+    Route::get('/api/empleados/vue', [EmpleadoController::class, 'apiEmpleados'])
+        ->middleware('role:administrador|admin_rrhh|admin_nominas|contador|supervisor')
+        ->name('api.empleados.vue');
+    Route::get('/api/empleados', [EmpleadoController::class, 'apiEmpleados'])
+        ->middleware('role:administrador|admin_rrhh|admin_nominas|contador|supervisor')
+        ->name('api.empleados');
+    Route::post('/api/empleados', [EmpleadoController::class, 'apiCrearEmpleado'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('api.empleados.crear');
+    Route::get('/api/empleados/{id}', [EmpleadoController::class, 'apiObtenerEmpleado'])
+        ->middleware('role:administrador|admin_rrhh|admin_nominas|contador|supervisor')
+        ->name('api.empleados.obtener');
+    Route::put('/api/empleados/{id}', [EmpleadoController::class, 'apiActualizarEmpleado'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('api.empleados.actualizar');
+    Route::delete('/api/empleados/{id}', [EmpleadoController::class, 'apiEliminarEmpleado'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('api.empleados.eliminar');
+    Route::get('/api/departamentos', [\App\Http\Controllers\DepartamentoController::class, 'apiDepartamentos'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('api.departamentos');
+    Route::get('/api/contratos', [\App\Http\Controllers\ContratoController::class, 'apiContratos'])
+        ->middleware('role:administrador|admin_rrhh|admin_nominas|contador|supervisor')
+        ->name('api.contratos');
+    Route::post('/api/contratos', [\App\Http\Controllers\ContratoController::class, 'crear'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('api.contratos.crear');
     
-    // SPA - Single Page Application
-    Route::get('/spa/{any?}', function() {
-        return view('spa');
-    })->where('any', '.*')->name('spa');
+    // API para Conceptos, Métodos y Monedas
+    Route::get('/api/conceptos', [\App\Http\Controllers\ConceptoPagoController::class, 'apiIndex'])
+        ->middleware('role:administrador|admin_nominas|contador|supervisor')
+        ->name('api.conceptos');
+    Route::post('/api/conceptos', [\App\Http\Controllers\ConceptoPagoController::class, 'apiStore'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('api.conceptos.crear');
+    Route::put('/api/conceptos/{id}', [\App\Http\Controllers\ConceptoPagoController::class, 'apiUpdate'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('api.conceptos.actualizar');
+    Route::delete('/api/conceptos/{id}', [\App\Http\Controllers\ConceptoPagoController::class, 'apiDestroy'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('api.conceptos.eliminar');
+    
+    Route::get('/api/metodos', [\App\Http\Controllers\MetodoPagoController::class, 'apiIndex'])
+        ->middleware('role:administrador|admin_nominas|contador|supervisor')
+        ->name('api.metodos');
+    Route::post('/api/metodos', [\App\Http\Controllers\MetodoPagoController::class, 'apiStore'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('api.metodos.crear');
+    Route::put('/api/metodos/{id}', [\App\Http\Controllers\MetodoPagoController::class, 'apiUpdate'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('api.metodos.actualizar');
+    Route::delete('/api/metodos/{id}', [\App\Http\Controllers\MetodoPagoController::class, 'apiDestroy'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('api.metodos.eliminar');
+    
+    Route::get('/api/monedas', [\App\Http\Controllers\MonedaController::class, 'apiIndex'])
+        ->middleware('role:administrador|admin_nominas|contador|supervisor')
+        ->name('api.monedas');
+    Route::post('/api/monedas', [\App\Http\Controllers\MonedaController::class, 'apiStore'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('api.monedas.crear');
+    Route::put('/api/monedas/{id}', [\App\Http\Controllers\MonedaController::class, 'apiUpdate'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('api.monedas.actualizar');
+    Route::delete('/api/monedas/{id}', [\App\Http\Controllers\MonedaController::class, 'apiDestroy'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('api.monedas.eliminar');
+    
+    // API Impuestos
+    Route::get('/api/impuestos', [\App\Http\Controllers\ImpuestosController::class, 'apiIndex'])
+        ->middleware('role:administrador|admin_nominas|contador')
+        ->name('api.impuestos');
+    Route::post('/api/impuestos', [\App\Http\Controllers\ImpuestosController::class, 'apiStore'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('api.impuestos.crear');
+    Route::put('/api/impuestos/{id}', [\App\Http\Controllers\ImpuestosController::class, 'apiUpdate'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('api.impuestos.actualizar');
+    Route::delete('/api/impuestos/{id}', [\App\Http\Controllers\ImpuestosController::class, 'apiDestroy'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('api.impuestos.eliminar');
+    Route::post('/api/impuestos/{id}/toggle', [\App\Http\Controllers\ImpuestosController::class, 'apiToggle'])
+        ->middleware('role:administrador|admin_nominas')
+        ->name('api.impuestos.toggle');
+    
+    // API Archivo Banco
+    Route::get('/api/archivo-banco', [RecibosPagosController::class, 'apiArchivoBanco'])
+        ->middleware('role:administrador|admin_nominas|contador|supervisor')
+        ->name('api.archivo_banco');
+    
+    // API Obligaciones
+    Route::get('/api/obligaciones', [RecibosPagosController::class, 'apiObligaciones'])
+        ->middleware('role:administrador|admin_nominas|contador|supervisor')
+        ->name('api.obligaciones');
+    
+    // API Períodos Nómina
+    Route::get('/api/periodos-nomina', [PayrollController::class, 'apiPeriodos'])
+        ->middleware('role:administrador|admin_nominas|contador|supervisor')
+        ->name('api.periodos_nomina');
+    
+    // API Roles y Permisos
+    Route::get('/api/roles', [RolController::class, 'apiIndex'])
+        ->middleware('role:administrador')
+        ->name('api.roles');
+    Route::post('/api/roles', [RolController::class, 'apiStore'])
+        ->middleware('role:administrador')
+        ->name('api.roles.crear');
+    Route::put('/api/roles/{id}', [RolController::class, 'apiUpdate'])
+        ->middleware('role:administrador')
+        ->name('api.roles.actualizar');
+    Route::delete('/api/roles/{id}', [RolController::class, 'apiDestroy'])
+        ->middleware('role:administrador')
+        ->name('api.roles.eliminar');
+    Route::post('/api/roles/asignar', [RolController::class, 'apiAsignar'])
+        ->middleware('role:administrador')
+        ->name('api.roles.asignar');
+    Route::get('/api/usuarios', [RolController::class, 'apiUsuarios'])
+        ->middleware('role:administrador')
+        ->name('api.usuarios');
+    Route::get('/api/permisos', [RolController::class, 'apiPermisos'])
+        ->middleware('role:administrador')
+        ->name('api.permisos');
+    
+    // API User Permissions
+    Route::get('/api/user/permissions', function() {
+        $user = auth()->user();
+        $permissions = $user->getAllPermissions()->pluck('name')->toArray();
+        return response()->json(['permissions' => $permissions]);
+    })->name('api.user.permissions');
+    
+    // API Vacaciones
+    Route::get('/api/vacaciones', [App\Http\Controllers\SolicitudVacacionesController::class, 'index'])
+        ->middleware('role:empleado|administrador|admin_rrhh')
+        ->name('api.vacaciones');
+    Route::post('/api/vacaciones/crear', [App\Http\Controllers\SolicitudVacacionesController::class, 'store'])
+        ->middleware('role:empleado|administrador|admin_rrhh')
+        ->name('api.vacaciones.crear');
+    Route::post('/api/vacaciones/{id}/aprobar', [App\Http\Controllers\SolicitudVacacionesController::class, 'aprobar'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('api.vacaciones.aprobar');
+    Route::post('/api/vacaciones/{id}/rechazar', [App\Http\Controllers\SolicitudVacacionesController::class, 'rechazar'])
+        ->middleware('role:administrador|admin_rrhh')
+        ->name('api.vacaciones.rechazar');
+    Route::post('/api/vacaciones/{id}/cancelar', [App\Http\Controllers\SolicitudVacacionesController::class, 'cancelar'])
+        ->middleware('role:empleado|administrador|admin_rrhh')
+        ->name('api.vacaciones.cancelar');
+    
+    // SPA - Single Page Application con Vue Router
+    // Catch-all: todas las rutas /spa/* son manejadas por Vue Router en el frontend
+    Route::get('/spa/{any?}', [PageController::class, 'index'])->where('any', '.*')->name('spa.catch');
     
     // API Stats para Dashboard
     Route::get('/api/stats', function() {
@@ -186,7 +367,119 @@ Route::middleware('auth')->group(function () {
             'nominas' => DB::table('periodos_nomina')->where('estado', 'abierto')->count(),
             'totalPagado' => DB::table('recibos')->sum('neto') ?? 0
         ]);
-    })->name('api.stats');
+    })->middleware('role:administrador|admin_nominas|admin_rrhh|contador|supervisor')
+    ->name('api.stats');
+
+    // API Dashboard completo
+    Route::get('/api/dashboard', function() {
+        $empleados = DB::table('empleados')->count();
+        $departamentos = DB::table('departamentos')->count();
+        $contratos = DB::table('contratos')->count();
+        $periodos = DB::table('periodos_nomina')->count();
+        $recibos = DB::table('recibos')->count();
+        $pagos = DB::table('pagos')->count();
+        
+        $esEmpleado = auth()->check() && auth()->user()->hasRole('empleado');
+        $ultimoPeriodo = DB::table('periodos_nomina')->orderByDesc('fecha_fin')->first();
+        
+        $deps = DB::table('departamentos')->select('codigo','nombre')->paginate(10);
+        
+        $contratosList = DB::table('contratos as c')
+            ->leftJoin('users as u', 'u.id', '=', 'c.empleado_id')
+            ->leftJoin('empleados as emp', 'emp.user_id', '=', 'u.id')
+            ->select('c.id','c.tipo_contrato','c.frecuencia_pago','c.salario_base','u.id as empleado_user_id','u.name as empleado_name','emp.numero_empleado as empleado_codigo','emp.cedula as empleado_cedula')
+            ->paginate(10);
+        
+        $periodosList = DB::table('periodos_nomina')
+            ->select('codigo','fecha_inicio','fecha_fin','estado')
+            ->orderByDesc('fecha_inicio')
+            ->paginate(10);
+        
+        if ($esEmpleado) {
+            $recibosList = DB::table('recibos as r')
+                ->join('empleados as emp','emp.id','=','r.empleado_id')
+                ->join('users as u','u.id','=','emp.user_id')
+                ->where('emp.user_id', auth()->id())
+                ->select('r.id','r.neto','r.estado','emp.numero_empleado as empleado_codigo','emp.cedula as empleado_cedula','u.name as empleado_name','u.id as empleado_user_id')
+                ->orderByDesc('r.id')
+                ->paginate(10);
+            
+            $pagosList = DB::table('pagos as p')
+                ->join('recibos as r','r.id','=','p.recibo_id')
+                ->join('empleados as emp','emp.id','=','r.empleado_id')
+                ->join('users as u','u.id','=','emp.user_id')
+                ->where('emp.user_id', auth()->id())
+                ->whereIn('p.estado', ['aceptado','rechazado','pendiente'])
+                ->select('p.id','p.recibo_id','p.importe','p.metodo','p.referencia as descripcion','p.estado','p.respondido_en','p.updated_at','p.created_at','p.pagado_en','emp.numero_empleado as empleado_codigo','emp.cedula as empleado_cedula','u.name as empleado_name','u.id as empleado_user_id')
+                ->orderByDesc('p.id')
+                ->paginate(10);
+        } else {
+            $recibosList = DB::table('recibos as r')
+                ->leftJoin('empleados as emp','emp.id','=','r.empleado_id')
+                ->leftJoin('users as u','u.id','=','emp.user_id')
+                ->select('r.id','r.empleado_id','r.neto','r.estado','emp.numero_empleado as empleado_codigo','emp.cedula as empleado_cedula','u.name as empleado_name','u.id as empleado_user_id')
+                ->orderByDesc('r.id')
+                ->paginate(10);
+            
+            $pagosList = DB::table('pagos as p')
+                ->leftJoin('recibos as r','r.id','=','p.recibo_id')
+                ->leftJoin('empleados as emp','emp.id','=','r.empleado_id')
+                ->leftJoin('users as u','u.id','=','emp.user_id')
+                ->select('p.id','p.recibo_id','p.importe','p.metodo','p.created_at','p.updated_at','p.pagado_en','p.estado','emp.numero_empleado as empleado_codigo','emp.cedula as empleado_cedula','u.name as empleado_name','u.id as empleado_user_id')
+                ->orderByDesc('p.id')
+                ->paginate(10);
+        }
+        
+        $metodosPago = DB::table('metodos_pago')->where('activo', true)->orderBy('nombre')->pluck('nombre')->toArray();
+        if (empty($metodosPago)) {
+            $metodosPago = ['Transferencia', 'Efectivo', 'Cheque', 'Pago móvil', 'Zelle'];
+        }
+
+        $contratoInfo = null;
+        if ($esEmpleado && auth()->check()) {
+            $contrato = DB::table('contratos')
+                ->where('empleado_id', auth()->id())
+                ->where(function($q) {
+                    $q->where('estado', 'activo')->orWhereNull('fecha_fin')->orWhereDate('fecha_fin', '>=', now());
+                })
+                ->orderByDesc('id')
+                ->first();
+
+            if ($contrato) {
+                $fechaFin = $contrato->fecha_fin ? \Carbon\Carbon::parse($contrato->fecha_fin) : null;
+                $hoy = \Carbon\Carbon::today();
+                $contratoInfo = [
+                    'id' => $contrato->id,
+                    'tipo_contrato' => $contrato->tipo_contrato ?? null,
+                    'puesto' => $contrato->puesto ?? null,
+                    'fecha_inicio' => $contrato->fecha_inicio ?? null,
+                    'fecha_fin' => $contrato->fecha_fin ?? null,
+                    'days_remaining' => $fechaFin ? ($fechaFin->lt($hoy) ? 0 : $hoy->diffInDays($fechaFin)) : null,
+                    'expired' => $fechaFin ? $fechaFin->lt($hoy) : false,
+                    'salario_base' => $contrato->salario_base ?? null,
+                    'estado' => $contrato->estado ?? null,
+                ];
+            }
+        }
+
+        return response()->json([
+            'empleados' => $empleados,
+            'departamentos' => $departamentos,
+            'contratos' => $contratos,
+            'periodos' => $periodos,
+            'recibos' => $recibos,
+            'pagos' => $pagos,
+            'esEmpleado' => $esEmpleado,
+            'ultimoPeriodo' => $ultimoPeriodo,
+            'deps' => $deps,
+            'contratosList' => $contratosList,
+            'periodosList' => $periodosList,
+            'recibosList' => $recibosList,
+            'pagosList' => $pagosList,
+            'metodosPago' => $metodosPago,
+            'contratoInfo' => $contratoInfo
+        ]);
+    })->middleware('auth')->name('api.dashboard');
 
 
     // Contratos - Admin RRHH

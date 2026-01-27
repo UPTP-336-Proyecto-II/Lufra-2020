@@ -152,6 +152,9 @@ class PermisosSeeder extends Seeder
             'asignar_roles',
             'configuracion.ver',
             'configuracion.editar',
+            'vacaciones.solicitar',
+            'vacaciones.ver',
+            'vacaciones.gestionar',
         ];
     }
 
@@ -223,13 +226,20 @@ class PermisosSeeder extends Seeder
             ]);
         }
 
-        // Empleado: solo ver sus recibos
+        // Empleado: ver recibos y solicitar vacaciones
         $empleado = \Spatie\Permission\Models\Role::where('name', 'empleado')->first();
         if ($empleado) {
             $empleado->syncPermissions([
                 'ver_dashboard',
                 'recibos.ver',
+                'vacaciones.solicitar',
+                'vacaciones.ver',
             ]);
+        }
+
+        // Admin RRHH también puede gestionar vacaciones
+        if ($adminRRHH) {
+            $adminRRHH->givePermissionTo('vacaciones.gestionar');
         }
     }
 

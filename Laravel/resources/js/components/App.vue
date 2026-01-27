@@ -1,22 +1,23 @@
 <template>
-  <div id="app">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-      <div class="container-fluid">
-        <a class="navbar-brand" href="#">Sistema Nominas</a>
-        <div class="collapse navbar-collapse">
-          <ul class="navbar-nav me-auto">
-            <li class="nav-item"><router-link to="/" class="nav-link">Dashboard</router-link></li>
-            <li class="nav-item"><router-link to="/empleados" class="nav-link">Empleados</router-link></li>
-            <li class="nav-item"><router-link to="/departamentos" class="nav-link">Departamentos</router-link></li>
-            <li class="nav-item"><router-link to="/nominas" class="nav-link">Nominas</router-link></li>
-          </ul>
-        </div>
-      </div>
-    </nav>
-    <div class="container-fluid mt-3"><router-view></router-view></div>
-  </div>
+  <!-- El contenedor principal ya está manejado por layouts.blade.php -->
+  <router-view></router-view>
 </template>
 
 <script>
-export default { name: 'App' }
+export default { 
+  name: 'App',
+  mounted() {
+    // Notificación de bienvenida
+    if (this.$toast) {
+      this.$toast.fire({
+        icon: 'info',
+        title: 'Vue Dashboard cargado'
+      });
+    }
+  }
+}
 </script>
+
+<style scoped>
+/* Estilos para el contenido dentro del layout de AdminLTE */
+</style>

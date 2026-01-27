@@ -128,4 +128,114 @@ class RolController extends Controller
         
         return redirect()->route('roles.index');
     }
+
+    // API Methods
+    public function apiIndex(Request $request)
+    {
+        $search = $request->input('search');
+        $query = DB::table('roles')
+            ->select('id', 'name', 'guard_name')
+            ->orderBy('name');
+        
+        if ($search) {
+            $query->where('name', 'like', "%{$search}%");
+        }
+        
+        $roles = $query->get();
+        return response()->json($roles);
+    }
+
+    public function apiUsuarios(Request $request)
+    {
+        $search = $request->input('search');
+        $query = DB::table('users')
+            ->select('id', 'name', 'email')
+            ->orderBy('name');
+        
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+        
+        $usuarios = $query->get();
+        
+        // Obtener roles de cada usuario
+        foreach ($usuarios as $usuario) {
+            $roles = DB::table('model_has_roles')
+                ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
+                ->where('model_has_roles.model_id', $usuario->id)
+                ->where('model_has_roles.model_type', 'App\\Models\\User')
+                ->select('roles.id', 'roles.name')
+                ->get();
+            $usuario->roles = $roles;
+        }
+        
+        return response()->json($usuarios);
+    }
+
+    public function apiPermisos()
+    {
+        $permisos = DB::table('permissions')
+            ->select('id', 'name', 'description')
+            ->orderBy('name')
+            ->get();
+        return response()->json($permisos);
+    }
+
+    public function apiStore(Request $request)
+    {
+        $request->validate(['nombre' => ['required','string','max:100']]);
+        
+        DB::table('roles')->updateOrInsert(
+            ['name' => $request->nombre, 'guard_name' => 'web'], 
+            ['created_at'=>now(),'updated_at'=>now()]
+        );
+        
+        return response()->json(['success' => true, 'message' => 'Rol creado exitosamente']);
+    }
+
+    public function apiUpdate(Request $request, $id)
+    {
+        $request->validate(['nombre' => ['required','string','max:100']]);
+        
+        DB::table('roles')->where('id', $id)->update([
+            'name' => $request->nombre,
+            'updated_at' => now()
+        ]);
+        
+        return response()->json(['success' => true, 'message' => 'Rol actualizado exitosamente']);
+    }
+
+    public function apiDestroy($id)
+    {
+        DB::table('model_has_roles')->where('role_id', $id)->delete();
+        DB::table('role_has_permissions')->where('role_id', $id)->delete();
+        DB::table('roles')->where('id', $id)->delete();
+        
+        return response()->json(['success' => true, 'message' => 'Rol eliminado exitosamente']);
+    }
+
+    public function apiAsignar(Request $request)
+    {
+        $data = $request->validate([
+            'user_id' => ['required','integer'],
+            'roles' => ['array']
+        ]);
+        
+        $uid = (int)$data['user_id'];
+        DB::table('model_has_roles')->where('model_id', $uid)->where('model_type', 'App\\Models\\User')->delete();
+        
+        $roles = $data['roles'] ?? [];
+        foreach($roles as $rid){
+            DB::table('model_has_roles')->insert([
+                'role_id' => $rid,
+                'model_type' => 'App\\Models\\User',
+                'model_id' => $uid
+            ]);
+        }
+        
+        return response()->json(['success' => true, 'message' => 'Roles asignados exitosamente']);
+    }
 }

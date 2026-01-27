@@ -258,41 +258,41 @@
         </a>
         
         <!-- Notificaciones - Todos -->
-        <a class="list-group-item list-group-item-action" href="{{ route('notificaciones.view') }}">
+        <a class="list-group-item list-group-item-action" href="{{ isset($vueMode) && $vueMode ? '/spa/notificaciones' : route('notificaciones.view') }}">
           <i class="fas fa-bell mr-2"></i>Notificaciones
         </a>
 
         <!-- Departamentos - Admin RRHH y Administrador -->
         @if(auth()->user()->hasAnyRole(['administrador', 'admin_rrhh']))
-        <a class="list-group-item list-group-item-action" href="{{ route('departamentos.view') }}">
+        <a class="list-group-item list-group-item-action" href="{{ isset($vueMode) && $vueMode ? '/spa/departamentos' : route('departamentos.view') }}">
           <i class="fas fa-sitemap mr-2"></i>Departamentos
         </a>
         @endif
         
         <!-- Empleados - Admin RRHH, Admin Nóminas, Contador, Supervisor, Administrador -->
         @if(auth()->user()->hasAnyRole(['administrador', 'admin_rrhh', 'admin_nominas', 'contador', 'supervisor']))
-        <a class="list-group-item list-group-item-action" href="{{ route('empleados.index') }}">
+        <a class="list-group-item list-group-item-action" href="{{ isset($vueMode) && $vueMode ? '/spa/empleados' : route('empleados.index') }}">
           <i class="fas fa-users mr-2"></i>Empleados
         </a>
         @endif
         
         <!-- Contratos - Admin RRHH, Administrador -->
         @if(auth()->user()->hasAnyRole(['administrador', 'admin_rrhh']))
-        <a class="list-group-item list-group-item-action" href="{{ route('contratos.index') }}">
+        <a class="list-group-item list-group-item-action" href="{{ isset($vueMode) && $vueMode ? '/spa/contratos' : route('contratos.index') }}">
           <i class="fas fa-file-contract mr-2"></i>Contratos
         </a>
         @endif
         
         <!-- Nóminas - Admin Nóminas, Contador, Supervisor, Administrador -->
         @if(auth()->user()->hasAnyRole(['administrador', 'admin_nominas', 'contador', 'supervisor']))
-        <a class="list-group-item list-group-item-action" href="{{ route('nominas.index') }}">
+        <a class="list-group-item list-group-item-action" href="{{ isset($vueMode) && $vueMode ? '/spa/nominas' : route('nominas.index') }}">
           <i class="fas fa-calendar-alt mr-2"></i>Períodos de Nómina
         </a>
         @endif
         
         <!-- Recibos y Pagos - Admin Nóminas, Contador, Administrador, o Empleados (ven sus propios recibos) -->
         @if(auth()->user()->hasAnyRole(['administrador', 'admin_nominas', 'contador', 'empleado']))
-        <a class="list-group-item list-group-item-action" href="{{ route('recibos_pagos') }}">
+        <a class="list-group-item list-group-item-action" href="{{ isset($vueMode) && $vueMode ? '/spa/recibos-pagos' : route('recibos_pagos') }}">
           <i class="fas fa-money-bill-wave mr-2"></i>
           @if(auth()->user()->hasAnyRole(['administrador', 'admin_nominas', 'contador']))
             Recibos y Pagos
@@ -301,6 +301,13 @@
           @endif
         </a>
         @endif
+        
+        <!-- Gestionar Vacaciones - Todos los roles con permisos -->
+        @can('vacaciones.solicitar')
+        <a class="list-group-item list-group-item-action" href="{{ isset($vueMode) && $vueMode ? '/spa/vacaciones/gestionar' : route('vacaciones.gestionar') }}">
+          <i class="fas fa-umbrella-beach mr-2"></i>Gestionar Vacaciones
+        </a>
+        @endcan
         
         <!-- Impuestos - Admin Nóminas, Administrador -->
         @if(auth()->user()->hasAnyRole(['administrador', 'admin_nominas']))
@@ -332,10 +339,16 @@
         
         <!-- Configuración - Administrador -->
         @if(auth()->user()->hasRole('administrador'))
-        <a class="list-group-item list-group-item-action" href="{{ url('/configuracion') }}">
+        <a class="list-group-item list-group-item-action" href="{{ isset($vueMode) && $vueMode ? '/spa/configuracion' : url('/configuracion') }}">
           <i class="fas fa-cog mr-2"></i>Configuración
         </a>
         @endif
+
+        <!-- Perfil - Todos los usuarios -->
+        <hr class="my-2">
+        <a class="list-group-item list-group-item-action" href="{{ isset($vueMode) && $vueMode ? '/spa/perfil' : route('perfil') }}">
+          <i class="fas fa-user-circle mr-2"></i>Mi Perfil
+        </a>
       </div>
     </aside>
     <main class="col-md-9 col-lg-10 py-4">

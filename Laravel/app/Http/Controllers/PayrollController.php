@@ -382,4 +382,30 @@ class PayrollController extends Controller
 
         return redirect()->route('nominas.index')->with('success', 'Período cerrado correctamente');
     }
+
+    public function apiPeriodos(Request $request): JsonResponse
+    {
+        $search = $request->input('search');
+        $estado = $request->input('estado');
+        
+        $query = DB::table('periodos_nomina')
+            ->select('id', 'codigo', 'fecha_inicio', 'fecha_fin', 'estado');
+        
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('codigo', 'like', "%{$search}%")
+                  ->orWhere('fecha_inicio', 'like', "%{$search}%")
+                  ->orWhere('fecha_fin', 'like', "%{$search}%")
+                  ->orWhere('estado', 'like', "%{$search}%");
+            });
+        }
+        
+        if ($estado) {
+            $query->where('estado', $estado);
+        }
+        
+        $periodos = $query->orderByDesc('fecha_inicio')->get();
+        
+        return response()->json($periodos);
+    }
 }

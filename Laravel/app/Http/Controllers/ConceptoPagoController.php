@@ -103,4 +103,119 @@ class ConceptoPagoController extends Controller
 
         return redirect()->route('conceptos.view')->with('success', 'Concepto de pago eliminado correctamente');
     }
+
+    // API Methods
+    public function apiIndex()
+    {
+        try {
+            $conceptos = DB::table('conceptos_pago')
+                ->orderBy('nombre')
+                ->get();
+
+            return response()->json($conceptos);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al cargar conceptos: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function apiStore(Request $request)
+    {
+        $data = $request->validate([
+            'nombre' => ['required', 'string', 'max:100', 'unique:conceptos_pago,nombre'],
+        ]);
+
+        try {
+            $id = DB::table('conceptos_pago')->insertGetId([
+                'nombre' => $data['nombre'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Concepto creado correctamente',
+                'data' => ['id' => $id, 'nombre' => $data['nombre']]
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al crear concepto: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function apiUpdate(Request $request, $id)
+    {
+        $data = $request->validate([
+            'nombre' => ['required', 'string', 'max:100'],
+        ]);
+
+        try {
+            $concepto = DB::table('conceptos_pago')->where('id', $id)->first();
+            
+            if (!$concepto) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Concepto no encontrado'
+                ], 404);
+            }
+
+            // Verificar duplicados
+            $exists = DB::table('conceptos_pago')
+                ->where('nombre', $data['nombre'])
+                ->where('id', '!=', $id)
+                ->exists();
+
+            if ($exists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El nombre ya existe'
+                ], 422);
+            }
+
+            DB::table('conceptos_pago')->where('id', $id)->update([
+                'nombre' => $data['nombre'],
+                'updated_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Concepto actualizado correctamente'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar concepto: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function apiDestroy($id)
+    {
+        try {
+            $concepto = DB::table('conceptos_pago')->where('id', $id)->first();
+            
+            if (!$concepto) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Concepto no encontrado'
+                ], 404);
+            }
+
+            DB::table('conceptos_pago')->where('id', $id)->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Concepto eliminado correctamente'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al eliminar concepto: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

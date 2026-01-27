@@ -103,4 +103,122 @@ class MetodoPagoController extends Controller
 
         return redirect()->route('metodos.view')->with('success', 'Método de pago eliminado correctamente');
     }
+
+    // API Methods
+    public function apiIndex()
+    {
+        try {
+            $metodos = DB::table('metodos_pago')
+                ->orderBy('nombre')
+                ->get();
+
+            return response()->json($metodos);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al cargar métodos: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function apiStore(Request $request)
+    {
+        $data = $request->validate([
+            'nombre' => ['required', 'string', 'max:100', 'unique:metodos_pago,nombre'],
+        ]);
+
+        try {
+            $id = DB::table('metodos_pago')->insertGetId([
+                'nombre' => $data['nombre'],
+                'activo' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Método creado correctamente',
+                'data' => ['id' => $id, 'nombre' => $data['nombre'], 'activo' => true]
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al crear método: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function apiUpdate(Request $request, $id)
+    {
+        $data = $request->validate([
+            'nombre' => ['required', 'string', 'max:100'],
+            'activo' => ['nullable', 'boolean'],
+        ]);
+
+        try {
+            $metodo = DB::table('metodos_pago')->where('id', $id)->first();
+            
+            if (!$metodo) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Método no encontrado'
+                ], 404);
+            }
+
+            // Verificar duplicados
+            $exists = DB::table('metodos_pago')
+                ->where('nombre', $data['nombre'])
+                ->where('id', '!=', $id)
+                ->exists();
+
+            if ($exists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El nombre ya existe'
+                ], 422);
+            }
+
+            DB::table('metodos_pago')->where('id', $id)->update([
+                'nombre' => $data['nombre'],
+                'activo' => $data['activo'] ?? $metodo->activo ?? true,
+                'updated_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Método actualizado correctamente'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar método: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function apiDestroy($id)
+    {
+        try {
+            $metodo = DB::table('metodos_pago')->where('id', $id)->first();
+            
+            if (!$metodo) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Método no encontrado'
+                ], 404);
+            }
+
+            DB::table('metodos_pago')->where('id', $id)->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Método eliminado correctamente'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al eliminar método: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

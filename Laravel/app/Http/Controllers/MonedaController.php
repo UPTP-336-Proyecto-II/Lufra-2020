@@ -122,4 +122,132 @@ class MonedaController extends Controller
 
         return redirect()->route('monedas.view')->with('success', 'Moneda eliminada correctamente');
     }
+
+    // API Methods
+    public function apiIndex()
+    {
+        try {
+            $monedas = DB::table('monedas')
+                ->orderBy('nombre')
+                ->get();
+
+            return response()->json($monedas);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al cargar monedas: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function apiStore(Request $request)
+    {
+        $data = $request->validate([
+            'codigo' => ['required', 'string', 'max:10', 'unique:monedas,codigo'],
+            'nombre' => ['required', 'string', 'max:100'],
+            'simbolo' => ['required', 'string', 'max:10'],
+        ]);
+
+        try {
+            $id = DB::table('monedas')->insertGetId([
+                'codigo' => strtoupper($data['codigo']),
+                'nombre' => $data['nombre'],
+                'simbolo' => $data['simbolo'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Moneda creada correctamente',
+                'data' => [
+                    'id' => $id,
+                    'codigo' => strtoupper($data['codigo']),
+                    'nombre' => $data['nombre'],
+                    'simbolo' => $data['simbolo']
+                ]
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al crear moneda: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function apiUpdate(Request $request, $id)
+    {
+        $data = $request->validate([
+            'codigo' => ['required', 'string', 'max:10'],
+            'nombre' => ['required', 'string', 'max:100'],
+            'simbolo' => ['required', 'string', 'max:10'],
+        ]);
+
+        try {
+            $moneda = DB::table('monedas')->where('id', $id)->first();
+            
+            if (!$moneda) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Moneda no encontrada'
+                ], 404);
+            }
+
+            // Verificar duplicados
+            $exists = DB::table('monedas')
+                ->where('codigo', strtoupper($data['codigo']))
+                ->where('id', '!=', $id)
+                ->exists();
+
+            if ($exists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El código ya existe'
+                ], 422);
+            }
+
+            DB::table('monedas')->where('id', $id)->update([
+                'codigo' => strtoupper($data['codigo']),
+                'nombre' => $data['nombre'],
+                'simbolo' => $data['simbolo'],
+                'updated_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Moneda actualizada correctamente'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar moneda: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function apiDestroy($id)
+    {
+        try {
+            $moneda = DB::table('monedas')->where('id', $id)->first();
+            
+            if (!$moneda) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Moneda no encontrada'
+                ], 404);
+            }
+
+            DB::table('monedas')->where('id', $id)->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Moneda eliminada correctamente'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al eliminar moneda: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

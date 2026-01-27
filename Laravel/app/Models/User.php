@@ -57,4 +57,9 @@ class User extends Authenticatable
     {
         return $this->notifications()->where('read', false);
     }
+
+    public function empleado()
+    {
+        return $this->hasOne(Employee::class, 'user_id');
+    }
 }

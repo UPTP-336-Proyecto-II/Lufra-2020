@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Employee;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Facades\DB;
@@ -34,18 +35,41 @@ class RegisterController extends Controller
             'password.confirmed' => 'La confirmación de contraseña no coincide.',
         ]);
 
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => $data['password'],
-        ]);
+        DB::beginTransaction();
+        
+        try {
+            $user = User::create([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'password' => $data['password'],
+            ]);
 
-        // Asignar rol 'empleado' por defecto usando Spatie
-        $user->assignRole('empleado');
+            // Asignar rol 'empleado' por defecto usando Spatie
+            $user->assignRole('empleado');
 
-        Auth::login($user);
-        $request->session()->regenerate();
+            // Crear empleado automáticamente con los datos básicos del usuario
+            $nameParts = explode(' ', $data['name'], 2);
+            $nombre = $nameParts[0] ?? $data['name'];
+            $apellido = $nameParts[1] ?? '';
 
-        return redirect()->route('home')->with('status', 'Registro exitoso: rol empleado asignado.');
+            Employee::create([
+                'user_id' => $user->id,
+                'nombre' => $nombre,
+                'apellido' => $apellido,
+                'correo' => $data['email'],
+                'fecha_ingreso' => now()->toDateString(),
+                'estado' => 'activo',
+            ]);
+
+            DB::commit();
+
+            Auth::login($user);
+            $request->session()->regenerate();
+
+            return redirect()->route('home')->with('status', 'Registro exitoso: rol empleado asignado y perfil creado.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Error al crear el empleado: ' . $e->getMessage()])->withInput();
+        }
     }
 }
