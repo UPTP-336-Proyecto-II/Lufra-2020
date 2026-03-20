@@ -1,0 +1,472 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    /* Monochrome grayscale theme */
+    --panel-color: #f1f3f5; /* Light Gray / Off-white */
+    --btn-primary: #1a1a1a; /* Professional Deep Black */
+    --btn-hover: #000000;
+    
+    --bg-color: #ffffff;
+    --card-bg: rgba(255, 255, 255, 0.85);
+    --text-white: #ffffff;
+    --text-brand: #1a1a1a;  /* Deep Gray/Black */
+    --text-muted: #64748b;  /* Slate Gray */
+    --input-bg: #f8fafc;
+}
+
+body.dark-mode {
+    --bg-color: #0d1117;
+    --card-bg: rgba(13, 17, 23, 0.85);
+    --text-brand: #f8fafc;
+    --text-muted: #94a3b8;
+    --panel-color: #161b22;
+    --btn-primary: #f8fafc;
+    --btn-hover: #ffffff;
+    --input-bg: #1e293b;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 30px;
+    transition: background-color 0.3s ease;
+    position: relative;
+    min-height: 100vh;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url('../img/login-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    z-index: -1;
+    transition: filter 0.5s ease;
+    opacity: 0.6;
+    filter: grayscale(1) brightness(1.1);
+}
+
+body.dark-mode::before {
+    filter: grayscale(1) brightness(0.15) contrast(1.2);
+    opacity: 0.85;
+}
+
+/* Theme Toggle Button */
+.theme-btn {
+    position: fixed;
+    top: 24px;
+    right: 30px;
+    background: var(--card-bg);
+    border: 1px solid rgba(128,128,128,0.2);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 100;
+    color: var(--text-brand);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease, background-color 0.3s ease, color 0.3s ease;
+}
+
+.theme-btn:hover {
+    transform: scale(1.05);
+}
+
+.theme-btn svg {
+    width: 22px;
+    height: 22px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+}
+
+/* Main Container Frame */
+.login-wrapper {
+    width: 100%;
+    max-width: 950px;
+    height: 600px;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    position: relative;
+    filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.15));
+}
+
+.login-card-container {
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border-radius: 16px;
+    position: relative;
+    display: flex;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+body.dark-mode .login-card-container {
+    background: rgba(22, 27, 34, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* The Angled Green Background */
+.bg-slant {
+    position: absolute;
+    top: 0;
+    right: -20%;
+    bottom: 0;
+    width: 65%;
+    background-color: var(--panel-color);
+    opacity: 0.92;
+    transform: skewX(-20deg);
+    transform-origin: top left;
+    z-index: 1;
+    transition: background-color 0.3s ease, opacity 0.3s ease;
+}
+
+/* Left Hero Content */
+.hero {
+    flex: 1;
+    display: flex;
+    align-items: flex-start; /* Aligns content upwards */
+    justify-content: center;
+    z-index: 2;
+    padding-top: 110px; /* Specific distance from the top to float over the slant */
+    padding-right: 10%;
+    padding-left: 20px;
+}
+
+.brand-content {
+    text-align: left; /* Aligned left for modern typography feel */
+    color: var(--text-brand);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    padding: 0 40px;
+    transition: color 0.3s ease;
+}
+
+.brand-title {
+    margin: 0;
+    font-size: 58px; /* Massive typographic layout */
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    line-height: 1.05;
+}
+
+.brand-subtitle {
+    margin: 16px 0 0 0;
+    font-size: 16px;
+    font-weight: 500;
+    opacity: 0.7;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* Right Form Content (Over Blue Slant) */
+.form-column {
+    flex: 0 0 500px; /* Increased from 450px to shift left */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    /* Sit clearly above the blue slant */
+    padding: 40px 40px 40px 0; /* Reduced left padding to favor left alignment */
+}
+
+.form {
+    width: 100%;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    color: var(--text-brand);
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.field label {
+    font-size: 11px;
+    color: var(--text-brand);
+    font-weight: 500;
+    margin-left: 2px;
+    opacity: 0.8;
+}
+
+.input-row {
+    position: relative;
+    width: 100%;
+}
+
+.input-row input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 4px;
+    border: none;
+    background: var(--input-bg);
+    color: #333333;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: box-shadow 0.2s ease, background 0.3s ease;
+}
+
+.input-row input::placeholder {
+    color: #94a3b8;
+}
+
+.input-row input:focus {
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+body.dark-mode .input-row input:focus {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+.input-row .toggle-pass {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #a0aec0;
+    padding: 4px;
+}
+
+.input-row .toggle-pass svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+.input-row .toggle-pass:hover {
+    color: #4a5568;
+}
+
+/* Checkbox & Forgot Password Row */
+.form-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: -5px;
+    margin-bottom: 25px;
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-white);
+    color: var(--text-brand);
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    opacity: 0.8;
+}
+
+.checkbox-container input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkmark {
+    width: 12px;
+    height: 12px;
+    background-color: var(--input-bg);
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 2px;
+}
+
+body.dark-mode .checkmark {
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.checkbox-container input:checked~.checkmark {
+    background-color: var(--text-brand);
+    position: relative;
+}
+
+.checkbox-container input:checked~.checkmark:after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 3px;
+    height: 7px;
+    border: solid var(--card-bg);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.forgot-link {
+    font-size: 11px;
+    color: var(--text-brand);
+    text-decoration: none;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.forgot-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+/* Submit Button */
+.btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 4px;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    gap: 8px;
+}
+
+.btn.primary {
+    background-color: var(--btn-primary);
+    color: var(--card-bg);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.btn.primary:hover {
+    background-color: var(--btn-hover);
+    transform: translateY(-1px);
+}
+
+.btn.primary:active {
+    transform: translateY(1px);
+}
+
+.btn .spinner {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    display: inline-block;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s ease;
+}
+
+.btn.loading .spinner {
+    opacity: 1;
+    transform: scale(1);
+    animation: spin 0.8s linear infinite;
+}
+
+.btn.loading .btn-text {
+    opacity: 0.8;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Status Messages */
+#message {
+    min-height: 20px;
+    text-align: center;
+    font-weight: 500;
+    color: #fca5a5;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    margin-top: -10px;
+}
+
+#message.show {
+    opacity: 1;
+}
+
+.success {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    justify-content: center;
+}
+
+.success .check {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #10b981;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Responsiveness */
+@media (max-width: 768px) {
+    .login-wrapper {
+        height: auto;
+        min-height: 500px;
+    }
+
+    .bg-slant {
+        transform: skewY(-15deg);
+        /* Slant vertically for mobile */
+        transform-origin: top left;
+        width: 150%;
+        left: -10%;
+        top: 30%;
+        bottom: -20%;
+        right: auto;
+    }
+
+    .login-card-container {
+        flex-direction: column;
+    }
+
+    .hero {
+        padding: 40px 20px;
+        flex: 0 0 auto;
+    }
+
+    .form-column {
+        flex: 1;
+        width: 100%;
+        padding: 40px 20px;
+    }
+}
