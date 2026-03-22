@@ -64,26 +64,30 @@ async function renderProfile() {
                             </div>
                         </div>
 
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
-                            <div class="info-item">
-                                <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">Cédula de Identidad</label>
-                                <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600;">${data.Documento_Identidad}</div>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+                            <div class="info-item" style="grid-column: 1; grid-row: 1; display: flex; flex-direction: column; gap: 15px;">
+                                <div>
+                                    <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">Cédula de Identidad</label>
+                                    <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600;">${data.Documento_Identidad}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">Fecha de Ingreso</label>
+                                    <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600;">${data.Fecha_de_Ingreso}</div>
+                                </div>
                             </div>
-                            <div class="info-item">
-                                <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">Correo Electrónico</label>
-                                <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600;">${data.Correo || 'N/A'}</div>
+                            <div class="info-item" style="grid-column: 2; grid-row: 1; display: flex; flex-direction: column; gap: 15px;">
+                                <div>
+                                    <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">Correo Electrónico</label>
+                                    <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600; word-break: break-word;">${data.Correo || 'N/A'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--primary); font-weight: 700; margin-bottom: 4px;">Dirección de Habitación</label>
+                                    <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600; word-break: break-word;">${data.Direccion || 'N/A'}</div>
+                                </div>
                             </div>
-                            <div class="info-item">
+                            <div class="info-item" style="grid-column: 3; grid-row: 1; grid-column-end: span 2;">
                                 <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">Teléfono</label>
                                 <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600;">${data.Telefono_Movil || 'N/A'}</div>
-                            </div>
-                            <div class="info-item">
-                                <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">Fecha de Ingreso</label>
-                                <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600;">${data.Fecha_de_Ingreso}</div>
-                            </div>
-                            <div class="info-item" style="grid-column: 1 / -1;">
-                                <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--primary); font-weight: 700; margin-bottom: 4px;">Dirección de Habitación</label>
-                                <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600;">${data.Direccion || 'N/A'}</div>
                             </div>
                         </div>
                     </div>
@@ -136,6 +140,35 @@ async function renderVacations() {
                 <div class="alert warn fade-in">
                     <h5 style="margin-top:0;">Solicitud en Trámite</h5>
                     <p>Ya tienes una solicitud pendiente para el <strong>${data.lastRequest.Fecha_Inicio_Vacaciones}</strong>. Por favor espera la respuesta del administrador.</p>
+                </div>
+            `;
+        } else if (data.lastRequest && data.lastRequest.Estado === 'Aceptada') {
+            statusHtml = `
+                <div class="alert success fade-in">
+                    <h5 style="margin-top:0;">¡Vacaciones Aprobadas!</h5>
+                    <p>!Tus vacaciones han sido aprobadas!</p>
+                </div>
+            `;
+        } else if (data.lastRequest && data.lastRequest.Estado === 'Rechazada') {
+            const motivo = data.lastRequest.motivo_rechazo ? `<p><strong>Motivo del rechazo:</strong> ${data.lastRequest.motivo_rechazo}</p>` : '';
+            statusHtml = `
+                <div class="alert error fade-in">
+                    <h5 style="margin-top:0;">Solicitud Rechazada</h5>
+                    <p>Tu solicitud de vacaciones ha sido rechazada.</p>
+                    ${motivo}
+                    <p>Puedes enviar una nueva solicitud.</p>
+                </div>
+            `;
+            formHtml = `
+                <div style="background: var(--card-bg); padding: 25px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                    <h5 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-main);">Nueva Solicitud</h5>
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-main);">¿Cuándo deseas comenzar tus vacaciones?</label>
+                        <input type="date" id="vac-start-date" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-color); color: var(--text-main);">
+                    </div>
+                    <button id="btn-submit-vac" class="primary" style="width: 100%; padding: 15px; font-weight: bold;">
+                        Enviar Solicitud al Administrador
+                    </button>
                 </div>
             `;
         } else {
@@ -201,7 +234,7 @@ async function submitVacationRequest() {
             showSuccess('¡Solicitud enviada exitosamente!');
             renderVacations();
         } else {
-            showError(result.error || 'Error al procesar la solicitud');
+            showError(result.error || 'Debes escoger una fecha futura para tus vacaciones');
         }
     } catch (error) {
         showError('Error de conexión con el servidor.');

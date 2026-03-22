@@ -181,6 +181,7 @@ class AdminController extends Controller
             ->join('trabajador as w', 'sv.Id_Trabajador', '=', 'w.Id_Trabajador')
             ->select('sv.*', 'w.Nombre_Completo', 'w.Apellidos', 'w.Documento_Identidad', 'w.Fecha_de_Ingreso')
             ->orderBy('sv.Fecha_Solicitud', 'desc')
+            ->orderBy('sv.Id_Solicitud', 'desc')
             ->get();
 
         return response()->json(['requests' => $requests]);
@@ -193,11 +194,28 @@ class AdminController extends Controller
             return response()->json(['error' => 'Estado inválido'], 400);
         }
 
+        $vacation = DB::table('solicitudes_vacaciones')->where('Id_Solicitud', $id)->first();
+        if (!$vacation) {
+            return response()->json(['error' => 'Solicitud no encontrada'], 404);
+        }
+
+        if ($status == 'Pendiente') {
+            if (!in_array($vacation->Estado, ['Aceptada', 'Rechazada'])) {
+                return response()->json(['error' => 'No se puede revertir una solicitud pendiente'], 400);
+            }
+            if ($vacation->Fecha_Inicio_Vacaciones <= now()->toDateString()) {
+                return response()->json(['error' => 'No se puede revertir una solicitud con fecha de inicio pasada'], 400);
+            }
+        }
+
+        $reason = $request->input('reason', '');
+
         DB::table('solicitudes_vacaciones')
             ->where('Id_Solicitud', $id)
             ->update([
                 'Estado' => $status,
-                'Fecha_Respuesta' => now()->toDateString()
+                'Fecha_Respuesta' => $status != 'Pendiente' ? now()->toDateString() : null,
+                'motivo_rechazo' => $status === 'Rechazada' ? $reason : null
             ]);
 
         return response()->json(['success' => true]);
@@ -299,10 +317,6 @@ class AdminController extends Controller
         $fechaPago = \Carbon\Carbon::parse($data['fechaPago']);
         if ($fechaPago->isFuture()) {
             return response()->json(['error' => 'La fecha de pago no puede ser futura.'], 422);
-        }
-
-        if ($data['neto'] < 130) {
-            return response()->json(['error' => 'El monto neto no puede ser menor a 130 Bs.'], 422);
         }
 
         $id = DB::table('payslips')->insertGetId([

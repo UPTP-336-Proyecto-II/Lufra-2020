@@ -41,17 +41,11 @@
             width: 55%;
         }
         .logo-box {
-            width: 70px;
-            height: 70px;
-            background-color: #1e3c96;
-            color: white;
-            text-align: center;
-            line-height: 70px;
-            font-size: 40px;
-            font-weight: bold;
-            border-radius: 4px;
+            width: 160px;
             float: left;
-            margin-right: 15px;
+            margin-right: 20px;
+            margin-top: -2px;
+            margin-left: -5px;
         }
         .company-text {
             float: left;
@@ -228,9 +222,11 @@
 <div class="container">
     <table class="header-table">
         <tr>
-            <td class="company-info">
-                <div class="box clearfix">
-                    <div class="logo-box">L</div>
+            <td class="company-info" style="vertical-align: top;">
+                <div class="box clearfix" style="display: inline-block; padding-right: 25px;">
+                    <div class="logo-box">
+                        <img src="{{ asset('img/logo-exacto.png') }}" alt="Logo Lufra" style="width: 100%; height: auto; border-radius: 4px; display: block;">
+                    </div>
                     <div class="company-text">
                         <h2>LUFRA 2020</h2>
                         <p><strong>R.I.F.:</strong> J-50032437-5</p>

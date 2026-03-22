@@ -13,12 +13,17 @@
         <h3>Sistema de Nóminas</h3>
         <div id="user-info" style="text-align:center; padding:10px;">
             <p id="username-display" style="margin:0; font-weight:600;">{{ auth()->user()->name }}</p>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" id="logout-btn" style="margin-top:8px; padding:6px 10px; border-radius:4px; border:none; background:#e74c3c; color:white; cursor:pointer;">Cerrar sesión</button>
-            </form>
+            <div id="user-actions-container" style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
+                <form action="{{ route('logout') }}" method="POST" style="margin: 0; flex: 1;">
+                    @csrf
+                    <button type="submit" id="logout-btn" style="width: 100%; padding: 8px; border-radius: 4px; border: none; background: #e74c3c; color: white; cursor: pointer; font-size: 0.8em; font-weight: 500;">Salir</button>
+                </form>
+            </div>
         </div>
         <div id="module-navigation"></div>
+        <div style="padding: 20px; text-align: center; padding-bottom: 25px;">
+            <img src="{{ asset('img/logo-exacto.png') }}" alt="Logo Lufra" style="width: 230px; max-width: 100%; height: auto; border-radius: 8px;" />
+        </div>
     </div>
 
     <div class="main-content">

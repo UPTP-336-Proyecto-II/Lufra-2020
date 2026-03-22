@@ -96,8 +96,7 @@
 
         /* Navigation Links */
         #module-navigation {
-            padding: 20px 15px;
-            flex: 1;
+            padding: 20px 15px 0 15px;
         }
 
         .nav-link {
@@ -217,15 +216,20 @@
         <h3>Sistema de Nóminas</h3>
         <div id="user-info">
             <p id="username-display">{{ auth()->user()->name }}</p>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" id="logout-btn">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                    Cerrar sesión
-                </button>
-            </form>
+            <div id="user-actions-container" style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+                <form action="{{ route('logout') }}" method="POST" style="margin: 0; flex: 1;">
+                    @csrf
+                    <button type="submit" id="logout-btn" style="padding: 8px 10px; font-size: 0.85rem;">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        Salir
+                    </button>
+                </form>
+            </div>
         </div>
         <div id="module-navigation"></div>
+        <div style="padding: 20px; text-align: center; padding-bottom: 25px;">
+            <img src="{{ asset('img/logo-exacto.png') }}" alt="Logo Lufra" style="width: 230px; max-width: 100%; height: auto; border-radius: 8px;" />
+        </div>
     </div>
 
     <div class="main-content">

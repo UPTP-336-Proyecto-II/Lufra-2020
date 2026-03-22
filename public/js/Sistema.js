@@ -87,9 +87,9 @@ function showModal(options) {
 
         function close(result) {
             overlay.classList.remove('modal-show');
+            resolve(result);
             setTimeout(() => {
                 overlay.remove();
-                resolve(result);
             }, 300);
         }
 
@@ -128,8 +128,8 @@ const roleModules = {
             "Registro de Trabajadores",
             "Pago de Nómina",
             "Tipo de Nomina",
-            "gestion de conceptos",
-            "gestion de Cargos",
+            "Gestion de conceptos",
+            "Gestion de Cargos",
             "Panel de Vacaciones"
         ]
     },
@@ -225,7 +225,7 @@ function initPayrollPage() {
     function renderModule(moduleName) {
         const role = currentRole;
         if (contentHeader) contentHeader.innerHTML = `<h4>${role} - ${moduleName}</h4>`;
-        
+
         if (role === 'Administrativo') return renderAdminModule(moduleName);
         if (role === 'Trabajador') {
             if (typeof window.renderWorkerModuleV2 === 'function') {
@@ -253,20 +253,26 @@ function initPayrollPage() {
         fab.id = 'settings-fab';
         fab.className = 'settings-fab fade-in';
         fab.title = 'Configuración del Sistema';
-        fab.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>';
-        document.body.appendChild(fab);
+        const svgDataURI = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'%3E%3C/circle%3E%3Cpath d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z'%3E%3C/path%3E%3C/svg%3E";
+        fab.innerHTML = '<img src="' + svgDataURI + '" alt="Ajustes" style="width: 20px; height: 20px; display: block;" />';
+
+        const actionsContainer = document.getElementById('user-actions-container');
+        if (actionsContainer) {
+            actionsContainer.appendChild(fab);
+        } else {
+            document.body.appendChild(fab);
+        }
 
         // 2. Build the Modal
         const modalHtml = `
             <div class="settings-panel">
                 <style>
                     .settings-fab {
-                        position: fixed; bottom: 30px; left: 30px; width: 55px; height: 55px;
-                        border-radius: 50%; background: var(--primary); color: white; border: none;
-                        box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 9999; cursor: pointer;
-                        display: flex; align-items: center; justify-content: center; transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+                        width: 38px; height: 38px; flex-shrink: 0;
+                        border-radius: 6px; background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.3);
+                        cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
                     }
-                    .settings-fab:hover { transform: scale(1.1) rotate(90deg); background: var(--primary-hover); }
+                    .settings-fab:hover { background: rgba(255,255,255,0.25); color: #fff; transform: rotate(90deg); border-color: rgba(255,255,255,0.6); }
                     
                     .settings-modal {
                         position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000;
@@ -296,6 +302,9 @@ function initPayrollPage() {
                         color: var(--text-main); border-radius: 8px; cursor: pointer; font-weight: 600;
                     }
                     .density-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+                    .theme-switch input:checked + .slider { background-color: #666; }
+                    .theme-switch input:checked + .slider .knob { left: 28px !important; }
                 </style>
                 <div id="settings-modal" class="settings-modal">
                     <div class="settings-card">
@@ -340,23 +349,41 @@ function initPayrollPage() {
         const modal = document.getElementById('settings-modal');
         const btnDark = document.getElementById('fab-dark-mode');
         const knob = modal.querySelector('.knob');
-        
+
         // Modal toggling
         fab.addEventListener('click', () => modal.classList.add('active'));
         document.getElementById('close-settings').addEventListener('click', () => modal.classList.remove('active'));
         modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
 
         // Dark Mode Logic
+        const sunIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2"/></svg>`;
+        const moonIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="black"/></svg>`;
         if (localStorage.getItem('theme') === 'dark' || document.body.classList.contains('dark-mode')) {
-            btnDark.checked = true; knob.classList.add('moon'); knob.classList.remove('sun');
+            btnDark.checked = true; knob.classList.add('moon'); knob.classList.remove('sun'); knob.innerHTML = moonIcon;
+        } else {
+            knob.classList.add('sun'); knob.classList.remove('moon'); knob.innerHTML = sunIcon;
         }
-        btnDark.addEventListener('change', function() {
+        btnDark.addEventListener('change', function () {
             if (this.checked) {
                 document.body.classList.add('dark-mode'); localStorage.setItem('theme', 'dark');
-                knob.classList.add('moon'); knob.classList.remove('sun');
+                knob.classList.add('moon'); knob.classList.remove('sun'); knob.innerHTML = moonIcon;
             } else {
                 document.body.classList.remove('dark-mode'); localStorage.setItem('theme', 'light');
-                knob.classList.add('sun'); knob.classList.remove('moon');
+                knob.classList.add('sun'); knob.classList.remove('moon'); knob.innerHTML = sunIcon;
+            }
+        });
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'theme') {
+                if (e.newValue === 'dark') {
+                    document.body.classList.add('dark-mode');
+                    if (btnDark) btnDark.checked = true;
+                    if (knob) { knob.classList.add('moon'); knob.classList.remove('sun'); knob.innerHTML = moonIcon; }
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    if (btnDark) btnDark.checked = false;
+                    if (knob) { knob.classList.add('sun'); knob.classList.remove('moon'); knob.innerHTML = sunIcon; }
+                }
             }
         });
 
@@ -370,7 +397,7 @@ function initPayrollPage() {
                 'steel': { p: '#4a5568', h: '#2d3748' },
                 'stone': { p: '#718096', h: '#4a5568' }
             };
-            if(colorMap[color]) {
+            if (colorMap[color]) {
                 root.style.setProperty('--primary', colorMap[color].p);
                 root.style.setProperty('--primary-hover', colorMap[color].h);
                 // Also override inline styles in blade
@@ -379,7 +406,7 @@ function initPayrollPage() {
             }
             colorBtns.forEach(b => b.classList.remove('active'));
             const activeBtn = Array.from(colorBtns).find(b => b.dataset.color === color);
-            if(activeBtn) activeBtn.classList.add('active');
+            if (activeBtn) activeBtn.classList.add('active');
             localStorage.setItem('primaryColor', color);
         };
         const savedColor = localStorage.getItem('primaryColor') || 'charcoal';
@@ -391,7 +418,7 @@ function initPayrollPage() {
         const applyDensity = (density) => {
             if (density === 'compact') document.body.classList.add('compact');
             else document.body.classList.remove('compact');
-            
+
             densityBtns.forEach(b => b.classList.remove('active'));
             const activeBtn = Array.from(densityBtns).find(b => b.dataset.density === density);
             if (activeBtn) activeBtn.classList.add('active');
@@ -841,7 +868,7 @@ function initPayrollPage() {
                 fechaMayorEdad.setHours(0, 0, 0, 0);
                 fechaMayorEdad.setFullYear(hoy.getFullYear() - 18);
                 if (fechaObj > fechaMayorEdad) {
-                    return { valido: false, mensaje: 'El trabajador debe ser mayor de edad (18 años)' };
+                    return { valido: false, mensaje: 'El trabajador debe ser mayor de edad' };
                 }
 
                 const fechaMaxEdad = new Date();
@@ -899,26 +926,40 @@ function initPayrollPage() {
             }
             // Validación en tiempo real para nombres (solo letras)
             const nombreInput = document.getElementById('w-nombre');
-            const apellidosInput = document.getElementById('w-apellidos');
+            if (nombreInput && !nombreInput.dataset.validacionConfigurada) {
+                nombreInput.dataset.validacionConfigurada = 'true';
+                nombreInput.addEventListener('keypress', function (e) {
+                    const char = String.fromCharCode(e.which);
+                    if (!/[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\-\']/.test(char) && !e.ctrlKey && !e.metaKey && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                        e.preventDefault();
+                        showFieldError(nombreInput, 'El nombre solo puede contener letras');
+                    }
+                });
+                nombreInput.addEventListener('input', function () {
+                    const v = nombreInput.value.trim();
+                    if (!v) { showFieldError(nombreInput, 'Campo obligatorio'); return; }
+                    if (!validarSoloLetrasTrabajador(v)) { showFieldError(nombreInput, 'El nombre solo puede contener letras'); return; }
+                    clearFieldError(nombreInput);
+                });
+            }
 
-            [nombreInput, apellidosInput].forEach(input => {
-                if (input && !input.dataset.validacionConfigurada) {
-                    input.dataset.validacionConfigurada = 'true';
-                    input.addEventListener('keypress', function (e) {
-                        const char = String.fromCharCode(e.which);
-                        if (!/[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\-\']/.test(char) && !e.ctrlKey && !e.metaKey && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
-                            e.preventDefault();
-                        }
-                    });
-                    // realtime validation
-                    input.addEventListener('input', function () {
-                        const v = input.value.trim();
-                        if (!v) { showFieldError(input, 'Campo obligatorio'); return; }
-                        if (!validarSoloLetrasTrabajador(v)) { showFieldError(input, 'Solo letras, espacios y acentos'); return; }
-                        clearFieldError(input);
-                    });
-                }
-            });
+            const apellidosInput = document.getElementById('w-apellidos');
+            if (apellidosInput && !apellidosInput.dataset.validacionConfigurada) {
+                apellidosInput.dataset.validacionConfigurada = 'true';
+                apellidosInput.addEventListener('keypress', function (e) {
+                    const char = String.fromCharCode(e.which);
+                    if (!/[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\-\']/.test(char) && !e.ctrlKey && !e.metaKey && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                        e.preventDefault();
+                        showFieldError(apellidosInput, 'El apellido solo puede contener letras');
+                    }
+                });
+                apellidosInput.addEventListener('input', function () {
+                    const v = apellidosInput.value.trim();
+                    if (!v) { showFieldError(apellidosInput, 'Campo obligatorio'); return; }
+                    if (!validarSoloLetrasTrabajador(v)) { showFieldError(apellidosInput, 'El apellido solo puede contener letras'); return; }
+                    clearFieldError(apellidosInput);
+                });
+            }
 
             // Validación para cédula (solo números)
             const cedulaInput = document.getElementById('w-cedula');
@@ -928,12 +969,13 @@ function initPayrollPage() {
                     const char = String.fromCharCode(e.which);
                     if (!/[0-9]/.test(char) && !e.ctrlKey && !e.metaKey && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
                         e.preventDefault();
+                        showFieldError(cedulaInput, 'El documento solo puede contener números');
                     }
                 });
                 cedulaInput.addEventListener('input', function () {
                     const v = cedulaInput.value.trim();
                     if (!v) { showFieldError(cedulaInput, 'La cédula es obligatoria'); return; }
-                    if (!validarCedula(v)) { showFieldError(cedulaInput, 'Entre 6 y 10 dígitos'); return; }
+                    if (!validarCedula(v)) { showFieldError(cedulaInput, 'El documento solo puede contener números'); return; }
                     clearFieldError(cedulaInput);
                 });
             }
@@ -963,10 +1005,27 @@ function initPayrollPage() {
                 }
             }
 
+            // Elementos extra de validación
+            const dateToday = new Date().toISOString().split('T')[0];
+            const correoInput = document.getElementById('w-correo');
+            if (correoInput && !correoInput.dataset.validacionConfigurada) {
+                correoInput.dataset.validacionConfigurada = 'true';
+                correoInput.addEventListener('input', function () {
+                    const v = correoInput.value.trim();
+                    if (v && !v.includes('@')) { showFieldError(correoInput, 'Tu dirección de correo electrónico debe contener @'); return; }
+                    clearFieldError(correoInput);
+                });
+                correoInput.addEventListener('blur', function () {
+                    const v = correoInput.value.trim();
+                    if (v && !v.includes('@')) { showFieldError(correoInput, 'Tu dirección de correo electrónico debe contener @'); }
+                });
+            }
+
             // Date inputs realtime validation
             const fechaNacInput = document.getElementById('w-fecha-nac');
             if (fechaNacInput && !fechaNacInput.dataset.validacionConfigurada) {
                 fechaNacInput.dataset.validacionConfigurada = 'true';
+                fechaNacInput.max = dateToday;
                 fechaNacInput.addEventListener('change', () => {
                     const v = fechaNacInput.value;
                     const res = validarFecha(v, 'nacimiento');
@@ -977,6 +1036,7 @@ function initPayrollPage() {
             const fechaIngresoInput = document.getElementById('w-fecha-ingreso');
             if (fechaIngresoInput && !fechaIngresoInput.dataset.validacionConfigurada) {
                 fechaIngresoInput.dataset.validacionConfigurada = 'true';
+                fechaIngresoInput.max = dateToday;
                 fechaIngresoInput.addEventListener('change', () => {
                     const v = fechaIngresoInput.value;
                     const res = validarFecha(v, 'ingreso');
@@ -1231,6 +1291,8 @@ function initPayrollPage() {
         async function loadAndRender() {
             await loadOptions();
             contentDetails.innerHTML = buildFormHTML();
+
+            setupWorkerFormValidations();
 
             // hookup buttons
             const addBtn = document.getElementById('add-worker-btn');

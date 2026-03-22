@@ -137,6 +137,8 @@
                     
                     message.textContent = 'Inicio de sesión exitoso. Redirigiendo...';
                     message.className = 'show success';
+                    message.style.backgroundColor='#28a745';
+                    message.style.color='#fff';
                     
                     setTimeout(() => {
                         window.location.href = redirectUrl;

@@ -43,32 +43,32 @@ if (toggleSwitch) {
 
 //  Store color theme for future visits
 
-function setCookie(name, value, days = 365) {
-	const expires = new Date(Date.now() + days*24*60*60*1000).toUTCString();
-	document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
-}
-function getCookie(name) {
-	const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-	return v ? decodeURIComponent(v.pop()) : null;
-}
 function switchTheme(e) {
 	if (e.target.checked) {
 		document.documentElement.setAttribute("data-theme", "dark");
-		setCookie('theme','dark');
+		localStorage.setItem('theme','dark');
 	} else {
 		document.documentElement.setAttribute("data-theme", "light");
-		setCookie('theme','light');
+		localStorage.setItem('theme','light');
 	}
 }
 
-// Load theme preference from cookie
-const currentTheme = getCookie('theme');
+// Load theme preference from local storage
+const currentTheme = localStorage.getItem('theme');
 if (currentTheme) {
 	document.documentElement.setAttribute("data-theme", currentTheme);
 	if (currentTheme === "dark" && toggleSwitch) {
 		toggleSwitch.checked = true;
 	}
 }
+
+window.addEventListener('storage', (e) => {
+    if (e.key === 'theme') {
+        const t = e.newValue || 'light';
+        document.documentElement.setAttribute("data-theme", t);
+        if (toggleSwitch) toggleSwitch.checked = (t === 'dark');
+    }
+});
 
 //Adding date
 

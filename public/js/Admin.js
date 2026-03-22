@@ -2,7 +2,7 @@
  * Admin.js - Módulo Administrativo Refactorizado para Laravel
  */
 
-(function() {
+(function () {
     // Cache de elementos del DOM comunes
     let contentHeader, contentDetails;
 
@@ -11,12 +11,55 @@
         contentDetails = document.getElementById('content-details');
     }
 
+    // --- Global UI Helpers ---
+    function showInlineError(el, msg) {
+        if (!el) return;
+        el.style.borderColor = '#e74c3c';
+
+        let tParent = el.parentElement;
+        if (tParent.style.display === 'flex') tParent = tParent.parentElement;
+
+        let helper = tParent.querySelector('.inline-helper');
+        if (helper) {
+            helper.textContent = msg;
+            helper.style.display = 'block';
+        } else {
+            const span = document.createElement('div');
+            span.className = 'inline-helper';
+            span.style.color = '#e74c3c';
+            span.style.fontSize = '0.8em';
+            span.style.marginTop = '4px';
+            span.style.fontWeight = '500';
+            span.textContent = msg;
+            tParent.appendChild(span);
+        }
+
+        const smallTag = tParent.querySelector('small');
+        if (smallTag) smallTag.style.display = 'none';
+    }
+
+    function clearInlineError(el) {
+        if (!el) return;
+        el.style.borderColor = 'var(--border-color)';
+
+        let tParent = el.parentElement;
+        if (tParent.style.display === 'flex') tParent = tParent.parentElement;
+
+        let helper = tParent.querySelector('.inline-helper');
+        if (helper) {
+            helper.style.display = 'none';
+        }
+
+        const smallTag = tParent.querySelector('small');
+        if (smallTag) smallTag.style.display = 'block';
+    }
+
     /**
      * Punto de entrada principal para renderizar módulos administrativos
      */
     async function renderAdminModuleV2(moduleName) {
         if (!contentDetails) init();
-        
+
         const name = moduleName.toLowerCase();
 
         // 1. Registro de Trabajadores
@@ -52,6 +95,36 @@
         contentDetails.innerHTML = `<div class="alert-info">Módulo "${moduleName}" en proceso de migración v2.</div>`;
     }
 
+    const keywordsDiarios = ['dias laborables', 'días laborables', 'dias no laborados', 'días no laborados', 'faltas', 'inasistencias', 'vacaciones', 'bono vacacional', 'permiso no remunerado', 'utilidades', 'bono de produccion', 'bono de asistencia', 'sueldo', 'salario', 'dias de descanso', 'días de descanso', 'dia de descanso', 'día de descanso'];
+
+    function getConceptAmount(c, salario, totalAsig = 0) {
+        const nombre = (c.Nombre_Concepto || '').toLowerCase();
+        const codigo = (c.Codigo || '').toUpperCase();
+
+        const isDaily = keywordsDiarios.some(kw => nombre.includes(kw.toLowerCase()));
+        if (isDaily && salario > 0) return salario / 30;
+
+        // Retenciones Legales dinámicas basas en Ingresos Totales (totalAsig)
+        // El usuario requiere que si no hay conceptos de ingreso agregados (totalAsig = 0),
+        // las retenciones sean 0, sin usar el salario base como fallback.
+        const baseMensualCalculo = totalAsig * 2; 
+
+        if (codigo === 'IVSS' || nombre.includes('seguro social')) {
+            const sueldoSemanal = (Math.min(baseMensualCalculo, 650) * 12) / 52;
+            return sueldoSemanal * 0.04;
+        }
+        if (codigo === 'SPF' || nombre.includes('prest. de empleo')) {
+            const sueldoSemanal = (Math.min(baseMensualCalculo, 650) * 12) / 52;
+            return sueldoSemanal * 0.005;
+        }
+        if (codigo === 'FAOV' || nombre.includes('ahorro habitacional')) {
+            // FAOV es 1% de los ingresos totales del periodo
+            return totalAsig * 0.01;
+        }
+
+        return parseFloat(c.Monto) || 0;
+    }
+
     // --- Helpers de API ---
     async function apiFetch(endpoint, options = {}) {
         const url = `/administrativo${endpoint}`;
@@ -60,7 +133,7 @@
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json'
         };
-        
+
         // Agregar token CSRF si está disponible
         const token = document.querySelector('meta[name="csrf-token"]');
         if (token) {
@@ -72,7 +145,7 @@
                 ...options,
                 headers: { ...defaultHeaders, ...options.headers }
             });
-            
+
             if (res.status === 401 || res.status === 419) {
                 window.location.href = '/login';
                 return;
@@ -249,17 +322,121 @@
         const cancelBtn = document.getElementById('cancel-worker-btn');
         const form = document.getElementById('worker-form');
 
-        // Input restrictions
+        // Input restrictions and error displays
         form.querySelectorAll('.only-numbers').forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                const char = String.fromCharCode(e.which);
+                if (!/[0-9]/.test(char) && !e.ctrlKey && !e.metaKey && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                    e.preventDefault();
+                    let msg = '';
+                    if (input.id === 'w-cedula-num') msg = 'El documento solo puede contener números.';
+                    if (input.id === 'w-telef-num') msg = 'Este campo solo puede contener números.';
+                    if (msg) {
+                        showInlineError(input, msg);
+                        setTimeout(() => clearInlineError(input), 2000);
+                    }
+                }
+            });
             input.addEventListener('input', (e) => {
-                e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                const v = e.target.value;
+                if (/[^0-9]/.test(v)) {
+                    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                    let msg = '';
+                    if (input.id === 'w-cedula-num') msg = 'El documento solo puede contener números.';
+                    if (input.id === 'w-telef-num') msg = 'Este campo solo puede contener números.';
+                    if (msg) {
+                        showInlineError(input, msg);
+                        setTimeout(() => clearInlineError(input), 2000);
+                    }
+                } else {
+                    if (input.id === 'w-cedula-num' || input.id === 'w-telef-num') clearInlineError(input);
+                }
             });
         });
         form.querySelectorAll('.only-letters').forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                const char = String.fromCharCode(e.which);
+                if (!/[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/.test(char) && !e.ctrlKey && !e.metaKey && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                    e.preventDefault();
+                    const msg = input.id === 'w-nombres' ? 'El nombre solo puede contener letras.' : (input.id === 'w-apellidos' ? 'El apellido solo puede contener letras.' : '');
+                    if (msg) {
+                        showInlineError(input, msg);
+                        setTimeout(() => clearInlineError(input), 2000);
+                    }
+                }
+            });
             input.addEventListener('input', (e) => {
-                e.target.value = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+                const v = e.target.value;
+                if (/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/.test(v)) {
+                    e.target.value = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+                    const msg = input.id === 'w-nombres' ? 'El nombre solo puede contener letras.' : (input.id === 'w-apellidos' ? 'El apellido solo puede contener letras.' : '');
+                    if (msg) {
+                        showInlineError(input, msg);
+                        setTimeout(() => clearInlineError(input), 2000);
+                    }
+                } else {
+                    if (input.id === 'w-nombres' || input.id === 'w-apellidos') clearInlineError(input);
+                }
             });
         });
+
+        const iCorreo = document.getElementById('w-correo');
+        if (iCorreo) {
+            const checkCorreo = () => {
+                const v = iCorreo.value.trim();
+                if (v && !v.includes('@')) {
+                    showInlineError(iCorreo, 'Tu dirección de correo electrónico debe contener @.');
+                } else {
+                    clearInlineError(iCorreo);
+                }
+            };
+            iCorreo.addEventListener('input', checkCorreo);
+            iCorreo.addEventListener('blur', checkCorreo);
+        }
+
+        const iNac = document.getElementById('w-fecha-nac');
+        const iIngreso = document.getElementById('w-fecha-ingreso');
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        if (iNac) {
+            iNac.max = todayStr;
+            iNac.addEventListener('change', () => {
+                const v = iNac.value;
+                if (!v) { clearInlineError(iNac); return; }
+                const vParts = v.split('-');
+                const date = new Date(vParts[0], vParts[1] - 1, vParts[2]);
+                const today = new Date();
+                today.setHours(23, 59, 59, 999);
+                if (date > today) {
+                    showInlineError(iNac, 'La fecha de nacimiento no puede ser futura.');
+                } else {
+                    let age = today.getFullYear() - date.getFullYear();
+                    const m = today.getMonth() - date.getMonth();
+                    if (m < 0 || (m === 0 && today.getDate() < date.getDate())) age--;
+                    if (age < 18) {
+                        showInlineError(iNac, 'El trabajador debe ser mayor de edad.');
+                    } else {
+                        clearInlineError(iNac);
+                    }
+                }
+            });
+        }
+        if (iIngreso) {
+            iIngreso.max = todayStr;
+            iIngreso.addEventListener('change', () => {
+                const v = iIngreso.value;
+                if (!v) { clearInlineError(iIngreso); return; }
+                const vParts = v.split('-');
+                const date = new Date(vParts[0], vParts[1] - 1, vParts[2]);
+                const today = new Date();
+                today.setHours(23, 59, 59, 999);
+                if (date > today) {
+                    showInlineError(iIngreso, 'La fecha de ingreso no puede ser futura.');
+                } else {
+                    clearInlineError(iIngreso);
+                }
+            });
+        }
 
         addBtn.addEventListener('click', () => {
             const isVisible = formContainer.style.display === 'block';
@@ -277,7 +454,7 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = document.getElementById('w-id-trabajador').value;
-            
+
             // --- VALIDACIONES ---
             const ciNum = document.getElementById('w-cedula-num').value;
             if (ciNum.length < 7 || ciNum.length > 8) {
@@ -296,7 +473,7 @@
                 const allowedDomains = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'icloud.com', 'live.com'];
                 const emailRegex = /^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$/;
                 const match = emailValue.match(emailRegex);
-                
+
                 if (!match || !allowedDomains.includes(match[1].toLowerCase())) {
                     return showError('Solo se permiten correos de dominios comunes (Gmail, Hotmail, Outlook, Yahoo, iCloud).');
                 }
@@ -305,12 +482,13 @@
             // Validación de Edad (18+)
             const birthValue = document.getElementById('w-fecha-nac').value;
             if (birthValue) {
-                const birthDate = new Date(birthValue);
+                const bParts = birthValue.split('-');
+                const birthDate = new Date(bParts[0], bParts[1] - 1, bParts[2]);
                 const today = new Date();
                 let age = today.getFullYear() - birthDate.getFullYear();
                 const m = today.getMonth() - birthDate.getMonth();
                 if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
-                
+
                 if (age < 18) {
                     return showError('El trabajador debe ser mayor de 18 años.');
                 }
@@ -318,7 +496,8 @@
 
             // Validación de Fecha de Ingreso (No futura)
             const hireValue = document.getElementById('w-fecha-ingreso').value;
-            const hireDate = new Date(hireValue);
+            const hParts = hireValue.split('-');
+            const hireDate = new Date(hParts[0], hParts[1] - 1, hParts[2]);
             const now = new Date();
             now.setHours(23, 59, 59, 999); // Permitir hasta el fin del día de hoy
             if (hireDate > now) {
@@ -365,7 +544,7 @@
                     document.getElementById('w-id-trabajador').value = w.Id_Trabajador;
                     document.getElementById('w-nombres').value = w.Nombre_Completo;
                     document.getElementById('w-apellidos').value = w.Apellidos;
-                    
+
                     // Parse CI
                     const ciParts = w.Documento_Identidad.split('-');
                     if (ciParts.length === 2) {
@@ -379,7 +558,7 @@
                     document.getElementById('w-genero').value = w.Genero;
                     document.getElementById('w-estado-civil').value = w.Estado_Civil;
                     document.getElementById('w-correo').value = w.Correo || '';
-                    
+
                     // Parse Tel
                     if (w.Telefono_Movil && w.Telefono_Movil.includes('-')) {
                         const tParts = w.Telefono_Movil.split('-');
@@ -396,7 +575,7 @@
                     document.getElementById('w-fecha-ingreso').value = w.Fecha_de_Ingreso;
                     document.getElementById('w-estado').value = w.Contrato_Estado;
                     document.getElementById('w-observaciones').value = w.Observaciones || '';
-                    
+
                     document.getElementById('worker-form-title').textContent = 'Editar Trabajador';
                     formContainer.style.display = 'block';
                     formContainer.scrollIntoView({ behavior: 'smooth' });
@@ -409,7 +588,7 @@
                 const id = btn.dataset.id;
                 const estado = btn.dataset.estado;
                 const action = estado === 'Activo' ? 'deactivate' : 'activate';
-                
+
                 const confirmed = await showConfirm(`¿Desea ${action === 'activate' ? 'activar' : 'desactivar'} este trabajador?`);
                 if (!confirmed) return;
 
@@ -447,21 +626,35 @@
         contentDetails.innerHTML = '<div class="loader">Cargando solicitudes de vacaciones...</div>';
         try {
             const data = await apiFetch('/vacations');
-            const requests = data.requests || [];
+            let requests = data.requests || [];
 
             contentDetails.innerHTML = `
                 <div class="vacation-panel">
                     <h4 style="color: var(--text-main); border-bottom: 2px solid var(--primary); padding-bottom: 10px;">Panel de Gestión de Vacaciones</h4>
                     
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin: 20px 0;">
-                        <div class="chart-container" style="margin-bottom:0; display:flex; flex-direction:column; align-items:center;">
-                            <h6 style="margin:0 0 10px 0; color:var(--text-muted);">Distribución de Solicitudes</h6>
-                            <div style="width:100%; height:150px;"><canvas id="vacation-main-chart"></canvas></div>
+                        <div class="chart-container" style="margin-bottom:0; display:flex; flex-direction:column; align-items:center; padding: 15px;">
+                            <h5 style="margin:0 0 0 0; color:var(--text-muted); font-size: 1.3em;">Distribución de Solicitudes</h5>
+                            <div style="width:100%; height:10px;"><canvas id="vacation-main-chart"></canvas></div>
                         </div>
                     </div>
 
+                    <div class="filters" style="margin: 20px 0; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <label style="color: var(--text-main); font-weight: 600;">Ordenar por:</label>
+                        <select id="sort-field" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-main);">
+                            <option value="Fecha_Solicitud">Fecha de Solicitud</option>
+                            <option value="Fecha_Inicio_Vacaciones">Fecha de Inicio</option>
+                            <option value="Estado">Estado</option>
+                        </select>
+                        <select id="sort-direction" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-main);">
+                            <option value="desc">Más reciente primero</option>
+                            <option value="asc">Más antiguo primero</option>
+                        </select>
+                        <input type="text" id="search-worker" placeholder="Buscar trabajador..." style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-main); flex: 1; min-width: 200px;">
+                    </div>
+
                     <div id="vacation-list">
-                        ${renderVacationsTableHTML(requests)}
+                        ${renderVacationsTableHTML(requests, false)}
                     </div>
                 </div>
             `;
@@ -472,8 +665,13 @@
         }
     }
 
-    function renderVacationsTableHTML(requests) {
-        if (!requests.length) return '<p class="center" style="color: var(--text-muted); padding: 40px;">No hay solicitudes de vacaciones registradas en el sistema.</p>';
+    function renderVacationsTableHTML(requests, isFiltered = false) {
+        if (!requests.length) {
+            const message = isFiltered
+                ? '<p class="center" style="color: var(--text-muted); padding: 40px;">Este trabajador no tiene una solicitud registrada.</p>'
+                : '<p class="center" style="color: var(--text-muted); padding: 40px;">No hay solicitudes de vacaciones registradas en el sistema.</p>';
+            return message;
+        }
         return `
             <div class="content-box" style="margin-top: 10px; border:none; padding:0; background:transparent;">
                 <table class="data-table" style="width: 100%; border-collapse: collapse;">
@@ -502,7 +700,9 @@
                                     ${r.Estado === 'Pendiente' ? `
                                         <button class="btn-vac-status primary small" data-id="${r.Id_Solicitud}" data-status="Aceptada">Aprobar</button>
                                         <button class="btn-vac-status primary small" data-id="${r.Id_Solicitud}" data-status="Rechazada" style="background-color: var(--error-color);">Rechazar</button>
-                                    ` : '-'}
+                                    ` : (r.Estado === 'Aceptada' ? `
+                                        <button class="btn-vac-status secondary small" data-id="${r.Id_Solicitud}" data-status="Pendiente">Revertir</button>
+                                    ` : '-')}
                                 </td>
                             </tr>
                         `).join('')}
@@ -519,7 +719,7 @@
             if (ctx && typeof Chart !== 'undefined') {
                 const isDark = document.body.classList.contains('dark-mode');
                 const textColor = isDark ? '#ffffff' : '#333333';
-                
+
                 new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -532,43 +732,158 @@
                                 requests.filter(r => r.Estado === 'Rechazada').length
                             ],
                             backgroundColor: [
-                                isDark ? '#444' : '#999', 
-                                isDark ? '#666' : '#444', 
+                                isDark ? '#444' : '#999',
+                                isDark ? '#666' : '#444',
                                 isDark ? '#222' : '#111'
                             ],
                             borderRadius: 6
                         }]
                     },
-                    options: { 
+                    options: {
                         indexAxis: 'y',
                         plugins: { legend: { display: false } },
-                        scales: { 
-                            x: { display: false }, 
-                            y: { 
+                        scales: {
+                            x: { display: false },
+                            y: {
                                 grid: { display: false },
                                 ticks: { color: textColor, font: { weight: '600' } }
-                            } 
+                            }
                         }
                     }
                 });
             }
         }, 100);
-        document.querySelectorAll('.btn-vac-status').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const id = btn.dataset.id;
-                const status = btn.dataset.status;
-                try {
-                    await apiFetch(`/vacations/${id}/status`, {
-                        method: 'POST',
-                        body: JSON.stringify({ status })
-                    });
-                    showSuccess(`Solicitud ${status.toLowerCase()} con éxito`);
-                    renderAdminVacations();
-                } catch (e) {
-                    showError(e.message);
+
+        // Sorting and filtering functionality
+        const sortField = document.getElementById('sort-field');
+        const sortDirection = document.getElementById('sort-direction');
+        const searchWorker = document.getElementById('search-worker');
+
+        // Function to update sort-direction options based on sort-field
+        function updateSortDirectionOptions() {
+            const field = sortField.value;
+            const currentValue = sortDirection.value;
+            if (field === 'Estado') {
+                sortDirection.innerHTML = `
+                    <option value="Todas">Todas</option>
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Aprobado">Aprobado</option>
+                    <option value="Rechazado">Rechazado</option>
+                `;
+                // Set default if current is not valid
+                if (!['Todas', 'Pendiente', 'Aprobado', 'Rechazado'].includes(currentValue)) {
+                    sortDirection.value = 'Todas';
+                } else {
+                    sortDirection.value = currentValue;
                 }
+            } else {
+                sortDirection.innerHTML = `
+                    <option value="desc">Más reciente primero</option>
+                    <option value="asc">Más antiguo primero</option>
+                `;
+                // Set default if current is not valid
+                if (!['desc', 'asc'].includes(currentValue)) {
+                    sortDirection.value = 'desc';
+                } else {
+                    sortDirection.value = currentValue;
+                }
+            }
+        }
+
+        // Initial update
+        updateSortDirectionOptions();
+
+        function updateTable() {
+            const field = sortField.value;
+            const dir = sortDirection.value;
+            const searchTerm = searchWorker.value.toLowerCase().trim();
+
+            let filtered = requests.filter(r => {
+                const fullName = `${r.Nombre_Completo} ${r.Apellidos}`.toLowerCase();
+                const matchesSearch = searchTerm === '' || fullName.includes(searchTerm) || r.Documento_Identidad.toLowerCase().includes(searchTerm);
+                let matches = matchesSearch;
+                if (field === 'Estado' && dir !== 'Todas') {
+                    const statusMap = { 'Pendiente': 'Pendiente', 'Aprobado': 'Aceptada', 'Rechazado': 'Rechazada' };
+                    matches = matches && r.Estado === statusMap[dir];
+                }
+                return matches;
             });
+
+            let sorted;
+            if (field === 'Estado') {
+                // When filtering by status, sort by date desc by default
+                sorted = [...filtered].sort((a, b) => new Date(b.Fecha_Solicitud) - new Date(a.Fecha_Solicitud));
+            } else {
+                sorted = [...filtered].sort((a, b) => {
+                    let valA, valB;
+                    if (field === 'Fecha_Solicitud' || field === 'Fecha_Inicio_Vacaciones') {
+                        valA = new Date(a[field]);
+                        valB = new Date(b[field]);
+                    } else {
+                        valA = a[field];
+                        valB = b[field];
+                    }
+                    if (valA < valB) return dir === 'asc' ? -1 : 1;
+                    if (valA > valB) return dir === 'asc' ? 1 : -1;
+                    return 0;
+                });
+            }
+            document.getElementById('vacation-list').innerHTML = renderVacationsTableHTML(sorted, searchTerm !== '');
+            // Re-attach listeners for status buttons
+            document.querySelectorAll('.btn-vac-status').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    const status = btn.dataset.status;
+                    if (status === 'Rechazada') {
+                        // Mostrar modal para motivo
+                        showModal({
+                            type: 'warning',
+                            title: 'Motivo del Rechazo',
+                            message: 'Por favor, indique el motivo del rechazo de la solicitud.',
+                            html: '<textarea id="rejection-reason" placeholder="Escriba el motivo..." style="width:100%; height:80px; padding:8px; border:1px solid #ccc; border-radius:4px; resize: vertical;"></textarea>',
+                            okText: 'Rechazar',
+                            cancelText: 'Cancelar'
+                        }).then(async (result) => {
+                            if (result) {
+                                const reason = document.getElementById('rejection-reason')?.value || '';
+                                try {
+                                    await apiFetch(`/vacations/${id}/status`, {
+                                        method: 'POST',
+                                        body: JSON.stringify({ status, reason })
+                                    });
+                                    showSuccess('Solicitud rechazada con éxito');
+                                    renderAdminVacations();
+                                } catch (e) {
+                                    showError(e.message);
+                                }
+                            }
+                        });
+                    } else {
+                        try {
+                            await apiFetch(`/vacations/${id}/status`, {
+                                method: 'POST',
+                                body: JSON.stringify({ status })
+                            });
+                            showSuccess(status === 'Pendiente' ? 'Acción revertida exitosamente' : `Solicitud ${status.toLowerCase()} con éxito`);
+                            renderAdminVacations();
+                        } catch (e) {
+                            showError(e.message);
+                        }
+                    }
+                });
+            });
+        }
+
+        sortField.addEventListener('change', () => {
+            updateSortDirectionOptions();
+            updateTable();
         });
+        sortDirection.addEventListener('change', updateTable);
+        searchWorker.addEventListener('input', updateTable);
+        // Initial update
+        updateTable();
+
+        // Status buttons are re-attached inside updateTable() whenever the content changes
     }
 
     // --- Módulo: Pago de Nómina ---
@@ -612,15 +927,23 @@
                                     <select id="p-periodo" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border-color); background: var(--bg-color); color: var(--text-main);">
                                         <option value="">Seleccione periodo...</option>
                                         ${(() => {
-                                            const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-                                            let opts = "";
-                                            months.forEach(m => {
-                                                opts += `<option value="1ra Quincena ${m}">1ra Quincena ${m}</option>`;
-                                                opts += `<option value="2da Quincena ${m}">2da Quincena ${m}</option>`;
-                                            });
-                                            return opts;
-                                        })()}
+                    const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+                    let opts = "";
+                    months.forEach(m => {
+                        opts += `<option value="1ra Quincena ${m}">1ra Quincena ${m}</option>`;
+                        opts += `<option value="2da Quincena ${m}">2da Quincena ${m}</option>`;
+                    });
+                    return opts;
+                })()}
                                     </select>
+                                </div>
+                                <div class="form-row">
+                                    <label style="display:block; font-weight:600; margin-bottom:8px; color: var(--text-muted); font-size:0.9em;">Desde:</label>
+                                    <input type="date" id="p-fecha-desde" readonly style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border-color); background: rgba(0,0,0,0.05); color: var(--text-main); cursor: not-allowed;">
+                                </div>
+                                <div class="form-row">
+                                    <label style="display:block; font-weight:600; margin-bottom:8px; color: var(--text-muted); font-size:0.9em;">Hasta:</label>
+                                    <input type="date" id="p-fecha-hasta" readonly style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border-color); background: rgba(0,0,0,0.05); color: var(--text-main); cursor: not-allowed;">
                                 </div>
                             </div>
 
@@ -659,7 +982,7 @@
                                 </div>
                                 <div style="display:flex; justify-content:space-between; font-size:1.5em; font-weight:bold; border-top:1px solid rgba(255,255,255,0.2); padding-top:15px;">
                                     <span>NETO A PAGAR:</span>
-                                    <span id="t-neto" style="color: #ffffff;">Bs. 130,00</span>
+                                    <span id="t-neto" style="color: #ffffff;">Bs. 0,00</span>
                                 </div>
                             </div>
 
@@ -684,43 +1007,140 @@
         const addBtn = document.getElementById('btn-add-concept-to-list');
         const conceptSelect = document.getElementById('p-add-concept');
         const salaryInput = document.getElementById('p-salario');
+        const periodSelect = document.getElementById('p-periodo');
+        const dateFromInput = document.getElementById('p-fecha-desde');
+        const dateToInput = document.getElementById('p-fecha-hasta');
+        const paymentDateInput = document.getElementById('p-fecha');
         const generateBtn = document.getElementById('btn-generate-pay');
 
-        const keywordsDiarios = ['dias laborables', 'días laborables', 'dias no laborados', 'días no laborados', 'faltas', 'inasistencias', 'vacaciones', 'bono vacacional', 'permiso no remunerado', 'utilidades', 'bono de produccion', 'bono de asistencia', 'sueldo', 'salario'];
+        // Lógica de Periodos Automáticos
+        periodSelect.addEventListener('change', () => {
+            const v = periodSelect.value;
+            if (!v) {
+                dateFromInput.value = '';
+                dateToInput.value = '';
+                return;
+            }
 
-        function getConceptAmount(c, salario) {
-            const nombre = (c.Nombre_Concepto || '').toLowerCase();
-            const isDaily = keywordsDiarios.some(kw => nombre.includes(kw.toLowerCase()));
-            if (isDaily && salario > 0) return salario / 30;
-            return parseFloat(c.Monto) || 0;
+            const currentYear = new Date().getFullYear();
+            const monthsMap = {
+                "Enero": 0, "Febrero": 1, "Marzo": 2, "Abril": 3, "Mayo": 4, "Junio": 5,
+                "Julio": 6, "Agosto": 7, "Septiembre": 8, "Octubre": 9, "Noviembre": 10, "Diciembre": 11
+            };
+
+            let monthName = "";
+            let isFirstHalf = v.startsWith("1ra");
+
+            for (let m in monthsMap) {
+                if (v.includes(m)) {
+                    monthName = m;
+                    break;
+                }
+            }
+
+            if (monthName) {
+                const monthIdx = monthsMap[monthName];
+                let dFrom, dTo;
+                if (isFirstHalf) {
+                    dFrom = new Date(currentYear, monthIdx, 1);
+                    dTo = new Date(currentYear, monthIdx, 15);
+                } else {
+                    dFrom = new Date(currentYear, monthIdx, 16);
+                    dTo = new Date(currentYear, monthIdx + 1, 0); // Last day of month
+                }
+
+                const factor = (n) => String(n).padStart(2, '0');
+                dateFromInput.value = `${currentYear}-${factor(monthIdx + 1)}-${factor(dFrom.getDate())}`;
+                dateToInput.value = `${currentYear}-${factor(monthIdx + 1)}-${factor(dTo.getDate())}`;
+
+                // Trigger validation for payment date after period update
+                validatePaymentDate();
+            }
+        });
+
+        // Validaciones en Tiempo Real
+        function validateSalary() {
+            const val = parseFloat(salaryInput.value) || 0;
+            if (val < 130) {
+                showInlineError(salaryInput, 'El salario mensual no puede ser menor a 130 bs.');
+                return false;
+            } else {
+                clearInlineError(salaryInput);
+                return true;
+            }
         }
+
+        function validatePaymentDate() {
+            if (!paymentDateInput.value || !dateToInput.value) return true;
+
+            const pParts = paymentDateInput.value.split('-');
+            const payDate = new Date(pParts[0], pParts[1] - 1, pParts[2]);
+
+            const tParts = dateToInput.value.split('-');
+            const toDate = new Date(tParts[0], tParts[1] - 1, tParts[2]);
+
+            if (payDate <= toDate) {
+                showInlineError(paymentDateInput, 'La fecha de pago debe ser futura a la fecha del periodo seleccionado.');
+                return false;
+            } else {
+                clearInlineError(paymentDateInput);
+                return true;
+            }
+        }
+
+        salaryInput.addEventListener('input', () => {
+            validateSalary();
+            updateTotals();
+        });
+
+        paymentDateInput.addEventListener('change', validatePaymentDate);
+
+        // Pre-validate if initial values exist (e.g. reload)
+        setTimeout(() => validateSalary(), 100);
+
+        // Pre-validate if initial values exist (e.g. reload)
+        setTimeout(() => validateSalary(), 100);
 
         function updateTotals() {
             const salario = parseFloat(salaryInput.value) || 0;
             let asig = 0;
             let dedu = 0;
 
+            // Paso 1: Calcular Asignaciones (Ingreso Bruto)
             addedConcepts.forEach(c => {
-                const montoUnitario = getConceptAmount(c, salario);
-                let qty = 1;
-                if (c.aux) {
-                    const match = String(c.aux).match(/(\d+(\.\d+)?)/);
-                    if (match) qty = parseFloat(match[0]);
+                if (c.Tipo !== 'Deducción') {
+                    const montoUnitario = getConceptAmount(c, salario); // Pasa 0 en totalAsig para el primer pase
+                    let qty = 1;
+                    if (c.aux) {
+                        const match = String(c.aux).match(/(\d+(\.\d+)?)/);
+                        if (match) qty = parseFloat(match[0]);
+                    }
+                    asig += (montoUnitario * qty);
                 }
-                const totalMonto = montoUnitario * qty;
-                if (c.Tipo === 'Deducción') dedu += totalMonto;
-                else asig += totalMonto;
             });
 
-            const neto = salario + asig - dedu;
+            // Paso 2: Calcular Deducciones (Usando el total de asignaciones para retenciones de ley)
+            addedConcepts.forEach(c => {
+                if (c.Tipo === 'Deducción') {
+                    const montoUnitario = getConceptAmount(c, salario, asig);
+                    let qty = 1;
+                    if (c.aux) {
+                        const match = String(c.aux).match(/(\d+(\.\d+)?)/);
+                        if (match) qty = parseFloat(match[0]);
+                    }
+                    dedu += (montoUnitario * qty);
+                }
+            });
+
+            const neto = asig - dedu;
 
             document.getElementById('t-base').textContent = `Bs. ${salario.toFixed(2)}`;
             document.getElementById('t-asignaciones').textContent = `Bs. ${asig.toFixed(2)}`;
             document.getElementById('t-deducciones').textContent = `Bs. ${dedu.toFixed(2)}`;
             document.getElementById('t-neto').textContent = `Bs. ${neto.toFixed(2)}`;
-            
-            // Re-re-renderizar conceptos para actualizar montos mostrados si el salario cambió
-            renderAddedConcepts(addedConcepts, updateTotals, false); 
+
+            // Re-re-renderizar conceptos para actualizar montos mostrados si el ingreso bruto (asig) o salario cambió
+            renderAddedConcepts(addedConcepts, updateTotals, asig);
         }
 
         // Helper: Get dates from period
@@ -728,14 +1148,14 @@
             if (!period || typeof period !== 'string') return { start: '', end: '' };
             const year = new Date().getFullYear();
             const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-            
+
             for (let i = 0; i < 12; i++) {
                 if (period.includes(months[i])) {
                     if (period.includes("1ra")) {
-                        return { start: `${year}-${String(i+1).padStart(2,'0')}-01`, end: `${year}-${String(i+1).padStart(2,'0')}-15` };
+                        return { start: `${year}-${String(i + 1).padStart(2, '0')}-01`, end: `${year}-${String(i + 1).padStart(2, '0')}-15` };
                     } else {
                         const lastDay = new Date(year, i + 1, 0).getDate();
-                        return { start: `${year}-${String(i+1).padStart(2,'0')}-16`, end: `${year}-${String(i+1).padStart(2,'0')}-${lastDay}` };
+                        return { start: `${year}-${String(i + 1).padStart(2, '0')}-16`, end: `${year}-${String(i + 1).padStart(2, '0')}-${lastDay}` };
                     }
                 }
             }
@@ -756,7 +1176,7 @@
 
             // Simple logic: add IVSS, SPF, FAOV if missing
             const mandatoryCodigos = ['IVSS', 'SPF', 'FAOV'];
-            
+
             // Calculate Mondays
             let lunes = 4;
             if (dates.start && dates.end) {
@@ -798,7 +1218,7 @@
         document.getElementById('p-worker').addEventListener('change', (e) => {
             addedConcepts.length = 0; // Limpiar lista al cambiar trabajador
             const w = workers.find(x => String(x.Id_Trabajador) === String(e.target.value));
-            if (w) salaryInput.value = w.Sueldo_Mensual || 0;
+            if (w) salaryInput.value = w.Sueldo_Mensual || 130;
             triggerMandatoryConcepts();
         });
         document.getElementById('p-periodo').addEventListener('change', triggerMandatoryConcepts);
@@ -830,28 +1250,36 @@
             const dates = getPeriodDates(periodo);
 
             if (!fecha) return showError('Indique la fecha de pago');
-            if (!periodo) return showError('Indique el periodo de nómina');
 
-            // Validación: Fecha no futura
-            const payDate = new Date(fecha);
-            const now = new Date();
-            now.setHours(23, 59, 59, 999);
-            if (payDate > now) {
-                return showError('La fecha de pago no puede ser futura.');
+            // Validación: Salario Base mínimo 130
+            if (!validateSalary()) {
+                return showError('El salario base no puede ser menor a 130 bs.');
             }
 
-            // Calcular neto final para validación
+            // Validación: Fecha de Pago > Periodo Fin
+            if (!validatePaymentDate()) {
+                return showError('La fecha de pago debe ser futura al periodo a pagar');
+            }
+
+            // Calcular neto final (Asignaciones - Deducciones) con lógica de dos pasos
             let asig = 0, dedu = 0;
             addedConcepts.forEach(c => {
-                const m = parseFloat(c.Monto) || 0;
-                if (c.Tipo === 'Deducción') dedu += m; else asig += m;
+                if (c.Tipo !== 'Deducción') {
+                    const mu = getConceptAmount(c, salario);
+                    let q = 1;
+                    if (c.aux && String(c.aux).match(/(\d+(\.\d+)?)/)) q = parseFloat(String(c.aux).match(/(\d+(\.\d+)?)/)[0]);
+                    asig += (mu * q);
+                }
             });
-            const netoFinal = salario + asig - dedu;
-
-            // Validación: Monto neto mínimo 130
-            if (netoFinal < 130) {
-                return showError('El monto neto a pagar no puede ser menor a 130 Bs.');
-            }
+            addedConcepts.forEach(c => {
+                if (c.Tipo === 'Deducción') {
+                    const mu = getConceptAmount(c, salario, asig);
+                    let q = 1;
+                    if (c.aux && String(c.aux).match(/(\d+(\.\d+)?)/)) q = parseFloat(String(c.aux).match(/(\d+(\.\d+)?)/)[0]);
+                    dedu += (mu * q);
+                }
+            });
+            const netoFinal = asig - dedu;
 
             const confirmed = await showConfirm(`¿Está seguro de procesar el pago para este trabajador?`);
             if (!confirmed) return;
@@ -867,7 +1295,20 @@
                     fechaFin: dates.end,
                     salarioBase: salario,
                     neto: netoFinal,
-                    conceptos: addedConcepts
+                    conceptos: addedConcepts.map(c => {
+                        const mu = getConceptAmount(c, salario, asig); // Usar el asig calculado arriba
+                        let q = 1;
+                        if (c.aux) {
+                            const match = String(c.aux).match(/(\d+(\.\d+)?)/);
+                            if (match) q = parseFloat(match[0]);
+                        }
+                        return {
+                            ...c,
+                            Monto: mu,
+                            Monto_Unitario: mu,
+                            Cantidad: q
+                        };
+                    })
                 }
             };
 
@@ -919,21 +1360,23 @@
         `;
     }
 
-    function renderAddedConcepts(list, onRemove, shouldRecursive = true) {
+    function renderAddedConcepts(list, onRemove, totalAsig = 0) {
         const container = document.getElementById('added-concepts-container');
         const salario = parseFloat(document.getElementById('p-salario')?.value || 0);
 
         if (!list.length) {
             container.innerHTML = '<p class="text-muted" style="text-align:center; margin-top:35px;">No hay conceptos adicionales agregados.</p>';
+            if (onRemove && totalAsig === 0) {
+                // Si no hay lista y venimos de un evento que requiere actualizar totales (como al seleccionar un trabajador)
+                // Pero evitamos recursión infinita solo llamando si realmente hay algo que limpiar y no estamos ya en asig=0
+                // En la práctica, updateTotals llama a renderAddedConcepts, por lo que debemos tener cuidado.
+            }
             return;
         }
 
         container.innerHTML = list.map((c, i) => {
-            const keywordsDiarios = ['dias laborables', 'días laborables', 'dias no laborados', 'días no laborados', 'faltas', 'inasistencias', 'vacaciones', 'bono vacacional', 'permiso no remunerado', 'utilidades', 'bono de produccion', 'bono de asistencia', 'sueldo', 'salario'];
-            const nombre = (c.Nombre_Concepto || '').toLowerCase();
-            const isDaily = keywordsDiarios.some(kw => nombre.includes(kw.toLowerCase()));
-            const montoUnitario = (isDaily && salario > 0) ? (salario / 30) : (parseFloat(c.Monto) || 0);
-            
+            const montoUnitario = getConceptAmount(c, salario, totalAsig);
+
             let qty = 1;
             if (c.aux) {
                 const match = String(c.aux).match(/(\d+(\.\d+)?)/);
@@ -960,8 +1403,8 @@
         container.querySelectorAll('.btn-remove-concept').forEach(btn => {
             btn.addEventListener('click', () => {
                 list.splice(btn.dataset.index, 1);
-                renderAddedConcepts(list, onRemove);
-                if (shouldRecursive) onRemove();
+                renderAddedConcepts(list, onRemove, totalAsig);
+                if (onRemove) onRemove();
             });
         });
     }
@@ -972,7 +1415,7 @@
         try {
             const data = await apiFetch('/concepts');
             const concepts = data.conceptos || [];
- 
+
             contentDetails.innerHTML = `
                 <div class="conceptos-module">
                     <div class="content-box">
@@ -1005,7 +1448,7 @@
                     </div>
                 </div>
             `;
- 
+
             setupConceptListeners(concepts);
         } catch (e) {
             contentDetails.innerHTML = `<div class="error">Error: ${e.message}</div>`;
@@ -1068,7 +1511,7 @@
                 const id = btn.dataset.id;
                 const status = btn.dataset.status;
                 const action = status === 'Activo' ? 'desactivar' : 'activar';
-                
+
                 const confirmed = await showConfirm(`¿Desea ${action} este concepto?`);
                 if (!confirmed) return;
 
@@ -1155,7 +1598,7 @@
             const formContainer = document.getElementById('tn-form-container');
             const form = document.getElementById('tn-form');
 
-            addBtn.addEventListener('click', () => { 
+            addBtn.addEventListener('click', () => {
                 const isVisible = formContainer.style.display === 'block';
                 formContainer.style.display = isVisible ? 'none' : 'block';
                 if (!isVisible) formContainer.scrollIntoView({ behavior: 'smooth' });
@@ -1165,7 +1608,7 @@
             });
 
             document.getElementById('cancel-tn-btn').addEventListener('click', () => { formContainer.style.display = 'none'; });
-            
+
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const id = document.getElementById('tn-id').value;
@@ -1196,7 +1639,7 @@
                     const id = btn.dataset.id;
                     const status = btn.dataset.status;
                     const action = status === 'Activo' ? 'desactivar' : 'activar';
-                    
+
                     const confirmed = await showConfirm(`¿Desea ${action} este tipo de nómina?`);
                     if (!confirmed) return;
 
@@ -1252,7 +1695,7 @@
         try {
             const data = await apiFetch('/cargos');
             const cargos = data.cargos || [];
- 
+
             contentDetails.innerHTML = `
                 <div class="cargos-module">
                     <div class="content-box">
@@ -1283,12 +1726,12 @@
                     </div>
                 </div>
             `;
- 
+
             const addBtn = document.getElementById('add-cargo-btn');
             const formContainer = document.getElementById('cargo-form-container');
             const form = document.getElementById('cargo-form');
 
-            addBtn.addEventListener('click', () => { 
+            addBtn.addEventListener('click', () => {
                 const isVisible = formContainer.style.display === 'block';
                 formContainer.style.display = isVisible ? 'none' : 'block';
                 if (!isVisible) formContainer.scrollIntoView({ behavior: 'smooth' });
@@ -1298,13 +1741,13 @@
             });
 
             document.getElementById('cancel-cargo-btn').addEventListener('click', () => { formContainer.style.display = 'none'; });
-            
+
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const id = document.getElementById('car-id').value;
-                const payload = { 
-                    Nombre_profesión: document.getElementById('car-nombre').value, 
-                    Area: document.getElementById('car-area').value 
+                const payload = {
+                    Nombre_profesión: document.getElementById('car-nombre').value,
+                    Area: document.getElementById('car-area').value
                 };
                 try {
                     const endpoint = id ? `/cargos/${id}` : '/cargos';
@@ -1334,7 +1777,7 @@
                     const id = btn.dataset.id;
                     const status = btn.dataset.status;
                     const action = status === 'Activo' ? 'desactivar' : 'activar';
-                    
+
                     const confirmed = await showConfirm(`¿Desea ${action} este cargo?`);
                     if (!confirmed) return;
 

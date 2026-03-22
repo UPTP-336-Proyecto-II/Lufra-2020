@@ -179,25 +179,35 @@ class WorkerController extends Controller
             if (stripos($desc, 'FAOV') !== false || stripos($desc, 'Vivienda') !== false || $codigoC === 'FAOV') $hasFAOV = true;
         }
 
-        $baseCalculo = $salarioBase;
         $totalIngresos = 0;
-
         foreach($computedConceptos as $c) {
+            $nombreC = $c['Nombre_Concepto'] ?? ($c['nombre'] ?? '');
             $tipoC = $c['Tipo'] ?? '';
-            $nombreC = $c['Nombre_Concepto'] ?? '';
             $auxC = $c['aux'] ?? '';
             $unidC = extractNumeric($auxC);
-            $montoC = ($c['Monto'] ?? ($c['asignacion'] ?? 0)) * $unidC;
+            $montoC = ($c['Monto'] ?? ($c['asignacion'] ?? ($c['monto'] ?? 0)));
 
-            if ($tipoC === 'Asignación' || $tipoC === 'Bonificación' || stripos($nombreC, 'Sueldo') !== false) {
-                $totalIngresos += $montoC;
+            // Basic check for daily concepts if Monto is 0 but it's a known daily type
+            if ($montoC <= 0) {
+                $kwD = ['dias laborables', 'días laborables', 'dias no laborados', 'días no laborados', 'sueldo', 'salario', 'descanso', 'vacaciones'];
+                foreach($kwD as $kw) {
+                    if (stripos($nombreC, $kw) !== false) {
+                        $montoC = $salarioBase / 30;
+                        break;
+                    }
+                }
             }
-            if ($salarioBase <= 0 && (stripos($nombreC, 'Sueldo') !== false || stripos($nombreC, 'Salario') !== false)) {
-                $baseCalculo += $montoC;
+
+            if ($tipoC === 'Asignación' || $tipoC === 'Bonificación' || stripos($nombreC, 'Sueldo') !== false || stripos($nombreC, 'Asignación') !== false) {
+                $totalIngresos += ($montoC * $unidC);
             }
         }
 
-        if ($baseCalculo <= 0) $baseCalculo = $totalIngresos;
+        // Per user request, base for retentions should be total income (assignments)
+        // If it's a quincena (standard), we multiply by 2 for the monthly cap check.
+        // We set it to 0 if no assignments are present to avoid auto-calculating on base salary.
+        $baseCalculo = ($totalIngresos > 0) ? ($totalIngresos * 2) : 0; 
+
 
         if ($baseCalculo > 0) {
             $topeMensual = 130.00 * 5; // SALARIO_MINIMO_LEGAL = 130
@@ -246,7 +256,7 @@ class WorkerController extends Controller
             $montoUnitario = $c['Monto'] ?? ($c['asignacion'] ?? ($c['deduccion'] ?? 0));
 
             $isDailyBased = false;
-            $keywordsDiarios = ['dias laborables', 'días laborables', 'dias no laborados', 'días no laborados', 'faltas', 'inasistencias', 'vacaciones', 'bono vacacional', 'permiso no remunerado', 'utilidades', 'bono de produccion', 'bono de asistencia', 'sueldo', 'salario'];
+            $keywordsDiarios = ['dias laborables', 'días laborables', 'dias no laborados', 'días no laborados', 'faltas', 'inasistencias', 'vacaciones', 'bono vacacional', 'permiso no remunerado', 'utilidades', 'bono de produccion', 'bono de asistencia', 'sueldo', 'salario', 'dias de descanso', 'días de descanso', 'dia de descanso', 'día de descanso', 'descanso', 'descansos'];
             
             foreach($keywordsDiarios as $kw) {
                 if (stripos($nombre, $kw) !== false) {

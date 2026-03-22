@@ -38,7 +38,7 @@
     </div>
   </nav>
   <section class="header-container">
-    <img class="profile-image" src="{{ asset('img/logolufra2.jpeg') }}" alt="" />
+    <img class="profile-image" src="{{ asset('img/logo-exacto.png') }}" alt="Logo Lufra" style="width: 300px; border-radius: 8px;" />
     <h1>Hola, somos Lufra 2020</h1>
     <div class="content-text">
       <h2>Venta de lubricantes, filtros y repuestos agricolas</h2>

@@ -17,6 +17,7 @@ class Vacacion extends Model
         'Estado',
         'Fecha_Respuesta',
         'Observaciones',
+        'motivo_rechazo',
     ];
 
     public function trabajador()
