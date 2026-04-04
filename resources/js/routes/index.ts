@@ -153,3 +153,38 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: home.url(options),
     method: 'head',
 })
+
+/**
+ * @route '/dashboard'
+ */
+export const dashboard = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: dashboard.url(options),
+    method: 'get',
+})
+
+dashboard.definition = {
+    methods: ["get","head"],
+    url: '/dashboard',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+ * @route '/dashboard'
+ */
+dashboard.url = (options?: RouteQueryOptions) => {
+    return dashboard.definition.url + queryParams(options)
+}
+
+/**
+ * @route '/dashboard'
+ */
+dashboard.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: dashboard.url(options),
+    method: 'get',
+})
+/**
+ * @route '/dashboard'
+ */
+dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: dashboard.url(options),
+    method: 'head',
+})
