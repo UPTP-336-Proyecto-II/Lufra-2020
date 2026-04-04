@@ -271,6 +271,20 @@ async function renderPayslipHistory() {
                 <div class="content-box">
                     <h4 style="margin-top: 0; color: var(--text-main); border-bottom: 2px solid var(--primary); padding-bottom: 10px;">💰 Historial de Recibos de Pago</h4>
                     
+                    <div class="filters" style="margin: 20px 0; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: var(--text-main); font-size: 0.9em;">Buscar por Periodo:</label>
+                            <input type="text" id="pay-search" placeholder="Ej: Enero 2026, 15/01/2026..." style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-color); color: var(--text-main); box-sizing: border-box;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: var(--text-main); font-size: 0.9em;">Ordenar por Fecha:</label>
+                            <select id="pay-sort" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-color); color: var(--text-main); min-width: 180px; box-sizing: border-box;">
+                                <option value="desc">Más reciente primero</option>
+                                <option value="asc">Más antiguo primero</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div style="margin-top: 20px; border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden; background: transparent;">
                         <table class="data-table" style="width: 100%; border-collapse: collapse;">
                             <thead>
@@ -295,11 +309,75 @@ async function renderPayslipHistory() {
                                     </tr>
                                 `).join('')}
                             </tbody>
+                            <tbody id="payslips-table-body"></tbody>
                         </table>
+                        <div id="no-results-msg" style="display:none; padding: 30px; text-align: center; color: var(--text-muted); font-style: italic;">
+                            No se encontraron recibos que coincidan con la búsqueda.
+                        </div>
                     </div>
                 </div>
             </div>
         `;
+
+        const tableBody = document.getElementById('payslips-table-body');
+        const searchInput = document.getElementById('pay-search');
+        const sortSelect = document.getElementById('pay-sort');
+        const noResultsMsg = document.getElementById('no-results-msg');
+
+        function renderTable(list) {
+            if (list.length === 0) {
+                tableBody.innerHTML = '';
+                noResultsMsg.style.display = 'block';
+                return;
+            }
+            noResultsMsg.style.display = 'none';
+            tableBody.innerHTML = list.map(p => `
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 12px; border: 1px solid var(--border-color); color: var(--text-main);">${p.fechaPago}</td>
+                    <td style="padding: 12px; border: 1px solid var(--border-color); color: var(--text-main);">${p.periodo}</td>
+                    <td style="padding: 12px; border: 1px solid var(--border-color); font-weight: bold; color: var(--text-main);">Bs. ${p.neto}</td>
+                    <td style="padding: 12px; border: 1px solid var(--border-color);" class="center">
+                        <a href="/trabajador/payslip/${p.id}" target="_blank" class="primary small" style="text-decoration: none; padding: 8px 18px; border-radius: 8px; font-weight:600;">
+                            Descargar PDF
+                        </a>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateTable() {
+            const term = searchInput.value.toLowerCase().trim();
+            const sortOrder = sortSelect.value;
+
+            // Filtrar
+            const filtered = data.filter(p => {
+                const matchPeriod = (p.periodo || '').toLowerCase().includes(term);
+                const matchDate = (p.fechaPago || '').toLowerCase().includes(term);
+                return matchPeriod || matchDate;
+            });
+
+            // Ordenar
+            filtered.sort((a, b) => {
+                const dateA = new Date(a.fechaPago);
+                const dateB = new Date(b.fechaPago);
+                
+                // Fallback para fechas inválidas, aunque no debería ocurrir si vienen de DB
+                if (isNaN(dateA)) return 1; 
+                if (isNaN(dateB)) return -1;
+
+                return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+            });
+
+            renderTable(filtered);
+        }
+
+        // Event Listeners
+        searchInput.addEventListener('input', updateTable);
+        sortSelect.addEventListener('change', updateTable);
+
+        // Renderizado inicial
+        updateTable();
+
     } catch (error) {
         container.innerHTML = `<div class="alert error"><p>${error.message}</p></div>`;
     }
