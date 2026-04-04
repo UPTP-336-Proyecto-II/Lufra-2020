@@ -118,22 +118,6 @@ class WorkerController extends Controller
             abort(403, 'Acceso denegado a este recibo.');
         }
 
-        // Base calculations (Ported from legacy script)
-        function formatCurrency($amount) {
-            return number_format($amount, 2, ',', '.');
-        }
-        function formatDate($date) {
-            if (!$date) return 'N/A';
-            return date('d/m/Y', strtotime($date));
-        }
-        function extractNumeric($str) {
-            if (!$str) return 1.0;
-            if (preg_match('/(\d+(\.\d+)?)/', $str, $matches)) {
-                return floatval($matches[0]);
-            }
-            return 1.0;
-        }
-
         $fechaPago = $payslip->Fecha_Pago;
         $salarioBase = $payslip->Salario_Base ?? 0;
         $neto = $payslip->Neto;
@@ -184,7 +168,7 @@ class WorkerController extends Controller
             $nombreC = $c['Nombre_Concepto'] ?? ($c['nombre'] ?? '');
             $tipoC = $c['Tipo'] ?? '';
             $auxC = $c['aux'] ?? '';
-            $unidC = extractNumeric($auxC);
+            $unidC = $this->extractNumeric($auxC);
             $montoC = ($c['Monto'] ?? ($c['asignacion'] ?? ($c['monto'] ?? 0)));
 
             // Basic check for daily concepts if Monto is 0 but it's a known daily type
@@ -252,7 +236,7 @@ class WorkerController extends Controller
             $codigo = $c['Codigo'] ?? ($c['codigo'] ?? ($c['Id_Concepto'] ?? '---'));
             $tipo = $c['Tipo'] ?? '';
             $aux = $c['aux'] ?? '';
-            $unidades = extractNumeric($aux);
+            $unidades = $this->extractNumeric($aux);
             $montoUnitario = $c['Monto'] ?? ($c['asignacion'] ?? ($c['deduccion'] ?? 0));
 
             $isDailyBased = false;
@@ -285,24 +269,41 @@ class WorkerController extends Controller
                 'codigo' => $codigo,
                 'nombre' => $nombre,
                 'aux' => $aux,
-                'asignacion' => $asig > 0 ? formatCurrency($asig) : '',
-                'deduccion' => $deduc > 0 ? formatCurrency($deduc) : ''
+                'asignacion' => $asig > 0 ? $this->formatCurrency($asig) : '',
+                'deduccion' => $deduc > 0 ? $this->formatCurrency($deduc) : ''
             ];
         }
 
         return view('trabajador.payslip', [
-            'fechaPago' => formatDate($fechaPago),
+            'fechaPago' => $this->formatDate($fechaPago),
             'numeroRecibo' => $numeroRecibo,
             'trabajador' => $trabajadorInfo,
-            'fechaInicio' => formatDate($fechaInicio),
+            'fechaInicio' => $this->formatDate($fechaInicio),
             'cedula' => $cedula,
-            'fechaFin' => formatDate($fechaFin),
-            'salarioBase' => formatCurrency($salarioBase),
+            'fechaFin' => $this->formatDate($fechaFin),
+            'salarioBase' => $this->formatCurrency($salarioBase),
             'periodo' => is_numeric($periodo) ? "Quincena " . $periodo : $periodo,
             'conceptos' => $finalConceptos,
-            'totalAsig' => formatCurrency($totalAsig),
-            'totalDeduc' => formatCurrency($totalDeduc),
-            'netoPago' => formatCurrency($totalAsig - $totalDeduc)
+            'totalAsig' => $this->formatCurrency($totalAsig),
+            'totalDeduc' => $this->formatCurrency($totalDeduc),
+            'netoPago' => $this->formatCurrency($totalAsig - $totalDeduc)
         ]);
+    }
+
+    private function formatCurrency($amount) {
+        return number_format($amount, 2, ',', '.');
+    }
+
+    private function formatDate($date) {
+        if (!$date) return 'N/A';
+        return date('d/m/Y', strtotime($date));
+    }
+
+    private function extractNumeric($str) {
+        if (!$str) return 1.0;
+        if (preg_match('/(\d+(\.\d+)?)/', $str, $matches)) {
+            return floatval($matches[0]);
+        }
+        return 1.0;
     }
 }

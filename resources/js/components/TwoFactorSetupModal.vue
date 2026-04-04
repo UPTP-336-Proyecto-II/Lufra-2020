@@ -19,9 +19,7 @@ import {
     InputOTPSlot,
 } from '@/components/ui/input-otp';
 import { Spinner } from '@/components/ui/spinner';
-import { useAppearance } from '@/composables/useAppearance';
-import { useTwoFactorAuth } from '@/composables/useTwoFactorAuth';
-import { confirm } from '@/routes/two-factor';
+import { useAppearance } from '@/composables/useAppearance';;
 import type { TwoFactorConfigContent } from '@/types';
 
 type Props = {
