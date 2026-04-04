@@ -2,7 +2,9 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <title>Reporte de Usuarios - LUFRA2020</title>
+
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; margin: 40px; transition: background 0.3s, color 0.3s; }
         body.dark-mode { background-color: #0d1117; color: #c9d1d9; }

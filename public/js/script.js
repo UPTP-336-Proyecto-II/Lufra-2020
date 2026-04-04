@@ -1,60 +1,26 @@
-// Migrado desde ProyectoUni/assets/js/script.js
-
+// Mobile Menu
 const hamburger = document.querySelector(".hamburger");
 const navMenu = document.querySelector(".nav-menu");
 if (hamburger && navMenu) {
-	hamburger.addEventListener("click", mobileMenu);
-}
-
-function mobileMenu() {
-	hamburger.classList.toggle("active");
-	navMenu.classList.toggle("active");
+	hamburger.addEventListener("click", () => {
+		hamburger.classList.toggle("active");
+		navMenu.classList.toggle("active");
+	});
 }
 
 // Close navbar when link is clicked
-
-const navLink = document.querySelectorAll(".nav-link");
-if (navLink && navLink.length && hamburger && navMenu) {
-	navLink.forEach((n) => n.addEventListener("click", closeMenu));
-}
-
-function closeMenu() {
-	hamburger.classList.remove("active");
-	navMenu.classList.remove("active");
-}
-
-// Event Listeners: Handling toggle event
-
-const toggleSwitch = document.querySelector(
-	'.theme-switch input[type="checkbox"]'
-);
-
-function switchTheme(e) {
-	if (e.target.checked) {
-		document.documentElement.setAttribute("data-theme", "dark");
-	} else {
-		document.documentElement.setAttribute("data-theme", "light");
+const navLinks = document.querySelectorAll(".nav-link");
+navLinks.forEach((n) => n.addEventListener("click", () => {
+	if (hamburger && navMenu) {
+		hamburger.classList.remove("active");
+		navMenu.classList.remove("active");
 	}
-}
+}));
 
-if (toggleSwitch) {
-	toggleSwitch.addEventListener("change", switchTheme, false);
-}
-
-//  Store color theme for future visits
-
-function switchTheme(e) {
-	if (e.target.checked) {
-		document.documentElement.setAttribute("data-theme", "dark");
-		localStorage.setItem('theme','dark');
-	} else {
-		document.documentElement.setAttribute("data-theme", "light");
-		localStorage.setItem('theme','light');
-	}
-}
-
-// Load theme preference from local storage
+// Theme Switcher Logic
+const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
 const currentTheme = localStorage.getItem('theme');
+
 if (currentTheme) {
 	document.documentElement.setAttribute("data-theme", currentTheme);
 	if (currentTheme === "dark" && toggleSwitch) {
@@ -62,19 +28,39 @@ if (currentTheme) {
 	}
 }
 
+function switchTheme(e) {
+	const theme = e.target.checked ? 'dark' : 'light';
+	document.documentElement.setAttribute("data-theme", theme);
+	localStorage.setItem('theme', theme);
+}
+
+if (toggleSwitch) {
+	toggleSwitch.addEventListener("change", switchTheme, false);
+}
+
+// Sync theme across tabs
 window.addEventListener('storage', (e) => {
-    if (e.key === 'theme') {
-        const t = e.newValue || 'light';
-        document.documentElement.setAttribute("data-theme", t);
-        if (toggleSwitch) toggleSwitch.checked = (t === 'dark');
-    }
+	if (e.key === 'theme') {
+		const theme = e.newValue || 'light';
+		document.documentElement.setAttribute("data-theme", theme);
+		if (toggleSwitch) toggleSwitch.checked = (theme === 'dark');
+	}
 });
 
-//Adding date
+// Scroll Reveal Observer
+const revealElements = document.querySelectorAll(".reveal");
+const revealObserver = new IntersectionObserver((entries) => {
+	entries.forEach((entry) => {
+		if (entry.isIntersecting) {
+			entry.target.classList.add("active");
+		}
+	});
+}, { threshold: 0.1 });
 
+revealElements.forEach((el) => revealObserver.observe(el));
 
-let myDate = document.querySelector("#datee");
-const yes = new Date().getFullYear();
-if (myDate) {
-	myDate.innerHTML = yes;
+// Footer Date
+const dateSpan = document.querySelector("#datee");
+if (dateSpan) {
+	dateSpan.innerText = new Date().getFullYear();
 }

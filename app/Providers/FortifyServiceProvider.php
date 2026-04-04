@@ -39,7 +39,8 @@ class FortifyServiceProvider extends ServiceProvider
             \App\Http\Responses\LogoutResponse::class
         );
         \Laravel\Fortify\Fortify::authenticateUsing(function (Request $request) {
-            $user = \App\Models\User::where('name', $request->username)
+            $user = \App\Models\User::where('username', $request->username)
+                            ->orWhere('name', $request->username)
                             ->orWhere('email', $request->username)
                             ->first();
 

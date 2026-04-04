@@ -11,6 +11,26 @@
         contentDetails = document.getElementById('content-details');
     }
 
+    // --- Email Validation Helpers ---
+    if (!window.allowedEmailDomains) window.allowedEmailDomains = new Set(['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com']);
+
+    function extractDomain(email) {
+        if (!email || typeof email !== 'string') return '';
+        const parts = email.split('@');
+        return parts.length === 2 ? parts[1].toLowerCase() : '';
+    }
+
+    function validateEmailFormat(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    function validateEmailDomain(email) {
+        const d = extractDomain(email);
+        if (!d) return false;
+        if (window.allowedEmailDomains && window.allowedEmailDomains.size) return window.allowedEmailDomains.has(d);
+        return true;
+    }
+
     // --- Global UI Helpers ---
     function showInlineError(el, msg) {
         if (!el) return;
@@ -384,10 +404,17 @@
         if (iCorreo) {
             const checkCorreo = () => {
                 const v = iCorreo.value.trim();
-                if (v && !v.includes('@')) {
+                if (!v) {
+                    clearInlineError(iCorreo);
+                } else if (!v.includes('@')) {
                     showInlineError(iCorreo, 'Tu dirección de correo electrónico debe contener @.');
+                } else if (!validateEmailFormat(v)) {
+                    showInlineError(iCorreo, 'Formato de correo inválido');
+                } else if (!validateEmailDomain(v)) {
+                    showInlineError(iCorreo, 'Dominio no permitido (ej: gmail.com)');
                 } else {
                     clearInlineError(iCorreo);
+                    iCorreo.style.borderColor = '#2ecc71';
                 }
             };
             iCorreo.addEventListener('input', checkCorreo);
@@ -467,15 +494,17 @@
                 return showError('El número de teléfono debe tener exactamente 7 dígitos después del prefijo.');
             }
 
-            // Validación de Correo (Whitelist de Dominios Comunes)
-            const emailValue = document.getElementById('w-correo').value;
+            // Validación de Correo (Whitelist de Dominios y Formato)
+            const emailValue = document.getElementById('w-correo').value.trim();
             if (emailValue) {
-                const allowedDomains = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'icloud.com', 'live.com'];
-                const emailRegex = /^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$/;
-                const match = emailValue.match(emailRegex);
-
-                if (!match || !allowedDomains.includes(match[1].toLowerCase())) {
-                    return showError('Solo se permiten correos de dominios comunes (Gmail, Hotmail, Outlook, Yahoo, iCloud).');
+                if (!emailValue.includes('@')) {
+                    return showError('Tu dirección de correo electrónico debe contener @.');
+                }
+                if (!validateEmailFormat(emailValue)) {
+                    return showError('Formato de correo inválido');
+                }
+                if (!validateEmailDomain(emailValue)) {
+                    return showError('Dominio no permitido (ej: gmail.com)');
                 }
             }
 

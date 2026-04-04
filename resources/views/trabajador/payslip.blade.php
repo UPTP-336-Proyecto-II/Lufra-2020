@@ -2,7 +2,9 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <title>Recibo de Pago - {{ $trabajador }}</title>
+
     <style>
         @page {
             size: letter landscape;

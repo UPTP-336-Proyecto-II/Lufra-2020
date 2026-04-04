@@ -137,6 +137,8 @@ class UserListController extends Controller
             return [
                 'Id_Usuario' => $user->id,
                 'Nombre_usuario' => $user->username ?? $user->name,
+                'raw_username' => $user->username,
+                'Nombre_completo' => $user->name,
                 'Correo' => $user->email,
                 'Nombre_rol' => $user->role,
                 'Estado' => $user->Estado ?? 'Activo',

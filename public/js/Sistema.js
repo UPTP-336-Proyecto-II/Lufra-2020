@@ -3336,6 +3336,7 @@ function initPayrollPage() {
         // Gestión de Usuarios - vista y CRUD simple (con edición)
         function renderSuperUserView() {
             if (!contentDetails) return;
+            let allUsers = []; // Cache local para filtrado
             if (contentHeader) contentHeader.innerHTML = `<h4>Gestión de Usuarios y Roles</h4>`;
             contentDetails.innerHTML = `
                 <div id="users-app">
@@ -3366,6 +3367,35 @@ function initPayrollPage() {
                         </div>
                         <div id="users-message" style="color:var(--text-muted); font-weight: 600;"></div>
                     </div>
+                    
+                    <!-- Filtros de Usuario -->
+                    <div id="users-filters" style="margin-bottom:20px; background:var(--card-bg); padding:15px; border-radius:12px; display:flex; gap:35px; align-items:flex-end; border:1px solid var(--border-color); flex-wrap: wrap;">
+                        <div style="width:180px;">
+                            <label style="display:block; font-size:10px; color:var(--text-muted); margin-bottom:5px; font-weight:700; text-transform:uppercase;">Usuario / Correo</label>
+                            <input id="f-usr-query" type="text" readonly onfocus="this.removeAttribute('readonly');" onblur="this.setAttribute('readonly',true);" autocomplete="new-password" placeholder="Nombre..." style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-color); color:var(--text-main); font-size:12px;">
+                        </div>
+                        <div style="width:180px;">
+                            <label style="display:block; font-size:10px; color:var(--text-muted); margin-bottom:5px; font-weight:700; text-transform:uppercase;">Trabajador</label>
+                            <input id="f-usr-work" type="text" readonly onfocus="this.removeAttribute('readonly');" onblur="this.setAttribute('readonly',true);" autocomplete="new-password" placeholder="Nombre..." style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-color); color:var(--text-main); font-size:12px;">
+                        </div>
+                        <div style="width:130px;">
+                            <label style="display:block; font-size:10px; color:var(--text-muted); margin-bottom:5px; font-weight:700; text-transform:uppercase;">Rol</label>
+                            <select id="u-filter-role" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-color); color:var(--text-main); font-size:12px;">
+                                <option value="">Todos</option>
+                                <option value="SuperUsuario">SuperUsuario</option>
+                                <option value="Administrativo">Administrativo</option>
+                                <option value="Trabajador">Trabajador</option>
+                            </select>
+                        </div>
+                        <div style="width:130px;">
+                            <label style="display:block; font-size:10px; color:var(--text-muted); margin-bottom:5px; font-weight:700; text-transform:uppercase;">Estado</label>
+                            <select id="u-filter-status" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-color); color:var(--text-main); font-size:12px;">
+                                <option value="">Todos</option>
+                                <option value="Activo">Activos</option>
+                                <option value="Inactivo">Inactivos</option>
+                            </select>
+                        </div>
+                    </div>
 
                     <div id="user-form" style="display:none; background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%); padding: 30px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
                         <h5 id="user-form-title" style="margin: 0 0 25px 0; color: #fff; font-size: 1.25em; display: flex; align-items: center; gap: 10px; font-weight: 700;">
@@ -3384,15 +3414,18 @@ function initPayrollPage() {
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                                 <div class="form-row">
                                     <label style="display:block; font-weight:600; margin-bottom:8px; color:var(--text-main); font-size:0.9em;">Usuario <span style="color:#e74c3c;">*</span></label>
-                                    <input id="u-username" style="width:100%; padding:12px; border:1px solid var(--border-color, #ddd); border-radius:8px; font-size:0.95em; background:var(--bg-color); color:var(--text-main);" placeholder="p.ej. jdoe"/>
+                                    <input id="u-username" style="width:100%; padding:12px; border:1px solid var(--border-color, #ddd); border-radius:8px; font-size:0.95em; background:var(--bg-color); color:var(--text-main);" placeholder="ejemplo_123"/>
+                                    <div id="u-username-msg" style="display:none; color:#e74c3c; font-size:11px; margin-top:4px;"></div>
                                 </div>
                                 <div class="form-row">
                                     <label style="display:block; font-weight:600; margin-bottom:8px; color:var(--text-main); font-size:0.9em;">Nombre Completo <span style="color:#e74c3c;">*</span></label>
                                     <input id="u-name" style="width:100%; padding:12px; border:1px solid var(--border-color, #ddd); border-radius:8px; font-size:0.95em; background:var(--bg-color); color:var(--text-main);" placeholder="Nombre real"/>
+                                    <div id="u-name-msg" style="display:none; color:#e74c3c; font-size:11px; margin-top:4px;"></div>
                                 </div>
                                 <div class="form-row" style="grid-column: 1/3;">
                                     <label style="display:block; font-weight:600; margin-bottom:8px; color:var(--text-main); font-size:0.9em;">Correo Electrónico <span style="color:#e74c3c;">*</span></label>
                                     <input id="u-email" style="width:100%; padding:12px; border:1px solid var(--border-color, #ddd); border-radius:8px; font-size:0.95em; background:var(--bg-color); color:var(--text-main);" placeholder="correo@ejemplo.com"/>
+                                    <div id="u-email-msg" style="display:none; color:#e74c3c; font-size:11px; margin-top:4px;"></div>
                                 </div>
                             </div>
                         </div>
@@ -3427,18 +3460,28 @@ function initPayrollPage() {
                             </h6>
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                                 <div class="form-row">
-                                    <label style="display:block; font-weight:600; margin-bottom:8px; color:var(--text-main); font-size:0.9em;">Contraseña</label>
+                                    <label style="display:block; font-weight:600; margin-bottom:8px; color:var(--text-main); font-size:0.9em;">Contraseña <span id="u-pass-req-star" style="color:#e74c3c; display:none;">*</span></label>
                                     <div class="input-row" style="position:relative;">
-                                        <input id="u-password" type="password" style="width:100%; padding:12px; border:1px solid var(--border-color, #ddd); border-radius:8px; font-size:0.95em; background:var(--bg-color); color:var(--text-main);" placeholder="Mínimo 8 caracteres"/>
+                                        <input id="u-password" type="password" autocomplete="new-password" style="width:100%; padding:12px; border:1px solid var(--border-color, #ddd); border-radius:8px; font-size:0.95em; background:var(--bg-color); color:var(--text-main);" placeholder="Mínimo 8 caracteres"/>
                                         <button type="button" class="toggle-pass" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer;">${eyeSvg}</button>
+                                    </div>
+                                    <div id="u-password-msg" style="display:none; color:#e74c3c; font-size:11px; margin-top:4px;"></div>
+                                    <div id="u-password-rules" style="margin-top:10px; font-size:11px; color:var(--text-muted); line-height:1.6; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 6px;">
+                                        <div style="font-weight:700; margin-bottom:5px; color:var(--text-main);">Requisitos de seguridad:</div>
+                                        <div id="rule-length" style="display:flex; align-items:center; gap:6px;"><span class="dot" style="font-size:14px;">○</span> Al menos 8 caracteres</div>
+                                        <div id="rule-upper" style="display:flex; align-items:center; gap:6px;"><span class="dot" style="font-size:14px;">○</span> Al menos una mayúscula</div>
+                                        <div id="rule-lower" style="display:flex; align-items:center; gap:6px;"><span class="dot" style="font-size:14px;">○</span> Al menos una minúscula</div>
+                                        <div id="rule-number" style="display:flex; align-items:center; gap:6px;"><span class="dot" style="font-size:14px;">○</span> Al menos un número</div>
+                                        <div id="rule-special" style="display:flex; align-items:center; gap:6px;"><span class="dot" style="font-size:14px;">○</span> Al menos un caracter especial</div>
                                     </div>
                                 </div>
                                 <div class="form-row">
-                                    <label style="display:block; font-weight:600; margin-bottom:8px; color:var(--text-main); font-size:0.9em;">Repetir Contraseña</label>
+                                    <label style="display:block; font-weight:600; margin-bottom:8px; color:var(--text-main); font-size:0.9em;">Repetir Contraseña <span id="u-passconf-req-star" style="color:#e74c3c; display:none;">*</span></label>
                                     <div class="input-row" style="position:relative;">
-                                        <input id="u-password-confirm" type="password" style="width:100%; padding:12px; border:1px solid var(--border-color, #ddd); border-radius:8px; font-size:0.95em; background:var(--bg-color); color:var(--text-main);" placeholder="Confirme contraseña"/>
+                                        <input id="u-password-confirm" type="password" autocomplete="new-password" style="width:100%; padding:12px; border:1px solid var(--border-color, #ddd); border-radius:8px; font-size:0.95em; background:var(--bg-color); color:var(--text-main);" placeholder="Confirme contraseña"/>
                                         <button type="button" class="toggle-pass" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer;">${eyeSvg}</button>
                                     </div>
+                                    <div id="u-password-confirm-msg" style="display:none; color:#e74c3c; font-size:11px; margin-top:4px;"></div>
                                 </div>
                             </div>
                         </div>
@@ -3502,30 +3545,50 @@ function initPayrollPage() {
 
             refreshBtn.addEventListener('click', () => { loadAndRenderUsers(); });
 
-            // --- Password Requirements Logic ---
-            const passInput = document.getElementById('u-password');
-            const reqDiv = document.getElementById('password-requirements');
-            if (passInput && reqDiv) {
-                passInput.addEventListener('input', () => {
-                    const val = passInput.value;
-                    if (val.length > 0) reqDiv.style.display = 'block';
-                    else reqDiv.style.display = 'none';
+            // --- Lógica de Filtrado ---
+            function applyFilters() {
+                const qSearch = document.getElementById('f-usr-query').value.toLowerCase().trim();
+                const qWorker = document.getElementById('f-usr-work').value.toLowerCase().trim();
+                const qRole = document.getElementById('u-filter-role').value;
+                const qStatus = document.getElementById('u-filter-status').value;
 
-                    const updateReq = (id, valid) => {
-                        const el = document.getElementById(id);
-                        if (el) {
-                            el.style.color = valid ? '#27ae60' : '#e74c3c';
-                            el.querySelector('.icon').textContent = valid ? '✔' : '✘';
+                const filtered = allUsers.filter(u => {
+                    const matchesSearch = !qSearch || (u.Nombre_usuario || '').toLowerCase().includes(qSearch) || (u.Correo || '').toLowerCase().includes(qSearch);
+                    const matchesWorker = !qWorker || (u.Trabajador_Nombre || '').toLowerCase().includes(qWorker);
+                    const matchesRole = !qRole || u.Nombre_rol === qRole;
+                    const matchesStatus = !qStatus || (u.Estado || 'Activo') === qStatus;
+                    return matchesSearch && matchesWorker && matchesRole && matchesStatus;
+                });
+
+                renderUsersTable(filtered);
+            }
+
+            ['f-usr-query', 'f-usr-work', 'u-filter-role', 'u-filter-status'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', applyFilters);
+                    // Forzar limpieza extrema (proteger contra autofill agresivo)
+                    const clear = () => {
+                        // Si el elemento no tiene foco, forzamos que esté vacío si no se ha inicializado
+                        if (document.activeElement !== el && !window.filterInitialized) {
+                            if (el.tagName === 'INPUT') el.value = '';
+                            else if (el.tagName === 'SELECT') el.selectedIndex = 0;
                         }
                     };
+                    clear();
+                    for(let t of [50, 150, 300, 500, 1000, 2000, 3000, 5000]) setTimeout(clear, t);
+                }
+            });
+            window.filterInitialized = true;
 
-                    updateReq('req-len', val.length >= 8);
-                    updateReq('req-low', /[a-z]/.test(val));
-                    updateReq('req-up', /[A-Z]/.test(val));
-                    updateReq('req-num', /[0-9]/.test(val));
-                    updateReq('req-spec', /[^a-zA-Z0-9]/.test(val));
-                });
-            }
+            // Asegurar que el formulario de usuario esté limpio al iniciar (Nuclear - Solo búsqueda)
+            const forceClearForm = () => {
+                // No limpiamos contraseñas aquí si el usuario quiere que persistan/autocompleten
+            };
+            forceClearForm();
+            setTimeout(forceClearForm, 250);
+
+            // (Logic integrated into validateUserForm)
 
             // --- Validaciones en tiempo real para el formulario de usuario ---
             window.allowedEmailDomains = new Set(['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com']);
@@ -3584,7 +3647,9 @@ function initPayrollPage() {
 
                 // 1. Correo
                 if (!email) {
-                    setErr(emailEl, emailMsg, 'El correo es requerido');
+                    ok = false;
+                } else if (!email.includes('@')) {
+                    setErr(emailEl, emailMsg, 'Tu dirección de correo electrónico debe contener @.');
                 } else if (!validateEmailFormat(email)) {
                     setErr(emailEl, emailMsg, 'Formato de correo inválido');
                 } else if (!validateEmailDomain(email)) {
@@ -3596,7 +3661,7 @@ function initPayrollPage() {
                 // 2. Usuario
                 const usernameRegex = /^[a-zA-Z0-9._]+$/;
                 if (!username) {
-                    setErr(usernameEl, unameMsg, 'El usuario es requerido');
+                    ok = false;
                 } else if (username.length < 3) {
                     setErr(usernameEl, unameMsg, 'Mínimo 3 caracteres');
                 } else if (!usernameRegex.test(username)) {
@@ -3608,45 +3673,64 @@ function initPayrollPage() {
                 // 3. Nombre Completo
                 const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
                 if (!name) {
-                    setErr(nameEl, nameMsg, 'El nombre es requerido');
+                    ok = false;
                 } else if (name.length < 3) {
+                    // Solo activar ok=false sin mensaje si es muy corto? 
+                    // El usuario dijo solo si viola restricciones. Dejaremos que ok sea true si solo es corto por ahora?
+                    // No, length < 3 es una restricción.
                     setErr(nameEl, nameMsg, 'Nombre muy corto');
                 } else if (!nameRegex.test(name)) {
-                    setErr(nameEl, nameMsg, 'Solo se permiten letras y espacios');
+                    setErr(nameEl, nameMsg, 'Tu nombre solo puede contener letras.');
                 } else {
                     if (nameEl) nameEl.style.borderColor = '#2ecc71';
                 }
 
                 // 4. Contraseñas
+                const updateRule = (id, valid) => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.style.color = valid ? '#27ae60' : (pass.length > 0 ? '#e74c3c' : 'var(--text-muted)');
+                    const d = el.querySelector('.dot'); if (d) d.textContent = valid ? '●' : '○';
+                };
+                const passRules = [
+                    { test: (pw) => pw.length >= 8, id: 'rule-length' },
+                    { test: (pw) => /[A-Z]/.test(pw), id: 'rule-upper' },
+                    { test: (pw) => /[a-z]/.test(pw), id: 'rule-lower' },
+                    { test: (pw) => /[0-9]/.test(pw), id: 'rule-number' },
+                    { test: (pw) => /[^a-zA-Z0-9]/.test(pw), id: 'rule-special' }
+                ];
+                passRules.forEach(r => updateRule(r.id, r.test(pass)));
+
                 if (!editUserId || pass.length > 0 || passConf.length > 0) {
-                    const passReqs = [
-                        (pw) => pw.length >= 8,
-                        (pw) => /[a-z]/.test(pw),
-                        (pw) => /[A-Z]/.test(pw),
-                        (pw) => /[0-9]/.test(pw),
-                        (pw) => /[^a-zA-Z0-9]/.test(pw)
-                    ];
-                    const passValid = passReqs.every(fn => fn(pass));
+                    const passValid = passRules.every(r => r.test(pass));
+                    const pwMsg = document.getElementById('u-password-msg');
+                    const passConfEl = document.getElementById('u-password-confirm');
+                    const passConfMsg = document.getElementById('u-password-confirm-msg');
 
                     if (!pass) {
-                        if (!editUserId) setErr(passEl, null, ''); // hide message but mark invalid if creating
+                        if (!editUserId) ok = false; 
                     } else if (!passValid) {
-                        if (passEl) passEl.style.borderColor = '#e74c3c';
+                        setErr(passEl, pwMsg, 'La contraseña no cumple los requisitos.');
                         ok = false;
                     } else {
                         if (passEl) passEl.style.borderColor = '#2ecc71';
+                        if (pwMsg) pwMsg.style.display = 'none';
                     }
 
-                    if (pass !== passConf) {
-                        if (passConfEl) passConfEl.style.borderColor = '#e74c3c';
+                    if (pass !== passConf && passConf.length > 0) {
+                        setErr(passConfEl, passConfMsg, 'Las contraseñas no coinciden.');
                         ok = false;
                     } else if (passConf && pass === passConf) {
-                        if (passConfEl) passConfEl.style.borderColor = '#2ecc71';
+                        if (passConfEl) {
+                            passConfEl.style.borderColor = '#2ecc71';
+                            if (passConfMsg) { passConfMsg.style.display = 'none'; }
+                        }
+                    } else {
+                        // Reset if empty
+                        resetStyle(passConfEl, passConfMsg);
                     }
                 }
 
-                // Enable/disable save button depending on validity
-                try { if (typeof saveBtn !== 'undefined' && saveBtn) saveBtn.disabled = !ok; } catch (e) { }
                 return ok;
             }
 
@@ -3656,6 +3740,32 @@ function initPayrollPage() {
                 if (!el) return;
                 el.addEventListener('input', () => validateUserForm());
                 el.addEventListener('change', () => validateUserForm());
+
+                // Bloqueo de caracteres en tiempo real para Nombre Real (igual que trabajadores)
+                if (id === 'u-name') {
+                    el.addEventListener('keypress', (e) => {
+                        const char = String.fromCharCode(e.which);
+                        if (!/[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/.test(char) && !e.ctrlKey && !e.metaKey && e.key !== 'Backspace' && e.key !== 'Delete') {
+                            e.preventDefault();
+                            // Mostrar mensaje de error al intentar ingresar algo inválido
+                            const nameMsg = document.getElementById('u-name-msg');
+                            if (nameMsg) {
+                                nameMsg.style.display = 'block';
+                                nameMsg.textContent = 'Tu nombre solo puede contener letras.';
+                                el.style.borderColor = '#e74c3c';
+                                // Limpiar después de 2 segundos para no ser intrusivo
+                                setTimeout(() => { if (!/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/.test(el.value)) { nameMsg.style.display = 'none'; el.style.borderColor = (el.value ? '#2ecc71' : 'var(--border-color)'); } }, 2000);
+                            }
+                        }
+                    });
+                    el.addEventListener('input', (e) => {
+                        const v = e.target.value;
+                        if (/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/.test(v)) {
+                            e.target.value = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
+                            validateUserForm();
+                        }
+                    });
+                }
             });
 
             // Helper para abrir/cerrar elementos con animación suave
@@ -3803,7 +3913,7 @@ function initPayrollPage() {
                         if (isSuper) {
                             actionsHtml = `<span style="color:var(--primary);font-weight:bold">Cuenta de Sistema</span>`;
                         } else {
-                            actionsHtml += `<button class="edit-user-btn" data-id="${u.Id_Usuario}" data-username="${u.Nombre_usuario}" data-email="${u.Correo}" data-role="${u.Nombre_rol || ''}" data-worker-id="${u.Id_Trabajador || ''}" style="background:#3498db;color:#fff;border:none;padding:6px 8px;border-radius:4px;cursor:pointer;margin-right:6px;">Editar</button>`;
+                            actionsHtml += `<button class="edit-user-btn" data-id="${u.Id_Usuario}" data-username="${u.raw_username || ''}" data-name="${u.Nombre_completo || ''}" data-email="${u.Correo}" data-role="${u.Nombre_rol || ''}" data-worker-id="${u.Id_Trabajador || ''}" style="background:#3498db;color:#fff;border:none;padding:6px 8px;border-radius:4px;cursor:pointer;margin-right:6px;">Editar</button>`;
                             actionsHtml += isInactive
                                 ? `<button class="activate-user-btn" data-id="${u.Id_Usuario}" style="background:#27ae60;color:#fff;border:none;padding:6px 8px;border-radius:4px;cursor:pointer;">Activar</button>`
                                 : `<button class="del-user-btn" data-id="${u.Id_Usuario}" style="background:#e74c3c;color:#fff;border:none;padding:6px 8px;border-radius:4px;cursor:pointer;">Desactivar</button>`;
@@ -3877,10 +3987,14 @@ function initPayrollPage() {
                 });
 
                 document.querySelectorAll('.edit-user-btn').forEach(b => {
-                    b.addEventListener('click', () => {
+                    b.addEventListener('click', async () => {
                         editUserId = b.getAttribute('data-id');
-                        // prefills: name (fallback to username) and username (important for update)
-                        document.getElementById('u-name').value = b.getAttribute('data-name') || b.getAttribute('data-username') || '';
+                        
+                        // Recargar trabajadores asegurando que el trabajador actual NO sea filtrado
+                        if (window.loadWorkersForUsers) await window.loadWorkersForUsers();
+
+                        // prefills: name and username (strictly separated)
+                        document.getElementById('u-name').value = b.getAttribute('data-name') || '';
                         document.getElementById('u-email').value = b.getAttribute('data-email') || '';
                         document.getElementById('u-username').value = b.getAttribute('data-username') || '';
                         // seleccionar el rol
@@ -3889,10 +4003,15 @@ function initPayrollPage() {
                         // seleccionar trabajador vinculado
                         const workerId = b.getAttribute('data-worker-id') || '';
                         if (document.getElementById('u-worker')) document.getElementById('u-worker').value = workerId;
+                        
                         document.getElementById('u-password').value = '';
                         document.getElementById('u-password-confirm').value = '';
+                        
                         formTitle.textContent = 'Editar Usuario';
+                        document.getElementById('u-pass-req-star').style.display = 'none';
+                        document.getElementById('u-passconf-req-star').style.display = 'none';
                         if (userForm) openSmooth(userForm);
+                        validateUserForm(); // Trigger validation to clear/set borders
                     });
                 });
             }
@@ -3912,12 +4031,12 @@ function initPayrollPage() {
                 showUsersMsg('Cargando...');
                 try {
                     const users = await loadUsers();
-                    renderUsersTable(users);
+                    allUsers = users; // Actualizar cache
+                    applyFilters(); // Renderizar aplicando filtros actuales
                 } catch (e) {
                     console.error('Error loading users', e);
                     showUsersMsg('Error de conexión', 'error');
                 } finally {
-                    // Limpiar mensaje tras unos segundos para evitar permanecer fijo
                     setTimeout(() => showUsersMsg(''), 3000);
                 }
             }
@@ -3963,6 +4082,8 @@ function initPayrollPage() {
                         if (res.ok) { showUsersMsg('Usuario actualizado', 'success'); clearForm(); if (userForm) closeSmooth(userForm); loadWorkersForUsers(); loadAndRenderUsers(); } else { console.error('Update failed', res.status, data); showUsersMsg(data.error || `Error al actualizar (${res.status})`, 'error'); }
                     } else {
                         // crear
+                        document.getElementById('u-pass-req-star').style.display = 'inline';
+                        document.getElementById('u-passconf-req-star').style.display = 'inline';
                         const res = await fetch('/superusuario/users/store', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }, body: JSON.stringify(payload) });
                         const text = await res.text();
                         let data;
