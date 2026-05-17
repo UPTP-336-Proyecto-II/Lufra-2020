@@ -1,7 +1,7 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\WorkerController::show
- * @see app/Http/Controllers/WorkerController.php:97
+ * @see app/Http/Controllers/WorkerController.php:107
  * @route '/trabajador/payslip/{id}'
  */
 export const show = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\WorkerController::show
- * @see app/Http/Controllers/WorkerController.php:97
+ * @see app/Http/Controllers/WorkerController.php:107
  * @route '/trabajador/payslip/{id}'
  */
 show.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ show.url = (args: { id: string | number } | [id: string | number ] | string | nu
 
 /**
 * @see \App\Http\Controllers\WorkerController::show
- * @see app/Http/Controllers/WorkerController.php:97
+ * @see app/Http/Controllers/WorkerController.php:107
  * @route '/trabajador/payslip/{id}'
  */
 show.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -53,13 +53,49 @@ show.get = (args: { id: string | number } | [id: string | number ] | string | nu
 })
 /**
 * @see \App\Http\Controllers\WorkerController::show
- * @see app/Http/Controllers/WorkerController.php:97
+ * @see app/Http/Controllers/WorkerController.php:107
  * @route '/trabajador/payslip/{id}'
  */
 show.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })
+
+    /**
+* @see \App\Http\Controllers\WorkerController::show
+ * @see app/Http/Controllers/WorkerController.php:107
+ * @route '/trabajador/payslip/{id}'
+ */
+    const showForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: show.url(args, options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\WorkerController::show
+ * @see app/Http/Controllers/WorkerController.php:107
+ * @route '/trabajador/payslip/{id}'
+ */
+        showForm.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: show.url(args, options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\WorkerController::show
+ * @see app/Http/Controllers/WorkerController.php:107
+ * @route '/trabajador/payslip/{id}'
+ */
+        showForm.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: show.url(args, {
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    show.form = showForm
 const payslip = {
     show: Object.assign(show, show),
 }

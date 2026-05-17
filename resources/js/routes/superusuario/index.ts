@@ -1,7 +1,7 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../wayfinder'
 import users from './users'
 /**
- * @see routes/modules.php:56
+ * @see routes/modules.php:59
  * @route '/superusuario'
  */
 export const dashboard = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -15,7 +15,7 @@ dashboard.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
- * @see routes/modules.php:56
+ * @see routes/modules.php:59
  * @route '/superusuario'
  */
 dashboard.url = (options?: RouteQueryOptions) => {
@@ -23,7 +23,7 @@ dashboard.url = (options?: RouteQueryOptions) => {
 }
 
 /**
- * @see routes/modules.php:56
+ * @see routes/modules.php:59
  * @route '/superusuario'
  */
 dashboard.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -31,7 +31,7 @@ dashboard.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     method: 'get',
 })
 /**
- * @see routes/modules.php:56
+ * @see routes/modules.php:59
  * @route '/superusuario'
  */
 dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -39,9 +39,41 @@ dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     method: 'head',
 })
 
+    /**
+ * @see routes/modules.php:59
+ * @route '/superusuario'
+ */
+    const dashboardForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: dashboard.url(options),
+        method: 'get',
+    })
+
+            /**
+ * @see routes/modules.php:59
+ * @route '/superusuario'
+ */
+        dashboardForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: dashboard.url(options),
+            method: 'get',
+        })
+            /**
+ * @see routes/modules.php:59
+ * @route '/superusuario'
+ */
+        dashboardForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: dashboard.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    dashboard.form = dashboardForm
 /**
 * @see \App\Http\Controllers\UserListController::users_data
- * @see app/Http/Controllers/UserListController.php:39
+ * @see app/Http/Controllers/UserListController.php:51
  * @route '/superusuario/users-data'
  */
 export const users_data = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -56,7 +88,7 @@ users_data.definition = {
 
 /**
 * @see \App\Http\Controllers\UserListController::users_data
- * @see app/Http/Controllers/UserListController.php:39
+ * @see app/Http/Controllers/UserListController.php:51
  * @route '/superusuario/users-data'
  */
 users_data.url = (options?: RouteQueryOptions) => {
@@ -65,7 +97,7 @@ users_data.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\UserListController::users_data
- * @see app/Http/Controllers/UserListController.php:39
+ * @see app/Http/Controllers/UserListController.php:51
  * @route '/superusuario/users-data'
  */
 users_data.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -74,7 +106,7 @@ users_data.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\UserListController::users_data
- * @see app/Http/Controllers/UserListController.php:39
+ * @see app/Http/Controllers/UserListController.php:51
  * @route '/superusuario/users-data'
  */
 users_data.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -82,9 +114,44 @@ users_data.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     method: 'head',
 })
 
+    /**
+* @see \App\Http\Controllers\UserListController::users_data
+ * @see app/Http/Controllers/UserListController.php:51
+ * @route '/superusuario/users-data'
+ */
+    const users_dataForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: users_data.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\UserListController::users_data
+ * @see app/Http/Controllers/UserListController.php:51
+ * @route '/superusuario/users-data'
+ */
+        users_dataForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: users_data.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\UserListController::users_data
+ * @see app/Http/Controllers/UserListController.php:51
+ * @route '/superusuario/users-data'
+ */
+        users_dataForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: users_data.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    users_data.form = users_dataForm
 /**
 * @see \App\Http\Controllers\UserListController::create_default
- * @see app/Http/Controllers/UserListController.php:113
+ * @see app/Http/Controllers/UserListController.php:132
  * @route '/superusuario/create-superuser'
  */
 export const create_default = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -99,7 +166,7 @@ create_default.definition = {
 
 /**
 * @see \App\Http\Controllers\UserListController::create_default
- * @see app/Http/Controllers/UserListController.php:113
+ * @see app/Http/Controllers/UserListController.php:132
  * @route '/superusuario/create-superuser'
  */
 create_default.url = (options?: RouteQueryOptions) => {
@@ -108,7 +175,7 @@ create_default.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\UserListController::create_default
- * @see app/Http/Controllers/UserListController.php:113
+ * @see app/Http/Controllers/UserListController.php:132
  * @route '/superusuario/create-superuser'
  */
 create_default.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -116,6 +183,27 @@ create_default.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => 
     method: 'post',
 })
 
+    /**
+* @see \App\Http\Controllers\UserListController::create_default
+ * @see app/Http/Controllers/UserListController.php:132
+ * @route '/superusuario/create-superuser'
+ */
+    const create_defaultForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: create_default.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\UserListController::create_default
+ * @see app/Http/Controllers/UserListController.php:132
+ * @route '/superusuario/create-superuser'
+ */
+        create_defaultForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: create_default.url(options),
+            method: 'post',
+        })
+    
+    create_default.form = create_defaultForm
 /**
 * @see \App\Http\Controllers\AdminController::workers_list
  * @see app/Http/Controllers/AdminController.php:18
@@ -159,9 +247,44 @@ workers_list.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     method: 'head',
 })
 
+    /**
+* @see \App\Http\Controllers\AdminController::workers_list
+ * @see app/Http/Controllers/AdminController.php:18
+ * @route '/superusuario/workers-list'
+ */
+    const workers_listForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: workers_list.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::workers_list
+ * @see app/Http/Controllers/AdminController.php:18
+ * @route '/superusuario/workers-list'
+ */
+        workers_listForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: workers_list.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\AdminController::workers_list
+ * @see app/Http/Controllers/AdminController.php:18
+ * @route '/superusuario/workers-list'
+ */
+        workers_listForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: workers_list.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    workers_list.form = workers_listForm
 /**
 * @see \App\Http\Controllers\UserListController::reports_users
- * @see app/Http/Controllers/UserListController.php:39
+ * @see app/Http/Controllers/UserListController.php:51
  * @route '/superusuario/reports/users'
  */
 export const reports_users = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -176,7 +299,7 @@ reports_users.definition = {
 
 /**
 * @see \App\Http\Controllers\UserListController::reports_users
- * @see app/Http/Controllers/UserListController.php:39
+ * @see app/Http/Controllers/UserListController.php:51
  * @route '/superusuario/reports/users'
  */
 reports_users.url = (options?: RouteQueryOptions) => {
@@ -185,7 +308,7 @@ reports_users.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\UserListController::reports_users
- * @see app/Http/Controllers/UserListController.php:39
+ * @see app/Http/Controllers/UserListController.php:51
  * @route '/superusuario/reports/users'
  */
 reports_users.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -194,13 +317,49 @@ reports_users.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\UserListController::reports_users
- * @see app/Http/Controllers/UserListController.php:39
+ * @see app/Http/Controllers/UserListController.php:51
  * @route '/superusuario/reports/users'
  */
 reports_users.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: reports_users.url(options),
     method: 'head',
 })
+
+    /**
+* @see \App\Http\Controllers\UserListController::reports_users
+ * @see app/Http/Controllers/UserListController.php:51
+ * @route '/superusuario/reports/users'
+ */
+    const reports_usersForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: reports_users.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\UserListController::reports_users
+ * @see app/Http/Controllers/UserListController.php:51
+ * @route '/superusuario/reports/users'
+ */
+        reports_usersForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: reports_users.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\UserListController::reports_users
+ * @see app/Http/Controllers/UserListController.php:51
+ * @route '/superusuario/reports/users'
+ */
+        reports_usersForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: reports_users.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    reports_users.form = reports_usersForm
 const superusuario = {
     dashboard: Object.assign(dashboard, dashboard),
 users_data: Object.assign(users_data, users_data),

@@ -1,7 +1,7 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\AdminController::pay
- * @see app/Http/Controllers/AdminController.php:293
+ * @see app/Http/Controllers/AdminController.php:328
  * @route '/administrativo/payroll/pay'
  */
 export const pay = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ pay.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::pay
- * @see app/Http/Controllers/AdminController.php:293
+ * @see app/Http/Controllers/AdminController.php:328
  * @route '/administrativo/payroll/pay'
  */
 pay.url = (options?: RouteQueryOptions) => {
@@ -25,13 +25,35 @@ pay.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\AdminController::pay
- * @see app/Http/Controllers/AdminController.php:293
+ * @see app/Http/Controllers/AdminController.php:328
  * @route '/administrativo/payroll/pay'
  */
 pay.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: pay.url(options),
     method: 'post',
 })
+
+    /**
+* @see \App\Http\Controllers\AdminController::pay
+ * @see app/Http/Controllers/AdminController.php:328
+ * @route '/administrativo/payroll/pay'
+ */
+    const payForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: pay.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::pay
+ * @see app/Http/Controllers/AdminController.php:328
+ * @route '/administrativo/payroll/pay'
+ */
+        payForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: pay.url(options),
+            method: 'post',
+        })
+    
+    pay.form = payForm
 const payroll = {
     pay: Object.assign(pay, pay),
 }
