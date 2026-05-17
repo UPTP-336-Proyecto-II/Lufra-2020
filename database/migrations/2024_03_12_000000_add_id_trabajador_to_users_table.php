@@ -12,16 +12,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $blueprint) {
-            $blueprint->integer('Id_Trabajador')->nullable()->after('role');
+        Schema::table('usuario', function (Blueprint $blueprint) {
+            if (!Schema::hasColumn('usuario', 'Id_Trabajador')) {
+                $blueprint->integer('Id_Trabajador')->nullable();
+            }
         });
 
-        // Link existing users based on legacy usuario table
-        $legacyUsers = DB::table('usuario')->get();
-        foreach ($legacyUsers as $legacyUser) {
-            DB::table('users')
-                ->where('name', $legacyUser->Nombre_usuario)
-                ->update(['Id_Trabajador' => $legacyUser->Id_Trabajador]);
+        if (Schema::hasTable('users')) {
+            $legacyUsers = DB::table('usuario')->get();
+            foreach ($legacyUsers as $legacyUser) {
+                DB::table('users')
+                    ->where('name', $legacyUser->Nombre_usuario)
+                    ->update(['Id_Trabajador' => $legacyUser->Id_Trabajador]);
+            }
         }
     }
 

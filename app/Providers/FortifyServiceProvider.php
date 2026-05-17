@@ -51,20 +51,12 @@ class FortifyServiceProvider extends ServiceProvider
 
             // Verificamos que el usuario exista y la Contraseña sea correcta
             if ($user && Hash::check($request->password, $user->Contraseña)) {
-                
-                // =========================================================================
-                // BLOQUEO SIMULTÁNEO: Cierra sesiones en otros navegadores/dispositivos
-                // =========================================================================
-                Auth::logoutOtherDevices($request->password);
-                
                 return $user;
             }
 
             return null;
         });
 
-        $this->app['router']->get('/redirect-after-login', [\App\Http\Controllers\RedirectAfterLoginController::class, '__invoke'])->name('redirect.after.login');
-        
         $this->configureActions();
         $this->configureViews();
         $this->configureRateLimiting();

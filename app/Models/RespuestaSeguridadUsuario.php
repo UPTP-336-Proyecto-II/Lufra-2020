@@ -19,8 +19,8 @@ class RespuestaSeguridadUsuario extends Model
 
     public function usuario()
     {
-        // IMPORTANTE: 'user_id' se conecta con 'id_usuario' de la tabla usuario
-        return $this->belongsTo(User::class, 'user_id', 'id_usuario');
+        // IMPORTANTE: 'user_id' se conecta con 'Id_Usuario' de la tabla usuario
+        return $this->belongsTo(User::class, 'user_id', 'Id_Usuario');
     }
 
     public function pregunta()

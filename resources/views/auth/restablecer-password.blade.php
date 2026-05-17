@@ -105,6 +105,37 @@
         animation: fadeIn 0.3s ease;
     }
 
+    .password-rules {
+        margin-top: 15px;
+        font-size: 0.8rem;
+        color: #636e72;
+        line-height: 1.6;
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 10px;
+        text-align: left;
+        border: 1px solid #e1e8ef;
+    }
+
+    .rule-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+        transition: all 0.3s;
+    }
+
+    .rule-item .dot {
+        font-size: 14px;
+        width: 14px;
+        text-align: center;
+    }
+
+    .rule-item.valid {
+        color: #00cc18;
+        font-weight: 600;
+    }
+
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(-5px); }
         to { opacity: 1; transform: translateY(0); }
@@ -128,9 +159,18 @@
                 </div>
                 <div class="strength-meter"><div id="strength-bar" class="strength-bar"></div></div>
                 <small id="strength-text" style="font-size: 0.75rem; color: #636e72;"></small>
+
+                <div class="password-rules">
+                    <div style="font-weight:700; margin-bottom:8px; color:#2d3436; font-size: 0.85rem;">Requisitos de seguridad:</div>
+                    <div id="rule-length" class="rule-item"><span class="dot">○</span> Al menos 8 caracteres</div>
+                    <div id="rule-upper" class="rule-item"><span class="dot">○</span> Al menos una mayúscula</div>
+                    <div id="rule-lower" class="rule-item"><span class="dot">○</span> Al menos una minúscula</div>
+                    <div id="rule-number" class="rule-item"><span class="dot">○</span> Al menos un número</div>
+                    <div id="rule-special" class="rule-item"><span class="dot">○</span> Al menos un caracter especial</div>
+                </div>
             </div>
 
-            <div class="input-group">
+            <div class="input-group" style="margin-bottom: 10px;">
                 <label for="confirm_password">Confirmar Contraseña</label>
                 <div class="password-wrapper">
                     <input type="password" id="confirm_password" name="password_confirmation" required placeholder="Repite tu contraseña">
@@ -138,6 +178,7 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                     </button>
                 </div>
+                <small id="match-text" style="font-size: 0.75rem; display: block; margin-top: 5px; font-weight: 600;"></small>
             </div>
 
             <div id="reset-message" class="message"></div>
@@ -162,19 +203,65 @@
     if(passInput) {
         passInput.addEventListener('input', () => {
             const val = passInput.value;
-            let strength = 0;
-            if (val.length >= 8) strength++;
-            if (/[A-Z]/.test(val)) strength++;
-            if (/[0-9]/.test(val)) strength++;
-            if (/[^A-Za-z0-9]/.test(val)) strength++;
+            
+            // Lógica de Reglas (Checklist)
+            const rules = [
+                { test: val.length >= 8, id: 'rule-length' },
+                { test: /[A-Z]/.test(val), id: 'rule-upper' },
+                { test: /[a-z]/.test(val), id: 'rule-lower' },
+                { test: /[0-9]/.test(val), id: 'rule-number' },
+                { test: /[^A-Za-z0-9]/.test(val), id: 'rule-special' }
+            ];
 
+            let strength = 0;
+            rules.forEach(r => {
+                const el = document.getElementById(r.id);
+                if (r.test) {
+                    el.classList.add('valid');
+                    el.querySelector('.dot').textContent = '●';
+                    strength++;
+                } else {
+                    el.classList.remove('valid');
+                    el.querySelector('.dot').textContent = '○';
+                }
+            });
+
+            // Lógica de Barra de Fuerza
             const colors = ['#e1e8ef', '#ff4d4d', '#ffa500', '#2ecc71', '#00cc18'];
             const labels = ['', 'Muy débil', 'Débil', 'Media', 'Fuerte'];
             
-            bar.style.width = (strength * 25) + '%';
+            bar.style.width = (strength * 20) + '%';
             bar.style.backgroundColor = colors[strength];
             text.textContent = labels[strength];
+            
+            checkMatch();
         });
+    }
+
+    const confirmInput = document.getElementById('confirm_password');
+    const matchText = document.getElementById('match-text');
+
+    function checkMatch() {
+        const p1 = passInput.value;
+        const p2 = confirmInput.value;
+        if (!p2) {
+            matchText.textContent = '';
+            confirmInput.style.borderColor = '#e1e8ef';
+            return;
+        }
+        if (p1 === p2) {
+            matchText.textContent = '✓ Las contraseñas coinciden';
+            matchText.style.color = '#00cc18';
+            confirmInput.style.borderColor = '#00cc18';
+        } else {
+            matchText.textContent = '✗ Las contraseñas no coinciden';
+            matchText.style.color = '#e74c3c';
+            confirmInput.style.borderColor = '#e74c3c';
+        }
+    }
+
+    if (confirmInput) {
+        confirmInput.addEventListener('input', checkMatch);
     }
 
     document.getElementById('resetPasswordForm').addEventListener('submit', async (e) => {
@@ -186,6 +273,21 @@
         const btn = document.getElementById('btn-reset-pass');
 
         msg.style.display = "none";
+
+        // Validar requisitos mínimos
+        const hasUpper = /[A-Z]/.test(password);
+        const hasLower = /[a-z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        const hasSpecial = /[^A-Za-z0-9]/.test(password);
+        const hasLength = password.length >= 8;
+
+        if (!hasUpper || !hasLower || !hasNumber || !hasSpecial || !hasLength) {
+            msg.textContent = "La contraseña no cumple con todos los requisitos de seguridad.";
+            msg.style.display = "block";
+            msg.style.background = "#f8d7da";
+            msg.style.color = "#721c24";
+            return;
+        }
 
         if (password !== password_confirmation) {
             msg.textContent = "¡Las contraseñas no coinciden!";

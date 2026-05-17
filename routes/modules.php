@@ -30,6 +30,9 @@ Route::middleware(['auth', 'role:administrativo'])->prefix('administrativo')->gr
     // Vacations
     Route::get('/vacations', [\App\Http\Controllers\AdminController::class, 'listVacations'])->name('admin.vacations');
     Route::post('/vacations/{id}/status', [\App\Http\Controllers\AdminController::class, 'updateVacationStatus'])->name('admin.vacations.status');
+    Route::get('/vacation-payments', [\App\Http\Controllers\AdminController::class, 'listVacationPayments'])->name('admin.vacation_payments');
+    Route::post('/vacation-payments', [\App\Http\Controllers\AdminController::class, 'storeVacationPayment'])->name('admin.vacation_payments.store');
+    Route::get('/vacation-payments/paid-years/{workerId}', [\App\Http\Controllers\AdminController::class, 'getPaidYears'])->name('admin.vacation_payments.paid_years');
     
     // Payroll & Concepts
     Route::get('/types-nomina', [\App\Http\Controllers\AdminController::class, 'listTypesNomina'])->name('admin.types_nomina');

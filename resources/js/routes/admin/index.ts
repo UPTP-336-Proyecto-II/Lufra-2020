@@ -1,6 +1,8 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../wayfinder'
+import seguridad from './seguridad'
 import workers52a5e7 from './workers'
 import vacations72464b from './vacations'
+import vacation_paymentsA5435a from './vacation_payments'
 import types_nomina9f49b4 from './types_nomina'
 import conceptsA1ca89 from './concepts'
 import payroll from './payroll'
@@ -48,9 +50,44 @@ workers.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     method: 'head',
 })
 
+    /**
+* @see \App\Http\Controllers\AdminController::workers
+ * @see app/Http/Controllers/AdminController.php:18
+ * @route '/administrativo/workers'
+ */
+    const workersForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: workers.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::workers
+ * @see app/Http/Controllers/AdminController.php:18
+ * @route '/administrativo/workers'
+ */
+        workersForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: workers.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\AdminController::workers
+ * @see app/Http/Controllers/AdminController.php:18
+ * @route '/administrativo/workers'
+ */
+        workersForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: workers.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    workers.form = workersForm
 /**
 * @see \App\Http\Controllers\AdminController::vacations
- * @see app/Http/Controllers/AdminController.php:178
+ * @see app/Http/Controllers/AdminController.php:184
  * @route '/administrativo/vacations'
  */
 export const vacations = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -65,7 +102,7 @@ vacations.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::vacations
- * @see app/Http/Controllers/AdminController.php:178
+ * @see app/Http/Controllers/AdminController.php:184
  * @route '/administrativo/vacations'
  */
 vacations.url = (options?: RouteQueryOptions) => {
@@ -74,7 +111,7 @@ vacations.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\AdminController::vacations
- * @see app/Http/Controllers/AdminController.php:178
+ * @see app/Http/Controllers/AdminController.php:184
  * @route '/administrativo/vacations'
  */
 vacations.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -83,7 +120,7 @@ vacations.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\AdminController::vacations
- * @see app/Http/Controllers/AdminController.php:178
+ * @see app/Http/Controllers/AdminController.php:184
  * @route '/administrativo/vacations'
  */
 vacations.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -91,9 +128,122 @@ vacations.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     method: 'head',
 })
 
+    /**
+* @see \App\Http\Controllers\AdminController::vacations
+ * @see app/Http/Controllers/AdminController.php:184
+ * @route '/administrativo/vacations'
+ */
+    const vacationsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: vacations.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::vacations
+ * @see app/Http/Controllers/AdminController.php:184
+ * @route '/administrativo/vacations'
+ */
+        vacationsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: vacations.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\AdminController::vacations
+ * @see app/Http/Controllers/AdminController.php:184
+ * @route '/administrativo/vacations'
+ */
+        vacationsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: vacations.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    vacations.form = vacationsForm
+/**
+* @see \App\Http\Controllers\AdminController::vacation_payments
+ * @see app/Http/Controllers/AdminController.php:394
+ * @route '/administrativo/vacation-payments'
+ */
+export const vacation_payments = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: vacation_payments.url(options),
+    method: 'get',
+})
+
+vacation_payments.definition = {
+    methods: ["get","head"],
+    url: '/administrativo/vacation-payments',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\AdminController::vacation_payments
+ * @see app/Http/Controllers/AdminController.php:394
+ * @route '/administrativo/vacation-payments'
+ */
+vacation_payments.url = (options?: RouteQueryOptions) => {
+    return vacation_payments.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\AdminController::vacation_payments
+ * @see app/Http/Controllers/AdminController.php:394
+ * @route '/administrativo/vacation-payments'
+ */
+vacation_payments.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: vacation_payments.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\AdminController::vacation_payments
+ * @see app/Http/Controllers/AdminController.php:394
+ * @route '/administrativo/vacation-payments'
+ */
+vacation_payments.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: vacation_payments.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\AdminController::vacation_payments
+ * @see app/Http/Controllers/AdminController.php:394
+ * @route '/administrativo/vacation-payments'
+ */
+    const vacation_paymentsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: vacation_payments.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::vacation_payments
+ * @see app/Http/Controllers/AdminController.php:394
+ * @route '/administrativo/vacation-payments'
+ */
+        vacation_paymentsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: vacation_payments.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\AdminController::vacation_payments
+ * @see app/Http/Controllers/AdminController.php:394
+ * @route '/administrativo/vacation-payments'
+ */
+        vacation_paymentsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: vacation_payments.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    vacation_payments.form = vacation_paymentsForm
 /**
 * @see \App\Http\Controllers\AdminController::types_nomina
- * @see app/Http/Controllers/AdminController.php:208
+ * @see app/Http/Controllers/AdminController.php:232
  * @route '/administrativo/types-nomina'
  */
 export const types_nomina = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -108,7 +258,7 @@ types_nomina.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::types_nomina
- * @see app/Http/Controllers/AdminController.php:208
+ * @see app/Http/Controllers/AdminController.php:232
  * @route '/administrativo/types-nomina'
  */
 types_nomina.url = (options?: RouteQueryOptions) => {
@@ -117,7 +267,7 @@ types_nomina.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\AdminController::types_nomina
- * @see app/Http/Controllers/AdminController.php:208
+ * @see app/Http/Controllers/AdminController.php:232
  * @route '/administrativo/types-nomina'
  */
 types_nomina.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -126,7 +276,7 @@ types_nomina.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\AdminController::types_nomina
- * @see app/Http/Controllers/AdminController.php:208
+ * @see app/Http/Controllers/AdminController.php:232
  * @route '/administrativo/types-nomina'
  */
 types_nomina.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -134,9 +284,44 @@ types_nomina.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     method: 'head',
 })
 
+    /**
+* @see \App\Http\Controllers\AdminController::types_nomina
+ * @see app/Http/Controllers/AdminController.php:232
+ * @route '/administrativo/types-nomina'
+ */
+    const types_nominaForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: types_nomina.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::types_nomina
+ * @see app/Http/Controllers/AdminController.php:232
+ * @route '/administrativo/types-nomina'
+ */
+        types_nominaForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: types_nomina.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\AdminController::types_nomina
+ * @see app/Http/Controllers/AdminController.php:232
+ * @route '/administrativo/types-nomina'
+ */
+        types_nominaForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: types_nomina.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    types_nomina.form = types_nominaForm
 /**
 * @see \App\Http\Controllers\AdminController::concepts
- * @see app/Http/Controllers/AdminController.php:245
+ * @see app/Http/Controllers/AdminController.php:280
  * @route '/administrativo/concepts'
  */
 export const concepts = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -151,7 +336,7 @@ concepts.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::concepts
- * @see app/Http/Controllers/AdminController.php:245
+ * @see app/Http/Controllers/AdminController.php:280
  * @route '/administrativo/concepts'
  */
 concepts.url = (options?: RouteQueryOptions) => {
@@ -160,7 +345,7 @@ concepts.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\AdminController::concepts
- * @see app/Http/Controllers/AdminController.php:245
+ * @see app/Http/Controllers/AdminController.php:280
  * @route '/administrativo/concepts'
  */
 concepts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -169,7 +354,7 @@ concepts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\AdminController::concepts
- * @see app/Http/Controllers/AdminController.php:245
+ * @see app/Http/Controllers/AdminController.php:280
  * @route '/administrativo/concepts'
  */
 concepts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -177,9 +362,44 @@ concepts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     method: 'head',
 })
 
+    /**
+* @see \App\Http\Controllers\AdminController::concepts
+ * @see app/Http/Controllers/AdminController.php:280
+ * @route '/administrativo/concepts'
+ */
+    const conceptsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: concepts.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::concepts
+ * @see app/Http/Controllers/AdminController.php:280
+ * @route '/administrativo/concepts'
+ */
+        conceptsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: concepts.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\AdminController::concepts
+ * @see app/Http/Controllers/AdminController.php:280
+ * @route '/administrativo/concepts'
+ */
+        conceptsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: concepts.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    concepts.form = conceptsForm
 /**
 * @see \App\Http\Controllers\AdminController::cargos
- * @see app/Http/Controllers/AdminController.php:321
+ * @see app/Http/Controllers/AdminController.php:352
  * @route '/administrativo/cargos'
  */
 export const cargos = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -194,7 +414,7 @@ cargos.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::cargos
- * @see app/Http/Controllers/AdminController.php:321
+ * @see app/Http/Controllers/AdminController.php:352
  * @route '/administrativo/cargos'
  */
 cargos.url = (options?: RouteQueryOptions) => {
@@ -203,7 +423,7 @@ cargos.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\AdminController::cargos
- * @see app/Http/Controllers/AdminController.php:321
+ * @see app/Http/Controllers/AdminController.php:352
  * @route '/administrativo/cargos'
  */
 cargos.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -212,7 +432,7 @@ cargos.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\AdminController::cargos
- * @see app/Http/Controllers/AdminController.php:321
+ * @see app/Http/Controllers/AdminController.php:352
  * @route '/administrativo/cargos'
  */
 cargos.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -220,9 +440,44 @@ cargos.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     method: 'head',
 })
 
+    /**
+* @see \App\Http\Controllers\AdminController::cargos
+ * @see app/Http/Controllers/AdminController.php:352
+ * @route '/administrativo/cargos'
+ */
+    const cargosForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: cargos.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::cargos
+ * @see app/Http/Controllers/AdminController.php:352
+ * @route '/administrativo/cargos'
+ */
+        cargosForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: cargos.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\AdminController::cargos
+ * @see app/Http/Controllers/AdminController.php:352
+ * @route '/administrativo/cargos'
+ */
+        cargosForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: cargos.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    cargos.form = cargosForm
 /**
 * @see \App\Http\Controllers\AdminController::education_levels
- * @see app/Http/Controllers/AdminController.php:357
+ * @see app/Http/Controllers/AdminController.php:386
  * @route '/administrativo/education-levels'
  */
 export const education_levels = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -237,7 +492,7 @@ education_levels.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::education_levels
- * @see app/Http/Controllers/AdminController.php:357
+ * @see app/Http/Controllers/AdminController.php:386
  * @route '/administrativo/education-levels'
  */
 education_levels.url = (options?: RouteQueryOptions) => {
@@ -246,7 +501,7 @@ education_levels.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\AdminController::education_levels
- * @see app/Http/Controllers/AdminController.php:357
+ * @see app/Http/Controllers/AdminController.php:386
  * @route '/administrativo/education-levels'
  */
 education_levels.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -255,7 +510,7 @@ education_levels.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => 
 })
 /**
 * @see \App\Http\Controllers\AdminController::education_levels
- * @see app/Http/Controllers/AdminController.php:357
+ * @see app/Http/Controllers/AdminController.php:386
  * @route '/administrativo/education-levels'
  */
 education_levels.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -263,6 +518,41 @@ education_levels.head = (options?: RouteQueryOptions): RouteDefinition<'head'> =
     method: 'head',
 })
 
+    /**
+* @see \App\Http\Controllers\AdminController::education_levels
+ * @see app/Http/Controllers/AdminController.php:386
+ * @route '/administrativo/education-levels'
+ */
+    const education_levelsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: education_levels.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::education_levels
+ * @see app/Http/Controllers/AdminController.php:386
+ * @route '/administrativo/education-levels'
+ */
+        education_levelsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: education_levels.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\AdminController::education_levels
+ * @see app/Http/Controllers/AdminController.php:386
+ * @route '/administrativo/education-levels'
+ */
+        education_levelsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: education_levels.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    education_levels.form = education_levelsForm
 /**
 * @see \App\Http\Controllers\UserListController::users
  * @see app/Http/Controllers/UserListController.php:9
@@ -305,9 +595,47 @@ users.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: users.url(options),
     method: 'head',
 })
+
+    /**
+* @see \App\Http\Controllers\UserListController::users
+ * @see app/Http/Controllers/UserListController.php:9
+ * @route '/superusuario/admin/users'
+ */
+    const usersForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: users.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\UserListController::users
+ * @see app/Http/Controllers/UserListController.php:9
+ * @route '/superusuario/admin/users'
+ */
+        usersForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: users.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\UserListController::users
+ * @see app/Http/Controllers/UserListController.php:9
+ * @route '/superusuario/admin/users'
+ */
+        usersForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: users.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    users.form = usersForm
 const admin = {
-    workers: Object.assign(workers, workers52a5e7),
+    seguridad: Object.assign(seguridad, seguridad),
+workers: Object.assign(workers, workers52a5e7),
 vacations: Object.assign(vacations, vacations72464b),
+vacation_payments: Object.assign(vacation_payments, vacation_paymentsA5435a),
 types_nomina: Object.assign(types_nomina, types_nomina9f49b4),
 concepts: Object.assign(concepts, conceptsA1ca89),
 payroll: Object.assign(payroll, payroll),

@@ -262,6 +262,12 @@
                 <td>{{ $fechaFin }}</td>
             </tr>
             <tr>
+                <td class="label">Cargo:</td>
+                <td>{{ $cargo }}</td>
+                <td class="label">Tipo de Nómina:</td>
+                <td>{{ $tipoNomina }}</td>
+            </tr>
+            <tr>
                 <td class="label">Sueldo Mensual:</td>
                 <td>Bs. {{ $salarioBase }}</td>
                 <td class="label">Período:</td>

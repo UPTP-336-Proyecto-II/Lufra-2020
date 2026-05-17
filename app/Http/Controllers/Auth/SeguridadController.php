@@ -38,15 +38,22 @@ class SeguridadController extends Controller
         $request->validate([
             'pregunta_id' => 'required|exists:preguntas_seguridad,id',
             'respuesta' => 'required|string|max:255',
+            'current_password' => 'required|string',
         ], [
             'pregunta_id.required' => 'Debe seleccionar una pregunta de seguridad.',
-            'respuesta.required' => 'Debe ingresar una respuesta.'
+            'respuesta.required' => 'Debe ingresar una respuesta.',
+            'current_password.required' => 'La contraseña actual es obligatoria para verificar tu identidad.'
         ]);
 
         $usuario = Auth::user();
 
         if (!$usuario) {
             return redirect()->route('login');
+        }
+
+        // Verificar la contraseña actual
+        if (!Hash::check($request->current_password, $usuario->Contraseña)) {
+            return redirect()->back()->withErrors(['current_password' => 'La contraseña ingresada es incorrecta.'])->withInput();
         }
 
         // Limpiamos y encriptamos la respuesta ya que el validador usa Hash::check

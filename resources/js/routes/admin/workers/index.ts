@@ -1,7 +1,7 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\AdminController::store
- * @see app/Http/Controllers/AdminController.php:39
+ * @see app/Http/Controllers/AdminController.php:41
  * @route '/administrativo/workers'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::store
- * @see app/Http/Controllers/AdminController.php:39
+ * @see app/Http/Controllers/AdminController.php:41
  * @route '/administrativo/workers'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\AdminController::store
- * @see app/Http/Controllers/AdminController.php:39
+ * @see app/Http/Controllers/AdminController.php:41
  * @route '/administrativo/workers'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -33,9 +33,30 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     method: 'post',
 })
 
+    /**
+* @see \App\Http\Controllers\AdminController::store
+ * @see app/Http/Controllers/AdminController.php:41
+ * @route '/administrativo/workers'
+ */
+    const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: store.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::store
+ * @see app/Http/Controllers/AdminController.php:41
+ * @route '/administrativo/workers'
+ */
+        storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: store.url(options),
+            method: 'post',
+        })
+    
+    store.form = storeForm
 /**
 * @see \App\Http\Controllers\AdminController::update
- * @see app/Http/Controllers/AdminController.php:96
+ * @see app/Http/Controllers/AdminController.php:100
  * @route '/administrativo/workers/{id}'
  */
 export const update = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -50,7 +71,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::update
- * @see app/Http/Controllers/AdminController.php:96
+ * @see app/Http/Controllers/AdminController.php:100
  * @route '/administrativo/workers/{id}'
  */
 update.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -78,7 +99,7 @@ update.url = (args: { id: string | number } | [id: string | number ] | string | 
 
 /**
 * @see \App\Http\Controllers\AdminController::update
- * @see app/Http/Controllers/AdminController.php:96
+ * @see app/Http/Controllers/AdminController.php:100
  * @route '/administrativo/workers/{id}'
  */
 update.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -86,9 +107,30 @@ update.post = (args: { id: string | number } | [id: string | number ] | string |
     method: 'post',
 })
 
+    /**
+* @see \App\Http\Controllers\AdminController::update
+ * @see app/Http/Controllers/AdminController.php:100
+ * @route '/administrativo/workers/{id}'
+ */
+    const updateForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: update.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::update
+ * @see app/Http/Controllers/AdminController.php:100
+ * @route '/administrativo/workers/{id}'
+ */
+        updateForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: update.url(args, options),
+            method: 'post',
+        })
+    
+    update.form = updateForm
 /**
 * @see \App\Http\Controllers\AdminController::activate
- * @see app/Http/Controllers/AdminController.php:167
+ * @see app/Http/Controllers/AdminController.php:173
  * @route '/administrativo/workers/{id}/activate'
  */
 export const activate = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -103,7 +145,7 @@ activate.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::activate
- * @see app/Http/Controllers/AdminController.php:167
+ * @see app/Http/Controllers/AdminController.php:173
  * @route '/administrativo/workers/{id}/activate'
  */
 activate.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -131,7 +173,7 @@ activate.url = (args: { id: string | number } | [id: string | number ] | string 
 
 /**
 * @see \App\Http\Controllers\AdminController::activate
- * @see app/Http/Controllers/AdminController.php:167
+ * @see app/Http/Controllers/AdminController.php:173
  * @route '/administrativo/workers/{id}/activate'
  */
 activate.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -139,9 +181,30 @@ activate.post = (args: { id: string | number } | [id: string | number ] | string
     method: 'post',
 })
 
+    /**
+* @see \App\Http\Controllers\AdminController::activate
+ * @see app/Http/Controllers/AdminController.php:173
+ * @route '/administrativo/workers/{id}/activate'
+ */
+    const activateForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: activate.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::activate
+ * @see app/Http/Controllers/AdminController.php:173
+ * @route '/administrativo/workers/{id}/activate'
+ */
+        activateForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: activate.url(args, options),
+            method: 'post',
+        })
+    
+    activate.form = activateForm
 /**
 * @see \App\Http\Controllers\AdminController::deactivate
- * @see app/Http/Controllers/AdminController.php:157
+ * @see app/Http/Controllers/AdminController.php:163
  * @route '/administrativo/workers/{id}/deactivate'
  */
 export const deactivate = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -156,7 +219,7 @@ deactivate.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::deactivate
- * @see app/Http/Controllers/AdminController.php:157
+ * @see app/Http/Controllers/AdminController.php:163
  * @route '/administrativo/workers/{id}/deactivate'
  */
 deactivate.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -184,13 +247,35 @@ deactivate.url = (args: { id: string | number } | [id: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\AdminController::deactivate
- * @see app/Http/Controllers/AdminController.php:157
+ * @see app/Http/Controllers/AdminController.php:163
  * @route '/administrativo/workers/{id}/deactivate'
  */
 deactivate.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: deactivate.url(args, options),
     method: 'post',
 })
+
+    /**
+* @see \App\Http\Controllers\AdminController::deactivate
+ * @see app/Http/Controllers/AdminController.php:163
+ * @route '/administrativo/workers/{id}/deactivate'
+ */
+    const deactivateForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: deactivate.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::deactivate
+ * @see app/Http/Controllers/AdminController.php:163
+ * @route '/administrativo/workers/{id}/deactivate'
+ */
+        deactivateForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: deactivate.url(args, options),
+            method: 'post',
+        })
+    
+    deactivate.form = deactivateForm
 const workers = {
     store: Object.assign(store, store),
 update: Object.assign(update, update),

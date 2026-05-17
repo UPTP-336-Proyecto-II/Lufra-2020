@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../wayfinder'
 import vacations72464b from './vacations'
 import payslip from './payslip'
 /**
@@ -44,9 +44,44 @@ profile.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     method: 'head',
 })
 
+    /**
+* @see \App\Http\Controllers\WorkerController::profile
+ * @see app/Http/Controllers/WorkerController.php:13
+ * @route '/trabajador/profile-data'
+ */
+    const profileForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: profile.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\WorkerController::profile
+ * @see app/Http/Controllers/WorkerController.php:13
+ * @route '/trabajador/profile-data'
+ */
+        profileForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: profile.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\WorkerController::profile
+ * @see app/Http/Controllers/WorkerController.php:13
+ * @route '/trabajador/profile-data'
+ */
+        profileForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: profile.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    profile.form = profileForm
 /**
 * @see \App\Http\Controllers\WorkerController::vacations
- * @see app/Http/Controllers/WorkerController.php:28
+ * @see app/Http/Controllers/WorkerController.php:33
  * @route '/trabajador/vacations-data'
  */
 export const vacations = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -61,7 +96,7 @@ vacations.definition = {
 
 /**
 * @see \App\Http\Controllers\WorkerController::vacations
- * @see app/Http/Controllers/WorkerController.php:28
+ * @see app/Http/Controllers/WorkerController.php:33
  * @route '/trabajador/vacations-data'
  */
 vacations.url = (options?: RouteQueryOptions) => {
@@ -70,7 +105,7 @@ vacations.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\WorkerController::vacations
- * @see app/Http/Controllers/WorkerController.php:28
+ * @see app/Http/Controllers/WorkerController.php:33
  * @route '/trabajador/vacations-data'
  */
 vacations.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -79,7 +114,7 @@ vacations.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\WorkerController::vacations
- * @see app/Http/Controllers/WorkerController.php:28
+ * @see app/Http/Controllers/WorkerController.php:33
  * @route '/trabajador/vacations-data'
  */
 vacations.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -87,9 +122,44 @@ vacations.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     method: 'head',
 })
 
+    /**
+* @see \App\Http\Controllers\WorkerController::vacations
+ * @see app/Http/Controllers/WorkerController.php:33
+ * @route '/trabajador/vacations-data'
+ */
+    const vacationsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: vacations.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\WorkerController::vacations
+ * @see app/Http/Controllers/WorkerController.php:33
+ * @route '/trabajador/vacations-data'
+ */
+        vacationsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: vacations.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\WorkerController::vacations
+ * @see app/Http/Controllers/WorkerController.php:33
+ * @route '/trabajador/vacations-data'
+ */
+        vacationsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: vacations.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    vacations.form = vacationsForm
 /**
 * @see \App\Http\Controllers\WorkerController::payslips
- * @see app/Http/Controllers/WorkerController.php:67
+ * @see app/Http/Controllers/WorkerController.php:77
  * @route '/trabajador/payslips-data'
  */
 export const payslips = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -104,7 +174,7 @@ payslips.definition = {
 
 /**
 * @see \App\Http\Controllers\WorkerController::payslips
- * @see app/Http/Controllers/WorkerController.php:67
+ * @see app/Http/Controllers/WorkerController.php:77
  * @route '/trabajador/payslips-data'
  */
 payslips.url = (options?: RouteQueryOptions) => {
@@ -113,7 +183,7 @@ payslips.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\WorkerController::payslips
- * @see app/Http/Controllers/WorkerController.php:67
+ * @see app/Http/Controllers/WorkerController.php:77
  * @route '/trabajador/payslips-data'
  */
 payslips.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -122,13 +192,49 @@ payslips.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\WorkerController::payslips
- * @see app/Http/Controllers/WorkerController.php:67
+ * @see app/Http/Controllers/WorkerController.php:77
  * @route '/trabajador/payslips-data'
  */
 payslips.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: payslips.url(options),
     method: 'head',
 })
+
+    /**
+* @see \App\Http\Controllers\WorkerController::payslips
+ * @see app/Http/Controllers/WorkerController.php:77
+ * @route '/trabajador/payslips-data'
+ */
+    const payslipsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: payslips.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\WorkerController::payslips
+ * @see app/Http/Controllers/WorkerController.php:77
+ * @route '/trabajador/payslips-data'
+ */
+        payslipsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: payslips.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\WorkerController::payslips
+ * @see app/Http/Controllers/WorkerController.php:77
+ * @route '/trabajador/payslips-data'
+ */
+        payslipsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: payslips.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    payslips.form = payslipsForm
 const worker = {
     profile: Object.assign(profile, profile),
 vacations: Object.assign(vacations, vacations72464b),

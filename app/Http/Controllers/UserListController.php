@@ -13,14 +13,22 @@ class UserListController extends Controller
         if ($request->filled('q')) {
             $q = $request->q;
             $query->where(function($b) use ($q) {
-                $b->where('name', 'like', "%$q%")
-                  ->orWhere('username', 'like', "%$q%")
-                  ->orWhere('email', 'like', "%$q%");
+                $b->where('Nombre_usuario', 'like', "%$q%")
+                  ->orWhere('Correo', 'like', "%$q%")
+                  ->orWhereHas('trabajador', function($t) use ($q) {
+                      $t->where('Nombre_Completo', 'like', "%$q%")
+                        ->orWhere('Apellidos', 'like', "%$q%");
+                  });
             });
         }
 
         if ($request->filled('rol')) {
-            $query->where('role', $request->rol);
+            // Mapeo inverso de nombre a ID
+            $rolesMap = ['administrativo' => 1, 'trabajador' => 2, 'superusuario' => 3];
+            $roleId = $rolesMap[strtolower($request->rol)] ?? null;
+            if ($roleId) {
+                $query->where('Id_rol', $roleId);
+            }
         }
 
         if ($request->filled('estado')) {
@@ -50,20 +58,27 @@ class UserListController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'username' => 'required|string|unique:users,username',
+            'email' => 'required|email|unique:usuario,Correo',
+            'username' => 'required|string|unique:usuario,Nombre_usuario',
             'password' => 'required|string|min:8',
             'role' => 'required|string',
-            'Id_Trabajador' => 'nullable|exists:trabajador,Id_Trabajador',
+            'Id_Trabajador' => 'nullable|sometimes|exists:trabajador,Id_Trabajador',
+        ], [
+            'username.unique' => 'Este nombre de usuario ya está en uso.',
+            'email.unique' => 'Esta dirección de correo ya está registrada.',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
+            'Id_Trabajador.exists' => 'El trabajador seleccionado no existe.'
         ]);
 
+        $rolesMap = ['administrativo' => 1, 'trabajador' => 2, 'superusuario' => 3];
+        $roleId = $rolesMap[strtolower($validated['role'])] ?? 2;
+
         $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'username' => $validated['username'],
-            'password' => bcrypt($validated['password']),
-            'role' => $validated['role'],
-            'Id_Trabajador' => $validated['Id_Trabajador'] ?? null,
+            'Nombre_usuario' => $validated['username'],
+            'Correo' => $validated['email'],
+            'Contraseña' => $validated['password'], 
+            'Id_rol' => $roleId,
+            'Id_Trabajador' => ($request->filled('Id_Trabajador') && $request->Id_Trabajador !== '') ? $request->Id_Trabajador : null,
             'Estado' => 'Activo',
         ]);
 
@@ -76,21 +91,23 @@ class UserListController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'username' => 'required|string|unique:users,username,' . $user->id,
+            'email' => 'required|email|unique:usuario,Correo,' . $user->Id_Usuario . ',Id_Usuario',
+            'username' => 'required|string|unique:usuario,Nombre_usuario,' . $user->Id_Usuario . ',Id_Usuario',
             'password' => 'nullable|string|min:8',
             'role' => 'required|string',
             'Id_Trabajador' => 'nullable|exists:trabajador,Id_Trabajador',
         ]);
 
-        $user->name = $validated['name'];
-        $user->email = $validated['email'];
-        $user->username = $validated['username'];
+        $rolesMap = ['administrativo' => 1, 'trabajador' => 2, 'superusuario' => 3];
+        $roleId = $rolesMap[strtolower($validated['role'])] ?? 2;
+
+        $user->Nombre_usuario = $validated['username'];
+        $user->Correo = $validated['email'];
         if ($request->filled('password')) {
-            $user->password = bcrypt($validated['password']);
+            $user->Contraseña = $validated['password'];
         }
-        $user->role = $validated['role'];
-        $user->Id_Trabajador = $validated['Id_Trabajador'] ?? null;
+        $user->Id_rol = $roleId;
+        $user->Id_Trabajador = ($request->filled('Id_Trabajador') && $request->Id_Trabajador !== '') ? $request->Id_Trabajador : null;
         $user->save();
 
         return response()->json(['message' => 'Usuario actualizado exitosamente']);
@@ -107,8 +124,6 @@ class UserListController extends Controller
     public function deactivate($id)
     {
         $user = User::findOrFail($id);
-        // Don't deactivate the current user or superadmins for safety? 
-        // For now, follow the requirement
         $user->Estado = 'Inactivo';
         $user->save();
         return response()->json(['message' => 'Usuario desactivado']);
@@ -116,19 +131,17 @@ class UserListController extends Controller
 
     public function createDefault()
     {
-        // For security, only allow if no superuser exists (or just follow the pattern)
-        $hasSu = User::where('role', 'SuperUsuario')->exists();
+        $hasSu = User::where('Id_rol', 3)->exists();
         if ($hasSu) {
-            return response()->json(['message' => 'Ya existe un SuperUsuario', 'username' => User::where('role', 'SuperUsuario')->first()->username]);
+            return response()->json(['message' => 'Ya existe un SuperUsuario', 'username' => User::where('Id_rol', 3)->first()->Nombre_usuario]);
         }
 
-        $tempPass = 'Admin123*'; // Example temp pass
+        $tempPass = 'Admin123*';
         $user = User::create([
-            'name' => 'Super Administrador',
-            'email' => 'admin@lufra2020.com',
-            'username' => 'superadmin',
-            'password' => bcrypt($tempPass),
-            'role' => 'SuperUsuario',
+            'Nombre_usuario' => 'superadmin',
+            'Correo' => 'admin@lufra2020.com',
+            'Contraseña' => $tempPass,
+            'Id_rol' => 3,
             'Estado' => 'Activo',
         ]);
 
@@ -139,15 +152,19 @@ class UserListController extends Controller
     {
         return $users->map(function($user) {
             return [
-                'Id_Usuario' => $user->id,
-                'Nombre_usuario' => $user->username ?? $user->name,
-                'raw_username' => $user->username,
-                'Nombre_completo' => $user->name,
-                'Correo' => $user->email,
-                'Nombre_rol' => $user->role,
+                'Id_Usuario' => $user->Id_Usuario,
+                'Nombre_usuario' => $user->Nombre_usuario,
+                'raw_username' => $user->Nombre_usuario,
+                'Nombre_completo' => $user->name, // Usa el accessor que creamos
+                'Correo' => $user->Correo,
+                'Nombre_rol' => [
+                    'administrativo' => 'Administrativo',
+                    'trabajador' => 'Trabajador',
+                    'superusuario' => 'SuperUsuario'
+                ][$user->role] ?? ucfirst($user->role),
                 'Estado' => $user->Estado ?? 'Activo',
                 'Id_Trabajador' => $user->Id_Trabajador,
-                'Trabajador_Nombre' => $user->trabajador ? ($user->trabajador->Nombres . ' ' . $user->trabajador->Apellidos) : null,
+                'Trabajador_Nombre' => $user->trabajador ? ($user->trabajador->Nombre_Completo . ' ' . $user->trabajador->Apellidos) : '—',
             ];
         });
     }

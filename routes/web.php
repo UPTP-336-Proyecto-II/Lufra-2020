@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use App\Http\Controllers\Auth\SeguridadController;
 
@@ -18,6 +19,10 @@ Route::get('/login', function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     // Redirección inteligente según el rol después de loguearse
     Route::get('/redirect-after-login', \App\Http\Controllers\RedirectAfterLoginController::class)->name('redirect.after.login');
+
+    Route::get('/dashboard', function () {
+        return Inertia::render('Dashboard');
+    })->name('dashboard');
     
     // VISTA: Formulario para que el usuario registre o edite sus preguntas secretas
     Route::get('/seguridad/configurar-preguntas', [SeguridadController::class, 'mostrarConfigurarPreguntas'])->name('seguridad.configurar.vista');

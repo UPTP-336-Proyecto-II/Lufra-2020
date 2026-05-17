@@ -237,15 +237,15 @@
                                     <div>
                                         <label class="form-label">Documento de identidad <span class="required">*</span></label>
                                         <div style="display:flex; gap:5px;">
-                                            <select id="w-cedula-prefix" style="width:70px;"><option value="V-">V-</option><option value="E-">E-</option><option value="P-">P-</option><option value="G-">G-</option><option value="J-">J-</option></select>
-                                            <input type="text" id="w-cedula-num" required class="only-numbers" placeholder="12345678" maxlength="8" style="flex:1;">
+                                            <select id="w-cedula-prefix" style="width:70px;"><option value="V-">V-</option><option value="E-">E-</option><option value="P-">P-</option><option value="G-">G-</option></select>
+                                            <input type="text" id="w-cedula-num" required class="only-numbers" placeholder="12345678" maxlength="10" style="flex:1;">
                                         </div>
-                                        <small style="color:var(--text-muted); font-size:0.75em;">7 a 8 dígitos.</small>
+                                        <small id="w-cedula-helper" style="color:var(--text-muted); font-size:0.75em;">7 a 8 dígitos.</small>
                                     </div>
                                     <div><label class="form-label">Fecha de nacimiento</label><input type="date" id="w-fecha-nac"></div>
                                     
                                     <div><label class="form-label">Género</label><select id="w-genero"><option value="">Seleccione...</option><option value="M">Masculino</option><option value="F">Femenino</option></select></div>
-                                    <div><label class="form-label">Estado civil</label><select id="w-estado-civil"><option value="">Seleccione...</option><option value="Soltero/a">Soltero/a</option><option value="Casado/a">Casado/a</option><option value="Divorciado/a">Divorciado/a</option><option value="Viudo/a">Viudo/a</option></select></div>
+                                    <div><label class="form-label">Estado civil <span class="required">*</span></label><select id="w-estado-civil" required><option value="">Seleccione...</option><option value="Soltero/a">Soltero/a</option><option value="Casado/a">Casado/a</option><option value="Divorciado/a">Divorciado/a</option><option value="Viudo/a">Viudo/a</option></select></div>
                                     
                                     <div><label class="form-label">Correo electrónico</label><input type="email" id="w-correo"></div>
                                     <div>
@@ -345,6 +345,26 @@
         let oldFechaIngreso = null;
 
         // Input restrictions and error displays
+        const iCedulaPrefix = document.getElementById('w-cedula-prefix');
+        const iCedulaHelper = document.getElementById('w-cedula-helper');
+        const iCedulaNum = document.getElementById('w-cedula-num');
+        if (iCedulaPrefix && iCedulaHelper && iCedulaNum) {
+            iCedulaPrefix.addEventListener('change', () => {
+                if (iCedulaPrefix.value === 'E-') {
+                    iCedulaHelper.textContent = '9 a 10 dígitos.';
+                    iCedulaNum.placeholder = '1234567890';
+                    iCedulaNum.maxLength = 10;
+                } else {
+                    iCedulaHelper.textContent = '7 a 8 dígitos.';
+                    iCedulaNum.placeholder = '12345678';
+                    iCedulaNum.maxLength = 8;
+                    if (iCedulaNum.value.length > 8) {
+                        iCedulaNum.value = iCedulaNum.value.substring(0, 8);
+                    }
+                }
+            });
+        }
+
         form.querySelectorAll('.only-numbers').forEach(input => {
             input.addEventListener('keypress', (e) => {
                 const char = String.fromCharCode(e.which);
@@ -452,19 +472,27 @@
         }
         if (iIngreso) {
             iIngreso.max = todayStr;
-            iIngreso.addEventListener('change', () => {
+            const checkIngreso = () => {
                 const v = iIngreso.value;
+                const vNac = iNac ? iNac.value : null;
+                
                 if (!v) { clearInlineError(iIngreso); return; }
+                
                 const vParts = v.split('-');
-                const date = new Date(vParts[0], vParts[1] - 1, vParts[2]);
+                const hireDate = new Date(vParts[0], vParts[1] - 1, vParts[2]);
                 const today = new Date();
                 today.setHours(23, 59, 59, 999);
-                if (date > today) {
+                
+                if (hireDate > today) {
                     showInlineError(iIngreso, 'La fecha de ingreso no puede ser futura.');
+                } else if (vNac && new Date(v) <= new Date(vNac)) {
+                    showInlineError(iIngreso, 'La fecha de ingreso del trabajador no puede ser menor o igual a su fecha de nacimiento.');
                 } else {
                     clearInlineError(iIngreso);
                 }
-            });
+            };
+            iIngreso.addEventListener('change', checkIngreso);
+            if (iNac) iNac.addEventListener('change', checkIngreso);
         }
 
         addBtn.addEventListener('click', () => {
@@ -472,12 +500,14 @@
             formContainer.style.display = isVisible ? 'none' : 'block';
             if (!isVisible) formContainer.scrollIntoView({ behavior: 'smooth' });
             form.reset();
+            form.querySelectorAll('input, select, textarea').forEach(el => clearInlineError(el));
             document.getElementById('w-id-trabajador').value = '';
             document.getElementById('worker-form-title').innerText = 'Datos del Trabajador (Registro)';
         });
 
         cancelBtn.addEventListener('click', () => {
             formContainer.style.display = 'none';
+            form.querySelectorAll('input, select, textarea').forEach(el => clearInlineError(el));
         });
 
         form.addEventListener('submit', async (e) => {
@@ -485,9 +515,17 @@
             const id = document.getElementById('w-id-trabajador').value;
 
             // --- VALIDACIONES ---
+            const ciPrefix = document.getElementById('w-cedula-prefix').value;
             const ciNum = document.getElementById('w-cedula-num').value;
-            if (ciNum.length < 7 || ciNum.length > 8) {
-                return showError('La cédula debe tener entre 7 y 8 dígitos.');
+            
+            if (ciPrefix === 'E-') {
+                if (ciNum.length < 9 || ciNum.length > 10) {
+                    return showError('Para prefijo Extranjero (E-), el documento debe tener entre 9 y 10 dígitos.');
+                }
+            } else {
+                if (ciNum.length < 7 || ciNum.length > 8) {
+                    return showError('La cédula debe tener entre 7 y 8 dígitos.');
+                }
             }
 
             const tPrefix = document.getElementById('w-telef-prefix').value;
@@ -525,14 +563,26 @@
                 }
             }
 
-            // Validación de Fecha de Ingreso (No futura)
+            // Validación de Fecha de Ingreso (No futura y no menor a nacimiento)
             const hireValue = document.getElementById('w-fecha-ingreso').value;
             const hParts = hireValue.split('-');
             const hireDate = new Date(hParts[0], hParts[1] - 1, hParts[2]);
             const now = new Date();
-            now.setHours(23, 59, 59, 999); // Permitir hasta el fin del día de hoy
+            now.setHours(23, 59, 59, 999); 
+
             if (hireDate > now) {
+                showInlineError(document.getElementById('w-fecha-ingreso'), 'La fecha de ingreso no puede ser futura.');
                 return showError('La fecha de ingreso no puede ser futura.');
+            }
+            if (birthValue && new Date(hireValue) <= new Date(birthValue)) {
+                showInlineError(document.getElementById('w-fecha-ingreso'), 'La fecha de ingreso del trabajador no puede ser menor o igual a su fecha de nacimiento.');
+                return showError('La fecha de ingreso del trabajador no puede ser menor o igual a su fecha de nacimiento.');
+            }
+            
+            const civStatus = document.getElementById('w-estado-civil').value;
+            if (!civStatus) {
+                showInlineError(document.getElementById('w-estado-civil'), 'El estado civil es obligatorio.');
+                return showError('El estado civil es obligatorio.');
             }
 
             // Reconstruir CI y Teléfono
@@ -666,41 +716,238 @@
 
     // --- Módulo: Panel de Vacaciones ---
     async function renderAdminVacations() {
-        contentDetails.innerHTML = '<div class="loader">Cargando solicitudes de vacaciones...</div>';
+        contentDetails.innerHTML = '<div class="loader">Cargando módulo de vacaciones...</div>';
         try {
-            const data = await apiFetch('/vacations');
+            const [data, wData] = await Promise.all([
+                apiFetch('/vacations'),
+                apiFetch('/workers')
+            ]);
             let requests = data.requests || [];
+            let workers = (wData.workers || []).filter(w => w.Contrato_Estado === 'Activo');
+            // Filter workers > 1 year
+            let eligibleWorkers = workers.filter(w => {
+                if (!w.Fecha_de_Ingreso) return false;
+                const hireParts = w.Fecha_de_Ingreso.split('-');
+                const hire = new Date(hireParts[0], hireParts[1] - 1, hireParts[2]);
+                const now = new Date();
+                const years = (now - hire) / (1000 * 60 * 60 * 24 * 365.25);
+                return years >= 1;
+            });
 
             contentDetails.innerHTML = `
                 <div class="vacation-panel">
-                    <h4 style="color: var(--text-main); border-bottom: 2px solid var(--primary); padding-bottom: 10px;">Panel de Gestión de Vacaciones</h4>
+                    <h4 style="color: var(--text-main); border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-bottom: 25px;">Panel de Gestión de Vacaciones</h4>
                     
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin: 20px 0;">
-                        <div class="chart-container" style="margin-bottom:0; display:flex; flex-direction:column; align-items:center; padding: 15px;">
-                            <h5 style="margin:0 0 0 0; color:var(--text-muted); font-size: 1.3em;">Distribución de Solicitudes</h5>
-                            <div style="width:100%; height:10px;"><canvas id="vacation-main-chart"></canvas></div>
+                    <div class="tabs" style="display: flex; gap: 8px; margin-bottom: 28px; background: rgba(0,0,0,0.04); padding: 6px; border-radius: 14px; width: fit-content; box-shadow: inset 0 1px 3px rgba(0,0,0,0.08);">
+                        <button class="vac-tab-btn active" data-tab="solicitudes" style="
+                            padding: 10px 28px; border: none;
+                            background: var(--primary);
+                            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+                            color: white; border-radius: 10px; font-weight: 700; cursor: pointer;
+                            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+                            box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+                            display: inline-flex; align-items: center; gap: 8px; font-size: 0.95rem; letter-spacing: 0.3px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                            Solicitudes
+                        </button>
+                        <button class="vac-tab-btn" data-tab="pagos" style="
+                            padding: 10px 28px; border: none;
+                            background: transparent; color: var(--text-muted);
+                            border-radius: 10px; font-weight: 700; cursor: pointer;
+                            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+                            display: inline-flex; align-items: center; gap: 8px; font-size: 0.95rem; letter-spacing: 0.3px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                            Pagos
+                        </button>
+                    </div>
+
+                    <div id="tab-solicitudes" class="vac-tab-content">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin: 20px 0;">
+                            <div class="chart-container" style="margin-bottom:0; display:flex; flex-direction:column; align-items:center; padding: 15px;">
+                                <h5 style="margin:0 0 0 0; color:var(--text-muted); font-size: 1.3em;">Distribución de Solicitudes</h5>
+                                <div style="width:100%; height:10px;"><canvas id="vacation-main-chart"></canvas></div>
+                            </div>
+                        </div>
+
+                        <div class="filters" style="margin: 20px 0; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                            <label style="color: var(--text-main); font-weight: 600;">Ordenar por:</label>
+                            <select id="sort-field" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-main);">
+                                <option value="Fecha_Solicitud">Fecha de Solicitud</option>
+                                <option value="Fecha_Inicio_Vacaciones">Fecha de Inicio</option>
+                                <option value="Estado">Estado</option>
+                            </select>
+                            <select id="sort-direction" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-main);">
+                                <option value="desc">Más reciente primero</option>
+                                <option value="asc">Más antiguo primero</option>
+                            </select>
+                            <input type="text" id="search-worker" placeholder="Buscar trabajador..." style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-main); flex: 1; min-width: 200px;">
+                        </div>
+
+                        <div id="vacation-list">
+                            ${renderVacationsTableHTML(requests, false)}
                         </div>
                     </div>
 
-                    <div class="filters" style="margin: 20px 0; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                        <label style="color: var(--text-main); font-weight: 600;">Ordenar por:</label>
-                        <select id="sort-field" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-main);">
-                            <option value="Fecha_Solicitud">Fecha de Solicitud</option>
-                            <option value="Fecha_Inicio_Vacaciones">Fecha de Inicio</option>
-                            <option value="Estado">Estado</option>
-                        </select>
-                        <select id="sort-direction" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-main);">
-                            <option value="desc">Más reciente primero</option>
-                            <option value="asc">Más antiguo primero</option>
-                        </select>
-                        <input type="text" id="search-worker" placeholder="Buscar trabajador..." style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-main); flex: 1; min-width: 200px;">
-                    </div>
+                    <div id="tab-pagos" class="vac-tab-content" style="display: none;">
 
-                    <div id="vacation-list">
-                        ${renderVacationsTableHTML(requests, false)}
+                        <!-- Botón Crear Nuevo Pago — mismo estilo que "Registrar Nuevo Trabajador" -->
+                        <div style="margin-bottom: 25px; padding-top: 5px;">
+                            <button id="btn-show-create-vac-payment" class="primary" style="
+                                padding: 12px 28px; font-weight: 700; border-radius: 10px;
+                                font-size: 0.98rem; letter-spacing: 0.3px;
+                                display: inline-flex; align-items: center; gap: 10px;
+                                box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+                                transition: all 0.25s cubic-bezier(0.4,0,0.2,1);">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                                Crear Nuevo Pago de Vacaciones
+                            </button>
+                        </div>
+
+                        <!-- Formulario de pago (oculto inicialmente) -->
+                        <div id="vacation-payment-form-container" style="display: none; background: var(--card-bg); padding: 30px; border-radius: 14px; border: 1px solid var(--border-color); box-shadow: 0 10px 40px rgba(0,0,0,0.1); margin-bottom: 25px;">
+                            <h4 style="margin-top: 0; color: var(--text-main); border-bottom: 2px solid var(--primary); padding-bottom: 12px; margin-bottom: 28px; font-size: 1.2rem;">
+                                Procesar Pago de Vacaciones
+                            </h4>
+
+                            <div class="payroll-form">
+                                <!-- Sección 1: Datos del trabajador -->
+                                <div style="padding: 20px; border: 1px solid var(--border-color); border-radius: 10px; background: rgba(0,0,0,0.02); margin-bottom: 24px;">
+                                    <h6 style="margin: 0 0 18px 0; color: var(--primary); font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                        Datos del Trabajador
+                                    </h6>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+                                        <div class="form-row">
+                                            <label style="display:block; font-weight:600; margin-bottom:8px; color: var(--text-main); font-size:0.9rem;">Seleccionar Trabajador <span style="color:#e74c3c;">*</span></label>
+                                            <select id="vp-worker" style="width:100%; padding:11px 12px; border-radius:8px; border:1px solid var(--border-color); background: var(--bg-color); color: var(--text-main); font-size:0.95rem;">
+                                                <option value="">Seleccione trabajador...</option>
+                                                ${eligibleWorkers.map(w => `<option value="${w.Id_Trabajador}">${w.Documento_Identidad} - ${w.Nombre_Completo} ${w.Apellidos}</option>`).join('')}
+                                            </select>
+                                        </div>
+                                        <div class="form-row">
+                                            <label style="display:block; font-weight:600; margin-bottom:8px; color: var(--text-main); font-size:0.9rem;">Fecha de Ingreso</label>
+                                            <input type="text" id="vp-hire-date" readonly placeholder="— Seleccione trabajador —" style="width:100%; padding:11px 12px; border-radius:8px; border:1px solid var(--border-color); background: rgba(0,0,0,0.04); color: var(--text-muted); cursor: not-allowed; font-size:0.95rem; box-sizing:border-box;">
+                                        </div>
+                                        <div class="form-row">
+                                            <label style="display:block; font-weight:600; margin-bottom:8px; color: var(--text-main); font-size:0.9rem;">Salario Mensual (Bs.) <span style="color:#e74c3c;">*</span></label>
+                                            <input type="number" id="vp-salario" min="130" step="0.01" placeholder="Mínimo 130.00" style="width:100%; padding:11px 12px; border-radius:8px; border:1px solid var(--border-color); background: var(--bg-color); color: var(--text-main); font-size:0.95rem; box-sizing:border-box;">
+                                            <small style="color:var(--text-muted); font-size:0.78rem; margin-top:4px; display:block;">No puede ser menor a Bs. 130.00</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Sección 2: Período vacacional -->
+                                <div style="padding: 20px; border: 1px solid var(--border-color); border-radius: 10px; background: rgba(0,0,0,0.02); margin-bottom: 24px;">
+                                    <h6 style="margin: 0 0 18px 0; color: var(--primary); font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                        Período Vacacional
+                                    </h6>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+                                        <div class="form-row">
+                                            <label style="display:block; font-weight:600; margin-bottom:8px; color: var(--text-main); font-size:0.9rem;">Año de Pago <span style="color:#e74c3c;">*</span></label>
+                                            <select id="vp-year" style="width:100%; padding:11px 12px; border-radius:8px; border:1px solid var(--border-color); background: var(--bg-color); color: var(--text-main); font-size:0.95rem;">
+                                                <option value="">Seleccione trabajador primero...</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-row">
+                                            <label style="display:block; font-weight:600; margin-bottom:8px; color: var(--text-main); font-size:0.9rem;">Días de Vacaciones</label>
+                                            <input type="text" id="vp-dias-vac" readonly placeholder="—" style="width:100%; padding:11px 12px; border-radius:8px; border:1px solid var(--border-color); background: rgba(0,0,0,0.04); color: var(--text-muted); cursor: not-allowed; font-size:0.95rem; box-sizing:border-box; font-weight:600; text-align:center;">
+                                        </div>
+                                        <div class="form-row">
+                                            <label style="display:block; font-weight:600; margin-bottom:8px; color: var(--text-main); font-size:0.9rem;">Días de Bono Vacacional</label>
+                                            <input type="text" id="vp-dias-bono" readonly placeholder="—" style="width:100%; padding:11px 12px; border-radius:8px; border:1px solid var(--border-color); background: rgba(0,0,0,0.04); color: var(--text-muted); cursor: not-allowed; font-size:0.95rem; box-sizing:border-box; font-weight:600; text-align:center;">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Sección 3: Resumen -->
+                                <div style="padding: 20px; border: 1px solid var(--border-color); border-radius: 10px; background: rgba(0,0,0,0.02); margin-bottom: 24px;">
+                                    <h6 style="margin: 0 0 18px 0; color: var(--primary); font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                                        Resumen del Pago
+                                    </h6>
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
+                                        <thead>
+                                            <tr style="background: var(--primary); color: white;">
+                                                <th style="padding: 12px 16px; text-align: left; border-radius: 8px 0 0 0; font-weight:600;">Concepto</th>
+                                                <th style="padding: 12px 16px; text-align: center; font-weight:600;">Días</th>
+                                                <th style="padding: 12px 16px; text-align: right; border-radius: 0 8px 0 0; font-weight:600;">Monto (Bs.)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                                <td style="padding: 13px 16px; color: var(--text-main); font-weight: 500;">Días de vacaciones</td>
+                                                <td id="vp-td-dias-vac" style="padding: 13px 16px; text-align: center; color: var(--text-main); font-weight: 600;">—</td>
+                                                <td id="vp-td-monto-vac" style="padding: 13px 16px; text-align: right; color: var(--text-main); font-weight: 600; font-family: monospace; font-size: 1rem;">—</td>
+                                            </tr>
+                                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                                <td style="padding: 13px 16px; color: var(--text-main); font-weight: 500;">Bono vacacional</td>
+                                                <td id="vp-td-dias-bono" style="padding: 13px 16px; text-align: center; color: var(--text-main); font-weight: 600;">—</td>
+                                                <td id="vp-td-monto-bono" style="padding: 13px 16px; text-align: right; color: var(--text-main); font-weight: 600; font-family: monospace; font-size: 1rem;">—</td>
+                                            </tr>
+                                        </tbody>
+                                        <tfoot>
+                                            <tr style="background: rgba(0,0,0,0.04); border-top: 2px solid var(--border-color);">
+                                                <td colspan="2" style="padding: 14px 16px; text-align: right; font-weight: 700; color: var(--text-main); font-size: 1rem;">Total Asignaciones:</td>
+                                                <td id="vp-td-total" style="padding: 14px 16px; text-align: right; font-weight: 800; font-size: 1.15rem; color: var(--success-color, #166534); font-family: monospace;">Bs. —</td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+
+                                <!-- Botones de acción -->
+                                <div style="display: flex; gap: 15px; justify-content: flex-end; align-items: center; padding-top: 8px;">
+                                    <button id="btn-cancel-vac-payment" class="secondary" style="padding: 12px 28px; font-weight: 700; border-radius: 10px; font-size: 0.95rem;">
+                                        Cancelar
+                                    </button>
+                                    <button id="btn-process-vac-payment" class="primary" style="
+                                        padding: 12px 28px; font-weight: 700; border-radius: 10px; font-size: 0.95rem;
+                                        display: inline-flex; align-items: center; gap: 10px;
+                                        box-shadow: 0 4px 14px rgba(0,0,0,0.18);">
+                                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                        Confirmar y procesar pago
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Historial -->
+                        <div style="margin-bottom: 15px;">
+                            <button id="toggle-vac-payments-history" class="secondary" style="padding: 10px 22px; font-weight: 700; border-radius: 10px; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.53"/></svg>
+                                Mostrar historial de pagos
+                            </button>
+                        </div>
+
+                        <div id="vac-payments-history-container" style="display: none; margin-top: 20px;">
+                            <h5 style="color: var(--text-main); margin-bottom: 15px; font-size: 1.05rem;">Historial de Pagos de Vacaciones</h5>
+                            <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                                <input type="text" id="search-vac-payment" placeholder="Buscar por documento o nombre..." style="padding: 9px 14px; border: 1px solid var(--border-color); border-radius: 8px; flex: 1; max-width: 340px; background: var(--bg-color); color: var(--text-main); font-size: 0.9rem;">
+                            </div>
+                            <div style="background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 0.93rem;">
+                                    <thead>
+                                        <tr style="background: var(--primary); color: white;">
+                                            <th style="padding: 12px 16px; text-align: left; font-weight:600;">Documento</th>
+                                            <th style="padding: 12px 16px; text-align: left; font-weight:600;">Trabajador</th>
+                                            <th style="padding: 12px 16px; text-align: center; font-weight:600;">Año pagado</th>
+                                            <th style="padding: 12px 16px; text-align: right; font-weight:600;">Total (Bs.)</th>
+                                            <th style="padding: 12px 16px; text-align: center; font-weight:600;">Fecha de registro</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="vac-payments-tbody">
+                                        <tr><td colspan="5" style="padding: 30px; color: var(--text-muted); text-align: center; font-style:italic;">No hay pagos registrados.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
+            
+            // Attach workers data to the panel so the setup function can use it
+            document.querySelector('.vacation-panel').dataset.workers = JSON.stringify(eligibleWorkers);
+
 
             setupVacationListeners(requests); // Pass requests to setupVacationListeners
         } catch (e) {
@@ -728,27 +975,35 @@
                         </tr>
                     </thead>
                     <tbody>
-                        ${requests.map(r => `
+                        ${requests.map(r => {
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const startDate = new Date(r.Fecha_Inicio_Vacaciones);
+                            const isExpired = r.Estado === 'Pendiente' && startDate < today;
+                            
+                            return `
                             <tr style="border-bottom: 1px solid var(--border-color);">
                                 <td style="padding: 10px; border: 1px solid var(--border-color); color: var(--text-main);">${formatLocalDate(r.Fecha_Solicitud)}</td>
                                 <td style="padding: 10px; border: 1px solid var(--border-color); font-weight: 600; color: var(--text-main);">${r.Nombre_Completo} ${r.Apellidos}</td>
                                 <td style="padding: 10px; border: 1px solid var(--border-color); color: var(--text-main);">${formatLocalDate(r.Fecha_Inicio_Vacaciones)}</td>
                                 <td style="padding: 10px; border: 1px solid var(--border-color);">
                                     <span style="padding: 6px 14px; border-radius: 20px; font-size: 0.8em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-                                        color: white; background-color: ${r.Estado === 'Aceptada' ? 'var(--success-color)' : r.Estado === 'Rechazada' ? 'var(--error-color)' : 'var(--text-muted)'};">
-                                        ${r.Estado}
+                                        color: white; background-color: ${isExpired ? '#94a3b8' : (r.Estado === 'Aceptada' ? 'var(--success-color)' : r.Estado === 'Rechazada' ? 'var(--error-color)' : 'var(--text-muted)')};">
+                                        ${isExpired ? 'Expirada' : r.Estado}
                                     </span>
                                 </td>
                                 <td style="padding: 10px; border: 1px solid var(--border-color);">
-                                    ${r.Estado === 'Pendiente' ? `
-                                        <button class="btn-vac-status primary small" data-id="${r.Id_Solicitud}" data-status="Aceptada">Aprobar</button>
-                                        <button class="btn-vac-status primary small" data-id="${r.Id_Solicitud}" data-status="Rechazada" style="background-color: var(--error-color);">Rechazar</button>
-                                    ` : (r.Estado === 'Aceptada' ? `
-                                        <button class="btn-vac-status secondary small" data-id="${r.Id_Solicitud}" data-status="Pendiente">Revertir</button>
-                                    ` : '-')}
+                                    ${isExpired ? '<span style="color:var(--text-muted); font-style:italic;">Expirada</span>' : (
+                                        r.Estado === 'Pendiente' ? `
+                                            <button class="btn-vac-status primary small" data-id="${r.Id_Solicitud}" data-status="Aceptada">Aprobar</button>
+                                            <button class="btn-vac-status primary small" data-id="${r.Id_Solicitud}" data-status="Rechazada" style="background-color: var(--error-color);">Rechazar</button>
+                                        ` : (r.Estado === 'Aceptada' ? `
+                                            <button class="btn-vac-status secondary small" data-id="${r.Id_Solicitud}" data-status="Pendiente">Revertir</button>
+                                        ` : '-')
+                                    )}
                                 </td>
-                            </tr>
-                        `).join('')}
+                            </tr>`;
+                        }).join('')}
                     </tbody>
                 </table>
             </div>
@@ -756,6 +1011,306 @@
     }
 
     function setupVacationListeners(requests) {
+        // Tab switching logic
+        const tabBtns = document.querySelectorAll('.vac-tab-btn');
+        const tabContents = document.querySelectorAll('.vac-tab-content');
+
+        function applyTabActiveStyle(btn, isActive) {
+            if (isActive) {
+                btn.style.background = 'linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%)';
+                btn.style.color = 'white';
+                btn.style.boxShadow = '0 4px 14px rgba(0,0,0,0.18)';
+                btn.classList.add('active');
+            } else {
+                btn.style.background = 'transparent';
+                btn.style.color = 'var(--text-muted)';
+                btn.style.boxShadow = 'none';
+                btn.classList.remove('active');
+            }
+        }
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tabBtns.forEach(b => applyTabActiveStyle(b, false));
+                tabContents.forEach(c => c.style.display = 'none');
+                applyTabActiveStyle(btn, true);
+                const targetId = `tab-${btn.dataset.tab}`;
+                document.getElementById(targetId).style.display = 'block';
+            });
+        });
+
+        // History toggle logic
+        const toggleHistoryBtn = document.getElementById('toggle-vac-payments-history');
+        const historyContainer = document.getElementById('vac-payments-history-container');
+        const showCreateFormBtn = document.getElementById('btn-show-create-vac-payment');
+        const formContainer = document.getElementById('vacation-payment-form-container');
+        const cancelFormBtn = document.getElementById('btn-cancel-vac-payment');
+
+        if (showCreateFormBtn && formContainer) {
+            showCreateFormBtn.addEventListener('click', () => {
+                formContainer.style.display = 'block';
+                if (historyContainer) historyContainer.style.display = 'none';
+                if (toggleHistoryBtn) {
+                    toggleHistoryBtn.textContent = 'Mostrar historial de pagos';
+                    toggleHistoryBtn.classList.replace('secondary', 'primary');
+                }
+                formContainer.scrollIntoView({ behavior: 'smooth' });
+            });
+        }
+
+        if (cancelFormBtn && formContainer) {
+            cancelFormBtn.addEventListener('click', () => {
+                formContainer.style.display = 'none';
+            });
+        }
+
+        if (toggleHistoryBtn && historyContainer) {
+            toggleHistoryBtn.addEventListener('click', async () => {
+                if (historyContainer.style.display === 'none') {
+                    historyContainer.style.display = 'block';
+                    // Update button text and icon
+                    toggleHistoryBtn.innerHTML = `
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        Ocultar historial de pagos
+                    `;
+                    if (formContainer) formContainer.style.display = 'none';
+
+                    // Load payment history
+                    const tbody = document.getElementById('vac-payments-tbody');
+                    if (tbody) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="padding:20px; text-align:center; color:var(--text-muted);">Cargando...</td></tr>';
+                        try {
+                            const pData = await apiFetch('/vacation-payments');
+                            const payments = pData.payments || [];
+                            const searchInput = document.getElementById('search-vac-payment');
+                            let allPayments = payments;
+
+                            function renderPaymentsTable(list) {
+                                if (!list.length) {
+                                    tbody.innerHTML = '<tr><td colspan="5" style="padding:30px; text-align:center; color:var(--text-muted); font-style:italic;">No hay pagos registrados.</td></tr>';
+                                    return;
+                                }
+                                tbody.innerHTML = list.map(p => `
+                                    <tr style="border-bottom: 1px solid var(--border-color);">
+                                        <td style="padding:12px 16px; color:var(--text-main); font-weight:600;">${p.Documento_Identidad || '—'}</td>
+                                        <td style="padding:12px 16px; color:var(--text-main);">${p.Nombre_Completo || ''} ${p.Apellidos || ''}</td>
+                                        <td style="padding:12px 16px; color:var(--text-main); text-align:center; font-weight:600;">${p.payment_year}</td>
+                                        <td style="padding:12px 16px; text-align:right; color:var(--success-color, #166534); font-weight:700; font-family:monospace;">Bs. ${parseFloat(p.total).toFixed(2)}</td>
+                                        <td style="padding:12px 16px; text-align:center; color:var(--text-muted); font-size:0.85rem;">${p.created_at ? new Date(p.created_at).toLocaleDateString('es-VE') : '—'}</td>
+                                    </tr>
+                                `).join('');
+                            }
+
+                            renderPaymentsTable(allPayments);
+
+                            if (searchInput) {
+                                searchInput.addEventListener('input', () => {
+                                    const term = searchInput.value.toLowerCase().trim();
+                                    const filtered = allPayments.filter(p => {
+                                        const name = `${p.Nombre_Completo||''} ${p.Apellidos||''}`.toLowerCase();
+                                        const doc = (p.Documento_Identidad||'').toLowerCase();
+                                        return name.includes(term) || doc.includes(term);
+                                    });
+                                    renderPaymentsTable(filtered);
+                                });
+                            }
+                        } catch(e) {
+                            if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="padding:20px; text-align:center; color:var(--error-color);">Error cargando historial: ${e.message}</td></tr>`;
+                        }
+                    }
+                } else {
+                    historyContainer.style.display = 'none';
+                    toggleHistoryBtn.innerHTML = `
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.53"/></svg>
+                        Mostrar historial de pagos
+                    `;
+                }
+            });
+        }
+
+        // --- Vacation Payment Form Logic ---
+        const vpWorker = document.getElementById('vp-worker');
+        const vpHireDate = document.getElementById('vp-hire-date');
+        const vpSalario = document.getElementById('vp-salario');
+        const vpYear = document.getElementById('vp-year');
+        const vpDiasVac = document.getElementById('vp-dias-vac');
+        const vpDiasBono = document.getElementById('vp-dias-bono');
+
+        // Summary Table Cells
+        const tdDiasVac = document.getElementById('vp-td-dias-vac');
+        const tdMontoVac = document.getElementById('vp-td-monto-vac');
+        const tdDiasBono = document.getElementById('vp-td-dias-bono');
+        const tdMontoBono = document.getElementById('vp-td-monto-bono');
+        const tdTotal = document.getElementById('vp-td-total');
+
+        const panelDataStr = document.querySelector('.vacation-panel')?.dataset.workers;
+        let eligibleWorkers = [];
+        if (panelDataStr) {
+            try { eligibleWorkers = JSON.parse(panelDataStr); } catch(e) {}
+        }
+
+        function calculateVacationTotals() {
+            const workerSelected = vpWorker && vpWorker.value;
+            const yearSelected = vpYear && vpYear.value;
+
+            if (!workerSelected || !yearSelected) {
+                // Reset to em-dash display
+                if (vpDiasVac) vpDiasVac.value = '';
+                if (vpDiasBono) vpDiasBono.value = '';
+                if (tdDiasVac) tdDiasVac.textContent = '—';
+                if (tdMontoVac) tdMontoVac.textContent = '—';
+                if (tdDiasBono) tdDiasBono.textContent = '—';
+                if (tdMontoBono) tdMontoBono.textContent = '—';
+                if (tdTotal) tdTotal.textContent = 'Bs. —';
+                return;
+            }
+
+            // Get hire year from stored attribute
+            const hireYear = parseInt(vpHireDate.dataset.hireYear || '0');
+            const selectedYear = parseInt(yearSelected);
+
+            // Validate Salario — enforce minimum 130
+            let salario = parseFloat(vpSalario ? vpSalario.value : '0');
+            if (isNaN(salario) || salario < 130) {
+                // Don't auto-correct, just don't compute
+                if (tdDiasVac) tdDiasVac.textContent = '—';
+                if (tdMontoVac) tdMontoVac.textContent = '—';
+                if (tdDiasBono) tdDiasBono.textContent = '—';
+                if (tdMontoBono) tdMontoBono.textContent = '—';
+                if (tdTotal) tdTotal.textContent = 'Bs. —';
+                if (vpSalario) vpSalario.style.borderColor = '#e74c3c';
+                return;
+            }
+            if (vpSalario) vpSalario.style.borderColor = 'var(--border-color)';
+
+            // Calculation: year 1 = 15 days, +1 each subsequent year, max 30
+            // difference = selectedYear - hireYear (e.g., 2024 - 2023 = 1 → 15 días)
+            const difference = selectedYear - hireYear;
+            const days = Math.min(30, 15 + (difference - 1));
+
+            if (vpDiasVac) vpDiasVac.value = `${days} días`;
+            if (vpDiasBono) vpDiasBono.value = `${days} días`;
+
+            if (tdDiasVac) tdDiasVac.textContent = days;
+            if (tdDiasBono) tdDiasBono.textContent = days;
+
+            const salarioDiario = salario / 30;
+            const montoVac = salarioDiario * days;
+            const montoBono = salarioDiario * days;
+            const total = montoVac + montoBono;
+
+            if (tdMontoVac) tdMontoVac.textContent = montoVac.toFixed(2);
+            if (tdMontoBono) tdMontoBono.textContent = montoBono.toFixed(2);
+            if (tdTotal) tdTotal.textContent = `Bs. ${total.toFixed(2)}`;
+        }
+
+        if (vpWorker) {
+            vpWorker.addEventListener('change', async () => {
+                const workerId = vpWorker.value;
+                if (!workerId) {
+                    if (vpHireDate) { vpHireDate.value = ''; vpHireDate.dataset.hireYear = ''; }
+                    if (vpYear) vpYear.innerHTML = '<option value="">Seleccione trabajador primero...</option>';
+                    calculateVacationTotals();
+                    return;
+                }
+
+                const worker = eligibleWorkers.find(w => String(w.Id_Trabajador) === String(workerId));
+                if (worker && worker.Fecha_de_Ingreso) {
+                    // Show hire date as readable text
+                    const [hy, hm, hd] = worker.Fecha_de_Ingreso.split('-');
+                    const hireYear = parseInt(hy);
+                    const readableDate = new Date(parseInt(hy), parseInt(hm)-1, parseInt(hd)).toLocaleDateString('es-VE', {day:'2-digit', month:'long', year:'numeric'});
+                    if (vpHireDate) {
+                        vpHireDate.value = readableDate;
+                        vpHireDate.dataset.hireYear = hireYear;
+                    }
+
+                    const currentYear = new Date().getFullYear();
+
+                    // Fetch already-paid years from API
+                    let paidYears = [];
+                    try {
+                        const paidData = await apiFetch(`/vacation-payments/paid-years/${workerId}`);
+                        paidYears = paidData.paid_years || [];
+                    } catch (e) {
+                        // If endpoint fails, proceed without filtering
+                        console.warn('No se pudieron obtener años pagados:', e.message);
+                    }
+
+                    // Build year options excluding already-paid years
+                    let opts = '<option value="">Seleccione el año a pagar...</option>';
+                    let hasOptions = false;
+                    for (let y = hireYear + 1; y <= currentYear; y++) {
+                        if (!paidYears.includes(y)) {
+                            opts += `<option value="${y}">Período ${y-1} → ${y} (Año ${y - hireYear})</option>`;
+                            hasOptions = true;
+                        }
+                    }
+                    if (!hasOptions) {
+                        opts += '<option value="" disabled>— Todos los años han sido pagados —</option>';
+                    }
+                    if (vpYear) vpYear.innerHTML = opts;
+                    calculateVacationTotals();
+                }
+            });
+        }
+
+        if (vpYear) vpYear.addEventListener('change', calculateVacationTotals);
+        if (vpSalario) {
+            vpSalario.addEventListener('input', calculateVacationTotals);
+            vpSalario.addEventListener('blur', () => {
+                const val = parseFloat(vpSalario.value);
+                if (!isNaN(val) && val < 130) {
+                    vpSalario.style.borderColor = '#e74c3c';
+                    showError('El salario mensual no puede ser menor a Bs. 130.00');
+                } else {
+                    vpSalario.style.borderColor = 'var(--border-color)';
+                }
+            });
+        }
+
+        // Process payment button — placeholder (no action yet, receipt format pending)
+        const processBtn = document.getElementById('btn-process-vac-payment');
+        if (processBtn) {
+            processBtn.addEventListener('click', async () => {
+                if (!vpWorker || !vpWorker.value) return showError('Seleccione un trabajador.');
+                if (!vpYear || !vpYear.value) return showError('Seleccione el año de pago.');
+                const salario = parseFloat(vpSalario ? vpSalario.value : '0');
+                if (isNaN(salario) || salario < 130) return showError('El salario mensual debe ser al menos Bs. 130.00');
+
+                const hireYear = parseInt(vpHireDate.dataset.hireYear || '0');
+                const selectedYear = parseInt(vpYear.value);
+                const difference = selectedYear - hireYear;
+                const days = Math.min(30, 15 + (difference - 1));
+                const salarioDiario = salario / 30;
+                const montoVac = salarioDiario * days;
+                const montoBono = salarioDiario * days;
+                const total = montoVac + montoBono;
+
+                try {
+                    await apiFetch('/vacation-payments', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            Id_Trabajador: parseInt(vpWorker.value),
+                            payment_year: selectedYear,
+                            salario_mensual: salario,
+                            dias_vacaciones: days,
+                            dias_bono: days,
+                            monto_vacaciones: parseFloat(montoVac.toFixed(2)),
+                            monto_bono: parseFloat(montoBono.toFixed(2)),
+                            total: parseFloat(total.toFixed(2)),
+                        })
+                    });
+                    showSuccess('✅ Pago de vacaciones registrado correctamente. El recibo será generado próximamente.');
+                    document.getElementById('vacation-payment-form-container').style.display = 'none';
+                    // Refresh the panel
+                    renderAdminVacations();
+                } catch (e) {
+                    showError(e.message);
+                }
+            });
+        }
+
         // Initialize Chart
         setTimeout(() => {
             const ctx = document.getElementById('vacation-main-chart');

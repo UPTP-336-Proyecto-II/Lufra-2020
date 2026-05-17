@@ -19,20 +19,8 @@ class RoleMiddleware
             return redirect('/login');
         }
 
-        /**
-         * MAPEO REAL SEGÚN TU BASE DE DATOS LUFRA200
-         * ID 1 = administrativo
-         * ID 2 = trabajador
-         * ID 3 = superusuario
-         */
-        $rolesMap = [
-            1 => 'administrativo',
-            2 => 'trabajador',
-            3 => 'superusuario',
-        ];
-
-        // Obtenemos el nombre del rol según el Id_rol del usuario
-        $userRoleName = $rolesMap[$user->Id_rol] ?? 'invitado';
+        // Obtenemos el nombre del rol usando el Accessor del modelo User
+        $userRoleName = strtolower($user->role);
 
         // =========================================================================
         // EXCEPCIÓN SUPREMA: Si es superusuario, tiene acceso a TODO el sistema

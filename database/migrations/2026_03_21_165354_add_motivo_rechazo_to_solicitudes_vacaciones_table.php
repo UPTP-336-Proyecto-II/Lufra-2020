@@ -11,8 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('solicitudes_vacaciones')) {
+            return;
+        }
+
         Schema::table('solicitudes_vacaciones', function (Blueprint $table) {
-            $table->text('motivo_rechazo')->nullable();
+            if (!Schema::hasColumn('solicitudes_vacaciones', 'motivo_rechazo')) {
+                $table->text('motivo_rechazo')->nullable();
+            }
         });
     }
 
@@ -21,8 +27,14 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!Schema::hasTable('solicitudes_vacaciones')) {
+            return;
+        }
+
         Schema::table('solicitudes_vacaciones', function (Blueprint $table) {
-            $table->dropColumn('motivo_rechazo');
+            if (Schema::hasColumn('solicitudes_vacaciones', 'motivo_rechazo')) {
+                $table->dropColumn('motivo_rechazo');
+            }
         });
     }
 };

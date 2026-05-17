@@ -1,7 +1,7 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\AdminController::store
- * @see app/Http/Controllers/AdminController.php:327
+ * @see app/Http/Controllers/AdminController.php:357
  * @route '/administrativo/cargos'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::store
- * @see app/Http/Controllers/AdminController.php:327
+ * @see app/Http/Controllers/AdminController.php:357
  * @route '/administrativo/cargos'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\AdminController::store
- * @see app/Http/Controllers/AdminController.php:327
+ * @see app/Http/Controllers/AdminController.php:357
  * @route '/administrativo/cargos'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -33,9 +33,30 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     method: 'post',
 })
 
+    /**
+* @see \App\Http\Controllers\AdminController::store
+ * @see app/Http/Controllers/AdminController.php:357
+ * @route '/administrativo/cargos'
+ */
+    const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: store.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::store
+ * @see app/Http/Controllers/AdminController.php:357
+ * @route '/administrativo/cargos'
+ */
+        storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: store.url(options),
+            method: 'post',
+        })
+    
+    store.form = storeForm
 /**
 * @see \App\Http\Controllers\AdminController::update
- * @see app/Http/Controllers/AdminController.php:338
+ * @see app/Http/Controllers/AdminController.php:367
  * @route '/administrativo/cargos/{id}'
  */
 export const update = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -50,7 +71,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::update
- * @see app/Http/Controllers/AdminController.php:338
+ * @see app/Http/Controllers/AdminController.php:367
  * @route '/administrativo/cargos/{id}'
  */
 update.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -78,7 +99,7 @@ update.url = (args: { id: string | number } | [id: string | number ] | string | 
 
 /**
 * @see \App\Http\Controllers\AdminController::update
- * @see app/Http/Controllers/AdminController.php:338
+ * @see app/Http/Controllers/AdminController.php:367
  * @route '/administrativo/cargos/{id}'
  */
 update.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -86,9 +107,30 @@ update.post = (args: { id: string | number } | [id: string | number ] | string |
     method: 'post',
 })
 
+    /**
+* @see \App\Http\Controllers\AdminController::update
+ * @see app/Http/Controllers/AdminController.php:367
+ * @route '/administrativo/cargos/{id}'
+ */
+    const updateForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: update.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::update
+ * @see app/Http/Controllers/AdminController.php:367
+ * @route '/administrativo/cargos/{id}'
+ */
+        updateForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: update.url(args, options),
+            method: 'post',
+        })
+    
+    update.form = updateForm
 /**
 * @see \App\Http\Controllers\AdminController::toggle
- * @see app/Http/Controllers/AdminController.php:349
+ * @see app/Http/Controllers/AdminController.php:378
  * @route '/administrativo/cargos/{id}/toggle'
  */
 export const toggle = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -103,7 +145,7 @@ toggle.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::toggle
- * @see app/Http/Controllers/AdminController.php:349
+ * @see app/Http/Controllers/AdminController.php:378
  * @route '/administrativo/cargos/{id}/toggle'
  */
 toggle.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -131,13 +173,35 @@ toggle.url = (args: { id: string | number } | [id: string | number ] | string | 
 
 /**
 * @see \App\Http\Controllers\AdminController::toggle
- * @see app/Http/Controllers/AdminController.php:349
+ * @see app/Http/Controllers/AdminController.php:378
  * @route '/administrativo/cargos/{id}/toggle'
  */
 toggle.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: toggle.url(args, options),
     method: 'post',
 })
+
+    /**
+* @see \App\Http\Controllers\AdminController::toggle
+ * @see app/Http/Controllers/AdminController.php:378
+ * @route '/administrativo/cargos/{id}/toggle'
+ */
+    const toggleForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: toggle.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\AdminController::toggle
+ * @see app/Http/Controllers/AdminController.php:378
+ * @route '/administrativo/cargos/{id}/toggle'
+ */
+        toggleForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: toggle.url(args, options),
+            method: 'post',
+        })
+    
+    toggle.form = toggleForm
 const cargos = {
     store: Object.assign(store, store),
 update: Object.assign(update, update),
