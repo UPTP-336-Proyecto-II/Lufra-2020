@@ -11,11 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            if (!Schema::hasColumn('users', 'username')) {
-                $table->string('username')->unique()->nullable()->after('name');
+        Schema::table('usuario', function (Blueprint $table) {
+            if (!Schema::hasColumn('usuario', 'username')) {
+                $table->string('username')->unique()->nullable()->after('Nombre_usuario');
             }
-            if (!Schema::hasColumn('users', 'Estado')) {
+            if (!Schema::hasColumn('usuario', 'Estado')) {
                 $table->string('Estado')->default('Activo')->after('Id_Trabajador');
             }
         });

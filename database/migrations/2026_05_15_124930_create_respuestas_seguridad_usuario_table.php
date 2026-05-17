@@ -16,7 +16,8 @@ return new class extends Migration
             $table->id();
             
             // Relación con el usuario: Si el usuario se elimina, sus respuestas también (onDelete cascade)
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->unsignedBigInteger('user_id');
+            $table->foreign('user_id')->references('Id_Usuario')->on('usuario')->onDelete('cascade');
             
             // Relación con la pregunta maestra
             $table->foreignId('pregunta_id')->constrained('preguntas_seguridad');

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('concepto')) {
+            return;
+        }
+
         Schema::table('concepto', function (Blueprint $table) {
             if (!Schema::hasColumn('concepto', 'Tipo')) {
                 $table->string('Tipo', 50)->nullable()->after('Nombre_Concepto');
@@ -31,8 +36,17 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!Schema::hasTable('concepto')) {
+            return;
+        }
+
         Schema::table('concepto', function (Blueprint $table) {
-            $table->dropColumn(['Tipo', 'Monto']);
+            if (Schema::hasColumn('concepto', 'Tipo')) {
+                $table->dropColumn('Tipo');
+            }
+            if (Schema::hasColumn('concepto', 'Monto')) {
+                $table->dropColumn('Monto');
+            }
         });
     }
 };

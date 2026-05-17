@@ -31,6 +31,14 @@ class User extends Authenticatable
         'Id_rol',
         'Id_Trabajador',
         'Estado',
+        'name',
+        'email',
+        'password',
+    ];
+
+    protected $casts = [
+        'Contraseña' => 'hashed',
+        'two_factor_confirmed_at' => 'datetime',
     ];
 
     public function trabajador()
@@ -44,14 +52,6 @@ class User extends Authenticatable
         'two_factor_recovery_codes',
         'remember_token',
     ];
-
-    protected function casts(): array
-    {
-        return [
-            'Contraseña' => 'hashed',
-            'two_factor_confirmed_at' => 'datetime',
-        ];
-    }
 
     public function getAuthPassword()
     {
@@ -100,6 +100,21 @@ class User extends Authenticatable
     public function setEmailAttribute($value)
     {
         $this->Correo = $value;
+    }
+
+    public function setNameAttribute($value)
+    {
+        $this->Nombre_usuario = $value;
+    }
+
+    public function setPasswordAttribute($value)
+    {
+        $this->Contraseña = $value;
+    }
+
+    public function getPasswordAttribute()
+    {
+        return $this->Contraseña;
     }
 
     public function getAuthIdentifierName()
