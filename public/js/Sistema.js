@@ -430,6 +430,15 @@ function initPayrollPage() {
                                 <button class="density-btn" data-density="compact">Compacta</button>
                             </div>
                         </div>
+
+                        <div class="set-group">
+                            <h4 class="set-title">🔒 Seguridad</h4>
+                            <div style="display: flex; gap: 10px;">
+                                <a href="/seguridad/configurar-preguntas" style="display: block; width: 100%; text-align: center; padding: 10px; border: 1px solid var(--primary); background: var(--primary); color: white; border-radius: 8px; cursor: pointer; font-weight: 600; text-decoration: none; transition: 0.2s;">
+                                    Configuración de Seguridad
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3666,7 +3675,7 @@ function initPayrollPage() {
                         }
                     };
                     clear();
-                    for(let t of [50, 150, 300, 500, 1000, 2000, 3000, 5000]) setTimeout(clear, t);
+                    for (let t of [50, 150, 300, 500, 1000, 2000, 3000, 5000]) setTimeout(clear, t);
                 }
             });
             window.filterInitialized = true;
@@ -3798,7 +3807,7 @@ function initPayrollPage() {
                     const passConfMsg = document.getElementById('u-password-confirm-msg');
 
                     if (!pass) {
-                        if (!editUserId) ok = false; 
+                        if (!editUserId) ok = false;
                     } else if (!passValid) {
                         setErr(passEl, pwMsg, 'La contraseña no cumple los requisitos.');
                         ok = false;
@@ -4080,7 +4089,7 @@ function initPayrollPage() {
                 document.querySelectorAll('.edit-user-btn').forEach(b => {
                     b.addEventListener('click', async () => {
                         editUserId = b.getAttribute('data-id');
-                        
+
                         // Recargar trabajadores asegurando que el trabajador actual NO sea filtrado
                         if (window.loadWorkersForUsers) await window.loadWorkersForUsers();
 
@@ -4094,10 +4103,10 @@ function initPayrollPage() {
                         // seleccionar trabajador vinculado
                         const workerId = b.getAttribute('data-worker-id') || '';
                         if (document.getElementById('u-worker')) document.getElementById('u-worker').value = workerId;
-                        
+
                         document.getElementById('u-password').value = '';
                         document.getElementById('u-password-confirm').value = '';
-                        
+
                         formTitle.textContent = 'Editar Usuario';
                         document.getElementById('u-pass-req-star').style.display = 'none';
                         document.getElementById('u-passconf-req-star').style.display = 'none';
@@ -4534,3 +4543,83 @@ async function ensureAuthOnShow(event) {
 }
 window.addEventListener('pageshow', ensureAuthOnShow);
 window.addEventListener('popstate', ensureAuthOnShow);
+
+// --- Idle Session Expiration ---
+document.addEventListener('DOMContentLoaded', () => {
+    let idleSeconds = 0;
+    const IDLE_LIMIT = 180; // 3 minutes in seconds
+    const WARNING_LIMIT = 120; // 2 minutes in seconds
+    let warningModal = null;
+    let countdownInterval = null;
+
+    function resetTimer() {
+        idleSeconds = 0;
+        if (warningModal) {
+            warningModal.remove();
+            warningModal = null;
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+        }
+    }
+
+    // Timer increment
+    setInterval(() => {
+        if (!sessionUser || !sessionUser.logged) return;
+
+        idleSeconds++;
+
+        if (idleSeconds === WARNING_LIMIT) {
+            showWarningModal();
+        } else if (idleSeconds >= IDLE_LIMIT) {
+            logout();
+        }
+    }, 1000);
+
+    // Activity triggers - reset idle timer on user interaction
+    const events = ['mousemove', 'mousedown', 'keypress', 'touchmove', 'scroll', 'click'];
+    events.forEach(evt => document.addEventListener(evt, resetTimer, { capture: true, passive: true }));
+
+    function showWarningModal() {
+        if (warningModal) return;
+
+        let secondsLeft = IDLE_LIMIT - WARNING_LIMIT; // 60 seconds
+
+        warningModal = document.createElement('div');
+        warningModal.className = 'modal-overlay modal-warning modal-show';
+        warningModal.style.zIndex = '99999';
+        warningModal.innerHTML = `
+            <div class="modal-content" style="max-width: 400px; text-align: center;">
+                <div class="modal-header" style="justify-content: center; flex-direction: column;">
+                    <div class="modal-icon" style="margin-bottom: 15px; color: #f59e0b;">
+                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    </div>
+                    <h3 class="modal-title" style="margin-bottom: 10px;">Sesión a punto de expirar</h3>
+                </div>
+                <div class="modal-body" style="margin-bottom: 20px; font-size: 1.1em;">
+                    Tu sesión expirará por inactividad en <br><strong id="idle-countdown" style="font-size: 1.5em; color: #ef4444; display: block; margin-top: 10px;">${secondsLeft}</strong> segundos.
+                </div>
+                <div class="modal-footer" style="justify-content: center;">
+                    <button class="modal-btn modal-ok" id="continue-session-btn" style="width: 100%;">Continuar Sesión</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(warningModal);
+
+        const btn = warningModal.querySelector('#continue-session-btn');
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetTimer();
+        });
+
+        countdownInterval = setInterval(() => {
+            secondsLeft--;
+            const countEl = document.getElementById('idle-countdown');
+            if (countEl) countEl.innerText = secondsLeft;
+            if (secondsLeft <= 0) {
+                clearInterval(countdownInterval);
+            }
+        }, 1000);
+    }
+});

@@ -237,13 +237,7 @@
             
             <div id="user-actions-container" style="display: flex; gap: 8px; justify-content: center; align-items: center; width: 100%;">
                 
-                <a href="{{ route('seguridad.configurar.vista') }}" id="security-btn" style="flex: 1;">
-                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                    </svg>
-                    Seguridad
-                </a>
+
 
                 <form action="{{ route('logout') }}" method="POST" style="margin: 0; flex: 1;">
                     @csrf
