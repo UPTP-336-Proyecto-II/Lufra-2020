@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 20-03-2026 a las 22:39:56
+-- Tiempo de generación: 17-05-2026 a las 04:40:34
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -72,12 +72,12 @@ CREATE TABLE `cache` (
 --
 
 INSERT INTO `cache` (`key`, `value`, `expiration`) VALUES
-('laravel-cache-cf6c6c271239be4d189de89e530f92d1', 'i:1;', 1773982856),
-('laravel-cache-cf6c6c271239be4d189de89e530f92d1:timer', 'i:1773982856;', 1773982856),
-('laravel-cache-d00e9a6c1e6a77ac30e32fcedc3f5bea', 'i:1;', 1774032649),
-('laravel-cache-d00e9a6c1e6a77ac30e32fcedc3f5bea:timer', 'i:1774032649;', 1774032649),
-('laravel-cache-f423b3141cd0e6d7c1e9e869128cf98b', 'i:1;', 1774032773),
-('laravel-cache-f423b3141cd0e6d7c1e9e869128cf98b:timer', 'i:1774032773;', 1774032773);
+('laravel-cache-b1cb5748828c16c4f36cb59c956c3b6e', 'i:1;', 1778983200),
+('laravel-cache-b1cb5748828c16c4f36cb59c956c3b6e:timer', 'i:1778983200;', 1778983200),
+('laravel-cache-d00e9a6c1e6a77ac30e32fcedc3f5bea', 'i:1;', 1778978211),
+('laravel-cache-d00e9a6c1e6a77ac30e32fcedc3f5bea:timer', 'i:1778978211;', 1778978211),
+('laravel-cache-f423b3141cd0e6d7c1e9e869128cf98b', 'i:1;', 1778979599),
+('laravel-cache-f423b3141cd0e6d7c1e9e869128cf98b:timer', 'i:1778979599;', 1778979599);
 
 -- --------------------------------------------------------
 
@@ -175,7 +175,7 @@ CREATE TABLE `contrato_trabajadores` (
 INSERT INTO `contrato_trabajadores` (`Id_registro`, `Id_Trabajador`, `Id_Tipo_Nomina`, `Fecha_registro`, `Observaciones`, `Estado`) VALUES
 (1, 1, 1, '2026-01-11 19:32:42', '\"Hello World\"', 'Activo'),
 (2, 9, 2, '2026-01-11 19:57:10', NULL, 'Activo'),
-(4, 11, 2, '2026-01-24 18:57:08', NULL, 'Activo'),
+(4, 11, 2, '2026-01-24 18:57:08', '', 'Activo'),
 (5, 12, 2, '2026-01-24 20:13:33', NULL, 'Activo'),
 (6, 13, 1, '2026-03-20 00:00:00', '', 'Activo');
 
@@ -311,7 +311,12 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
 (6, '2024_03_12_000000_add_id_trabajador_to_users_table', 3),
 (7, '2026_03_20_030634_add_status_to_admin_tables', 4),
 (8, '2026_03_20_044111_add_tipo_monto_to_concepto_table', 5),
-(9, '2026_03_20_050739_add_username_and_estado_to_users_table', 6);
+(9, '2026_03_20_050739_add_username_and_estado_to_users_table', 6),
+(10, '2026_03_21_165346_add_motivo_rechazo_to_solicitudes_vacaciones_table', 7),
+(11, '2026_03_21_165354_add_motivo_rechazo_to_solicitudes_vacaciones_table', 7),
+(12, '2026_05_03_000000_add_superior_nulo_to_nivel_educativo', 7),
+(13, '2026_05_15_124823_create_pregunta_seguridads_table', 7),
+(14, '2026_05_15_124930_create_respuestas_seguridad_usuario_table', 7);
 
 -- --------------------------------------------------------
 
@@ -329,10 +334,10 @@ CREATE TABLE `nivel_educativo` (
 --
 
 INSERT INTO `nivel_educativo` (`Id_Nivel_Educativo`, `Nombre_Nivel`) VALUES
+(4, 'Nulo'),
 (1, 'Primaria'),
 (2, 'Secundaria'),
-(3, 'Superior'),
-(4, 'Nulo');
+(3, 'Superior');
 
 -- --------------------------------------------------------
 
@@ -396,7 +401,35 @@ INSERT INTO `payslips` (`Id_Payslip`, `Fecha_Pago`, `Salario_Base`, `Neto`, `Id_
 (12, '2026-01-25', 3000.00, 3130.00, 12, '{\"periodo\":\"4\",\"fechaPago\":\"2026-01-25\",\"fechaInicio\":\"2026-02-16\",\"fechaFin\":\"2026-02-28\",\"salarioBase\":3000,\"asignaciones\":260,\"bonificaciones\":0,\"deducciones\":130,\"neto\":3130,\"tipoNomina\":\"Quincenal\",\"trabajadorId\":12,\"trabajador\":\"Yorkaris Rojas\",\"cedula\":\"V-31623405\",\"numeroRecibo\":null,\"conceptos\":[{\"Id_Concepto\":17,\"Codigo\":\"A001\",\"Nombre_Concepto\":\"Dias Laborables Trabajados\",\"Descripcion\":null,\"Tipo\":\"Asignación\",\"Monto\":\"130.00\",\"Observaciones_Bonificacion\":null,\"aux\":\"15\"},{\"Id_Concepto\":18,\"Codigo\":\"D001\",\"Nombre_Concepto\":\"Dias No Laborados\",\"Descripcion\":null,\"Tipo\":\"Deducción\",\"Monto\":\"130.00\",\"Observaciones_Bonificacion\":null,\"aux\":\"4\"},{\"Id_Concepto\":19,\"Codigo\":\"A002\",\"Nombre_Concepto\":\"Dias De Descanso\",\"Descripcion\":null,\"Tipo\":\"Asignación\",\"Monto\":\"130.00\",\"Observaciones_Bonificacion\":null,\"aux\":\"2\"}]}', '2026-01-26 03:33:42', NULL),
 (13, '2026-01-26', 3000.00, 3130.00, 11, '{\"periodo\":\"7\",\"fechaPago\":\"2026-01-26\",\"fechaInicio\":\"2026-04-01\",\"fechaFin\":\"2026-04-15\",\"salarioBase\":3000,\"asignaciones\":260,\"bonificaciones\":0,\"deducciones\":130,\"neto\":3130,\"tipoNomina\":\"Quincenal\",\"trabajadorId\":11,\"trabajador\":\"Adrian Gonzalez\",\"cedula\":\"V-31215637\",\"numeroRecibo\":null,\"conceptos\":[{\"Id_Concepto\":18,\"Codigo\":\"D001\",\"Nombre_Concepto\":\"Dias No Laborados\",\"Descripcion\":null,\"Tipo\":\"Deducción\",\"Monto\":\"130.00\",\"Observaciones_Bonificacion\":null,\"aux\":\"4\"},{\"Id_Concepto\":19,\"Codigo\":\"A002\",\"Nombre_Concepto\":\"Dias De Descanso\",\"Descripcion\":null,\"Tipo\":\"Asignación\",\"Monto\":\"130.00\",\"Observaciones_Bonificacion\":null,\"aux\":\"2\"},{\"Id_Concepto\":17,\"Codigo\":\"A001\",\"Nombre_Concepto\":\"Dias Laborables Trabajados\",\"Descripcion\":null,\"Tipo\":\"Asignación\",\"Monto\":\"130.00\",\"Observaciones_Bonificacion\":null,\"aux\":\"9\"}]}', '2026-01-26 23:31:34', NULL),
 (14, '2026-03-20', 5000.00, 5000.00, 1, '{\"trabajadorId\":\"1\",\"fechaPago\":\"2026-03-20\",\"periodo\":\"2da Quincena Marzo\",\"salarioBase\":5000,\"neto\":5000,\"conceptos\":[]}', '2026-03-20 04:27:42', NULL),
-(15, '2026-03-20', 1000.00, 983.25, 1, '{\"trabajadorId\":\"1\",\"trabajador\":\"Kelvis Arturo Gomez Macero\",\"cedula\":\"V-31710465\",\"fechaPago\":\"2026-03-20\",\"periodo\":\"2da Quincena Marzo\",\"fechaInicio\":\"2026-03-16\",\"fechaFin\":\"2026-03-31\",\"salarioBase\":1000,\"neto\":983.25,\"conceptos\":[{\"Codigo\":\"IVSS\",\"Tipo\":\"Deducci\\u00f3n\",\"Nombre_Concepto\":\"Seguro Social Obligatorio (4%)\",\"Monto\":6,\"aux\":\"3 Lunes\"},{\"Codigo\":\"SPF\",\"Tipo\":\"Deducci\\u00f3n\",\"Nombre_Concepto\":\"R\\u00e9gimen Prest. de Empleo (0.5%)\",\"Monto\":0.75,\"aux\":\"3 Lunes\"},{\"Codigo\":\"FAOV\",\"Tipo\":\"Deducci\\u00f3n\",\"Nombre_Concepto\":\"Ahorro Habitacional (1%)\",\"Monto\":10,\"aux\":\"1%\"},{\"Id_Concepto\":18,\"Codigo\":\"D001\",\"Nombre_Concepto\":\"Dias No Laborados\",\"Tipo\":\"Deducci\\u00f3n\",\"Monto\":\"0.00\",\"Descripci\\u00f3n\":null,\"Estado\":\"Activo\",\"aux\":\"4 Unid.\"},{\"Id_Concepto\":17,\"Codigo\":\"A001\",\"Nombre_Concepto\":\"Dias Laborables Trabajados\",\"Tipo\":\"Asignaci\\u00f3n\",\"Monto\":\"0.00\",\"Descripci\\u00f3n\":null,\"Estado\":\"Activo\",\"aux\":\"11 Unid.\"}]}', '2026-03-20 04:52:15', NULL);
+(15, '2026-03-20', 1000.00, 983.25, 1, '{\"trabajadorId\":\"1\",\"trabajador\":\"Kelvis Arturo Gomez Macero\",\"cedula\":\"V-31710465\",\"fechaPago\":\"2026-03-20\",\"periodo\":\"2da Quincena Marzo\",\"fechaInicio\":\"2026-03-16\",\"fechaFin\":\"2026-03-31\",\"salarioBase\":1000,\"neto\":983.25,\"conceptos\":[{\"Codigo\":\"IVSS\",\"Tipo\":\"Deducci\\u00f3n\",\"Nombre_Concepto\":\"Seguro Social Obligatorio (4%)\",\"Monto\":6,\"aux\":\"3 Lunes\"},{\"Codigo\":\"SPF\",\"Tipo\":\"Deducci\\u00f3n\",\"Nombre_Concepto\":\"R\\u00e9gimen Prest. de Empleo (0.5%)\",\"Monto\":0.75,\"aux\":\"3 Lunes\"},{\"Codigo\":\"FAOV\",\"Tipo\":\"Deducci\\u00f3n\",\"Nombre_Concepto\":\"Ahorro Habitacional (1%)\",\"Monto\":10,\"aux\":\"1%\"},{\"Id_Concepto\":18,\"Codigo\":\"D001\",\"Nombre_Concepto\":\"Dias No Laborados\",\"Tipo\":\"Deducci\\u00f3n\",\"Monto\":\"0.00\",\"Descripci\\u00f3n\":null,\"Estado\":\"Activo\",\"aux\":\"4 Unid.\"},{\"Id_Concepto\":17,\"Codigo\":\"A001\",\"Nombre_Concepto\":\"Dias Laborables Trabajados\",\"Tipo\":\"Asignaci\\u00f3n\",\"Monto\":\"0.00\",\"Descripci\\u00f3n\":null,\"Estado\":\"Activo\",\"aux\":\"11 Unid.\"}]}', '2026-03-20 04:52:15', NULL),
+(16, '2026-05-16', 130.00, 36.77, 11, '{\"trabajadorId\":\"11\",\"trabajador\":\"Adrian Gonzalez\",\"cedula\":\"V-31215637\",\"fechaPago\":\"2026-05-16\",\"periodo\":\"2da Quincena Diciembre 2025\",\"fechaInicio\":\"2025-12-16\",\"fechaFin\":\"2025-12-31\",\"salarioBase\":130,\"neto\":36.766666666666666,\"conceptos\":[{\"Codigo\":\"IVSS\",\"Tipo\":\"Deducci\\u00f3n\",\"Nombre_Concepto\":\"Seguro Social Obligatorio (4%)\",\"Monto\":0.8,\"aux\":\"2 Lunes\",\"Monto_Unitario\":0.8,\"Cantidad\":2},{\"Codigo\":\"SPF\",\"Tipo\":\"Deducci\\u00f3n\",\"Nombre_Concepto\":\"R\\u00e9gimen Prest. de Empleo (0.5%)\",\"Monto\":0.1,\"aux\":\"2 Lunes\",\"Monto_Unitario\":0.1,\"Cantidad\":2},{\"Codigo\":\"FAOV\",\"Tipo\":\"Deducci\\u00f3n\",\"Nombre_Concepto\":\"Ahorro Habitacional (1%)\",\"Monto\":0.4333333333333333,\"aux\":\"1%\",\"Monto_Unitario\":0.4333333333333333,\"Cantidad\":1},{\"Id_Concepto\":18,\"Codigo\":\"D001\",\"Nombre_Concepto\":\"Dias No Laborados\",\"Tipo\":\"Deducci\\u00f3n\",\"Monto\":4.333333333333333,\"Descripci\\u00f3n\":null,\"Estado\":\"Activo\",\"aux\":\"1 Unid.\",\"Monto_Unitario\":4.333333333333333,\"Cantidad\":1},{\"Id_Concepto\":17,\"Codigo\":\"A001\",\"Nombre_Concepto\":\"Dias Laborables Trabajados\",\"Tipo\":\"Asignaci\\u00f3n\",\"Monto\":4.333333333333333,\"Descripci\\u00f3n\":null,\"Estado\":\"Activo\",\"aux\":\"10 Unid.\",\"Monto_Unitario\":4.333333333333333,\"Cantidad\":10}]}', '2026-05-16 22:50:12', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `preguntas_seguridad`
+--
+
+CREATE TABLE `preguntas_seguridad` (
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `pregunta` varchar(255) NOT NULL,
+  `activa` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `preguntas_seguridad`
+--
+
+INSERT INTO `preguntas_seguridad` (`id`, `pregunta`, `activa`, `created_at`, `updated_at`) VALUES
+(1, '¿Cuál es el nombre de tu primera mascota?', 1, '2026-05-15 20:10:36', '2026-05-15 20:10:36'),
+(2, '¿En qué ciudad se conocieron tus padres?', 1, '2026-05-15 20:10:36', '2026-05-15 20:10:36'),
+(3, '¿Cuál es el nombre de tu escuela primaria?', 1, '2026-05-15 20:10:36', '2026-05-15 20:10:36'),
+(4, '¿Cuál es tu color favorito de la infancia?', 1, '2026-05-15 20:10:36', '2026-05-15 20:10:36'),
+(5, '¿Cuál es el segundo nombre de tu abuela materna?', 1, '2026-05-15 20:10:36', '2026-05-15 20:10:36'),
+(6, '¿Cómo se llamaba tu primer mejor amigo?', 1, '2026-05-15 20:10:36', '2026-05-15 20:10:36'),
+(7, '¿Cuál fue el primer modelo de carro que tuviste o manejaste?', 1, '2026-05-15 20:10:36', '2026-05-15 20:10:36');
 
 -- --------------------------------------------------------
 
@@ -412,6 +445,31 @@ CREATE TABLE `recibo_pago` (
   `Salario_Base` decimal(10,2) NOT NULL,
   `Neto` decimal(10,2) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `respuestas_seguridad_usuario`
+--
+
+CREATE TABLE `respuestas_seguridad_usuario` (
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `user_id` bigint(20) UNSIGNED NOT NULL,
+  `pregunta_id` bigint(20) UNSIGNED NOT NULL,
+  `respuesta_hash` varchar(255) NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `respuestas_seguridad_usuario`
+--
+
+INSERT INTO `respuestas_seguridad_usuario` (`id`, `user_id`, `pregunta_id`, `respuesta_hash`, `created_at`, `updated_at`) VALUES
+(8, 8, 5, '$2y$12$eenDw8eeeeOkw6EpQGY0eex/6CA1WtFf2TafhudaZ9DEQjVaqd7ti', '2026-05-16 23:29:07', '2026-05-16 23:29:07'),
+(9, 10, 1, '$2y$12$33ambqxbhHPd9lj/XJYt5uXOr2r0g8LwKRUi..jGkBjy6570M39Ka', '2026-05-16 00:57:50', '2026-05-16 00:57:50'),
+(10, 7, 6, '$2y$12$TZ40Aml5M90qEcVtwsh8ueNRZYpGmxVJADXm/szoDS08TWGr0fTOK', '2026-05-16 01:21:46', '2026-05-16 01:21:46'),
+(11, 12, 1, '$2y$12$XnVx7W5UjEvFk/P9W2xQ9eYaicvOc3yIbYl7AthFFUXE4rpKPmhEK', '2026-05-16 21:15:14', '2026-05-16 21:15:14');
 
 -- --------------------------------------------------------
 
@@ -454,8 +512,14 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) VALUES
-('fMKE9kzIsS9YW2R9ANONQBxhzhvOeLQF4jDTqVMg', 3, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36', 'YTo0OntzOjY6Il90b2tlbiI7czo0MDoibDQxZ3V5eDBvRDVxbHpWZTlPMTRwWDJQSmlZdURTWW53TXA0dTNpdyI7czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzY6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hZG1pbmlzdHJhdGl2byI7czo1OiJyb3V0ZSI7czoyNDoiYWRtaW5pc3RyYXRpdm8uZGFzaGJvYXJkIjt9czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6Mzt9', 1774032770),
-('iiPYAbAvRYIpunWsjx48JZBGy6LGzwrYIi3Uyvao', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiT1B2bnVnTzNXdW5GdndIclRDT21hcnlHMEJxNmIyajJjUGhocTM4cyI7czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6Mjc6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9sb2dpbiI7czo1OiJyb3V0ZSI7czo1OiJsb2dpbiI7fX0=', 1773987444);
+('1nLbm417qav1lHh6b5DWpKVRmmvCIZjocxAhv48N', 8, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'YTo0OntzOjY6Il90b2tlbiI7czo0MDoiVzJBN042MEgwR05kVnpWUVZvdkRnV1B6UEpkanVscFVaUGRDc1hTNyI7czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDU6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC90cmFiYWphZG9yL3Byb2ZpbGUtZGF0YSI7czo1OiJyb3V0ZSI7czoxNDoid29ya2VyLnByb2ZpbGUiO31zOjUwOiJsb2dpbl93ZWJfNTliYTM2YWRkYzJiMmY5NDAxNTgwZjAxNGM3ZjU4ZWE0ZTMwOTg5ZCI7aTo4O30=', 1778973096),
+('4imw35lTYdXkFvoXoZARxBzRi8dyZnB8ardpGTfH', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiREJqZ1RtdE5Td0hXOU15Nk5Lb1JySVM3RnQyVkFmUkYyMVpLV1g2RiI7czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6Mjc6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9sb2dpbiI7czo1OiJyb3V0ZSI7czo1OiJsb2dpbiI7fX0=', 1778983148),
+('7TjkPtu8Cmr1ClY2dJdyXxKYP0Nti1BofzpUuY6t', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'YToyOntzOjY6Il90b2tlbiI7czo0MDoiUFg3b2tNVTRVdDlBb2hVTGRkc210cUVTSklwWTJpeGVJZjVyc1NFUiI7czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319fQ==', 1778970966),
+('gPHlnbb0jY9ujbtG7rr8kN3Q7LJPHjJR2uRERnPP', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'YToyOntzOjY6Il90b2tlbiI7czo0MDoiYjZFRTJkZ0duMVdEeVc2Q0c5d2FjcGFLYmFmWFJCRGhIOUZwdDFZSiI7czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319fQ==', 1778970865),
+('MhHLBFlq5F14BqtHrKmwAMvRnssIaFRc4VWGBynf', 8, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiMWxCdTF5TVEyNmVpMnpCQ2xudzYybkJxWmd4clo1U2NHMTI2RFNMbiI7czozOiJ1cmwiO2E6MTp7czo4OiJpbnRlbmRlZCI7czozMjoiaHR0cDovLzEyNy4wLjAuMTo4MDAwL3RyYWJhamFkb3IiO31zOjk6Il9wcmV2aW91cyI7YToyOntzOjM6InVybCI7czo0NToiaHR0cDovLzEyNy4wLjAuMTo4MDAwL3RyYWJhamFkb3IvcHJvZmlsZS1kYXRhIjtzOjU6InJvdXRlIjtzOjE0OiJ3b3JrZXIucHJvZmlsZSI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fXM6NTA6ImxvZ2luX3dlYl81OWJhMzZhZGRjMmIyZjk0MDE1ODBmMDE0YzdmNThlYTRlMzA5ODlkIjtpOjg7fQ==', 1778973341),
+('obN4ZE5Kne3ydlWYf9QDM1kLOQBKCciG6xcY7dr4', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'YTo0OntzOjY6Il90b2tlbiI7czo0MDoiTU1kck9aeHoxVEVsNkVIM1EwWEt5UmtBTGg3MjBMR29LUTVKNWhFRiI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6Mjc6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9sb2dpbiI7czo1OiJyb3V0ZSI7czo1OiJsb2dpbiI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fXM6MzoidXJsIjthOjE6e3M6ODoiaW50ZW5kZWQiO3M6MzI6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC90cmFiYWphZG9yIjt9fQ==', 1778973426),
+('wAkKVUAPksvrnOVHPOv8gQjEFPoMgqjhhRoe0umj', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoic3ZzMEt1WVpFSkVLb3ZvbHZsa21qZ2NhWFBtQ0NCVGlsSTdleGRhTiI7czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6Mjc6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9sb2dpbiI7czo1OiJyb3V0ZSI7czo1OiJsb2dpbiI7fX0=', 1778973724),
+('XGweInOQd5r08ccgYkhevtMqm1CK49d3ACO6l4i9', 8, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoidXBQMmNQQ1N5VU43aExIOEkxTkZuTGF2dXNMMk1sem5FQzFNTllQZyI7czozOiJ1cmwiO2E6MTp7czo4OiJpbnRlbmRlZCI7czozMjoiaHR0cDovLzEyNy4wLjAuMTo4MDAwL3RyYWJhamFkb3IiO31zOjk6Il9wcmV2aW91cyI7YToyOntzOjM6InVybCI7czo0NToiaHR0cDovLzEyNy4wLjAuMTo4MDAwL3RyYWJhamFkb3IvcHJvZmlsZS1kYXRhIjtzOjU6InJvdXRlIjtzOjE0OiJ3b3JrZXIucHJvZmlsZSI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fXM6NTA6ImxvZ2luX3dlYl81OWJhMzZhZGRjMmIyZjk0MDE1ODBmMDE0YzdmNThlYTRlMzA5ODlkIjtpOjg7fQ==', 1778973226);
 
 -- --------------------------------------------------------
 
@@ -489,19 +553,23 @@ CREATE TABLE `solicitudes_vacaciones` (
   `Fecha_Inicio_Vacaciones` date NOT NULL,
   `Estado` enum('Pendiente','Aceptada','Rechazada') DEFAULT 'Pendiente',
   `Fecha_Respuesta` date DEFAULT NULL,
-  `Observaciones` text DEFAULT NULL
+  `Observaciones` text DEFAULT NULL,
+  `motivo_rechazo` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `solicitudes_vacaciones`
 --
 
-INSERT INTO `solicitudes_vacaciones` (`Id_Solicitud`, `Id_Trabajador`, `Fecha_Solicitud`, `Fecha_Inicio_Vacaciones`, `Estado`, `Fecha_Respuesta`, `Observaciones`) VALUES
-(1, 12, '2026-01-24', '2026-01-26', 'Rechazada', '2026-01-24', NULL),
-(2, 12, '2026-01-24', '2026-01-31', 'Aceptada', '2026-01-24', NULL),
-(3, 11, '2026-01-27', '2026-01-30', 'Aceptada', '2026-01-27', NULL),
-(4, 1, '2026-03-12', '2026-03-15', 'Rechazada', '2026-03-12', NULL),
-(5, 1, '2026-03-20', '2026-03-25', 'Aceptada', '2026-03-20', NULL);
+INSERT INTO `solicitudes_vacaciones` (`Id_Solicitud`, `Id_Trabajador`, `Fecha_Solicitud`, `Fecha_Inicio_Vacaciones`, `Estado`, `Fecha_Respuesta`, `Observaciones`, `motivo_rechazo`) VALUES
+(1, 12, '2026-01-24', '2026-01-26', 'Rechazada', '2026-01-24', NULL, NULL),
+(2, 12, '2026-01-24', '2026-01-31', 'Pendiente', NULL, NULL, NULL),
+(3, 11, '2026-01-27', '2026-01-30', 'Rechazada', '2026-05-16', NULL, 'test'),
+(4, 1, '2026-03-12', '2026-03-15', 'Rechazada', '2026-03-12', NULL, NULL),
+(5, 1, '2026-03-20', '2026-03-25', 'Pendiente', NULL, NULL, NULL),
+(6, 11, '2026-05-16', '2026-05-20', 'Rechazada', '2026-05-16', NULL, 'lañsdfjñlpfprqigt'),
+(7, 11, '2026-05-16', '2026-05-17', 'Pendiente', NULL, NULL, NULL),
+(8, 1, '2026-05-16', '2026-05-18', 'Rechazada', '2026-05-16', NULL, 'test');
 
 -- --------------------------------------------------------
 
@@ -558,7 +626,7 @@ CREATE TABLE `trabajador` (
 INSERT INTO `trabajador` (`Id_Trabajador`, `Id_Cargo`, `Id_Nivel_Educativo`, `Id_Contacto_Emergencia`, `Nombre_Completo`, `Apellidos`, `Fecha_Nacimiento`, `Genero`, `Documento_Identidad`, `Correo`, `Telefono_Movil`, `Direccion`, `Estado_Civil`, `Ingreso_Anterior`, `Fecha_de_Ingreso`) VALUES
 (1, 7, 2, NULL, 'Kelvis Arturo', 'Gomez Macero', '2006-10-30', 'M', 'V-31710465', 'Kelvis@gmail.com', '0412-3143674', 'Complejo Habitacional', 'Soltero', '', '2020-04-05'),
 (9, 1, 2, NULL, 'Kelvis', 'Gomez', '2006-10-30', 'M', 'V-31710466', 'Kelvis1@gmail.com', '0412-1234567', '0', 'Soltero', NULL, '2026-01-11'),
-(11, 9, 2, NULL, 'Adrian', 'Gonzalez', '2004-05-20', 'M', 'V-31215637', NULL, '0412-3948848', NULL, 'Soltero', NULL, '2024-05-20'),
+(11, 9, 2, NULL, 'Adrian', 'Gonzalez', '2004-05-20', 'M', 'V-31215637', 'adrianmanuel20mayo@gmail.com', '0412-3948848', 'lomas', 'Soltero/a', NULL, '2025-05-11'),
 (12, 8, 1, NULL, 'Yorkaris', 'Rojas', '2006-07-16', 'F', 'V-31623405', NULL, NULL, NULL, 'Casado', NULL, '2025-01-20'),
 (13, 9, 1, NULL, 'Daniel', 'Lara', '2006-05-30', 'M', 'V-12323242', 'Daniel@gmail.com', '0412-5461654', NULL, 'Soltero/a', NULL, '2026-03-20');
 
@@ -620,12 +688,15 @@ CREATE TABLE `usuario` (
 --
 
 INSERT INTO `usuario` (`Id_Usuario`, `Id_rol`, `Nombre_usuario`, `Correo`, `Contraseña`, `Fecha_creación`, `Id_Trabajador`, `Estado`) VALUES
-(7, 3, 'superadmin', 'superadmin@example.com', '$2y$10$KKg4ZXtk.D3zR7p8pnwO/.k3fg9WpT1cIaPyDb7xGHI6qrF5dXhya', '2026-01-11 20:30:47', NULL, 'Activo'),
-(8, 2, 'Kelvis_1', 'Kelvis@gmail.com', '$2y$10$DtJUrMWrku74DWikPdO4x.0v13fACS5q7/q5NAzqKI7YfGRC88uqG', '2026-01-11 20:50:20', 1, 'Activo'),
-(10, 1, 'Kelvis_2', 'Kelvis1@gmail.com', '$2y$10$W3GdARGPNlESDF5flpxHx.g5QN8TGfJPMYDWMZerbIWw.OUbbLW3y', '2026-01-19 17:56:31', 9, 'Activo'),
+(7, 3, 'superadmin', 'superadmin@example.com', '$2y$12$PLxIvodV3YVawV9teuwHPO49UHt8s3sHNyhoqUA1PCJouoU2QgMLK', '2026-01-11 20:30:47', NULL, 'Activo'),
+(8, 2, 'Kelvis_1', 'Kelvis@gmail.com', '$2y$12$/teLEW1FJL.tN7xe9ceQferD.6YpMB..paubA6MEoKp/710OPQuty', '2026-01-11 20:50:20', 1, 'Activo'),
+(10, 1, 'Kelvis_2', 'Kelvis1@gmail.com', '$2y$12$vRdXejl55RG6X7ZL2tlACOc3ZwXe06OufyxAFVGlUP62hLQMi3jlG', '2026-01-19 17:56:31', 9, 'Activo'),
 (11, 2, 'Yorkaris', 'Yorkaris@gmail.com', '$2y$10$/c6fZLHpmPVCbypfwZM1q.xTHoTJWsl8zKwLacJScgqnJDLjptKQC', '2026-01-24 20:29:10', 12, 'Activo'),
-(12, 2, 'Adrian_1', 'Adrian@gmail.com', '$2y$10$mD9vpx8RblMKiFKuu5eso./vYFWeU/zlKyNCqXdsXDjxYNWlq1rbW', '2026-01-26 19:18:15', 11, 'Activo'),
-(13, 2, 'Kelvis_31', 'Kelvis31@gmail.com', '$2y$10$I8oMgEubzMrZ2y9o7z9L9evHcIWNdJwcdvZsR.//p5Z4bKwWrJsmm', '2026-01-28 22:22:05', NULL, 'Inactivo');
+(12, 2, 'Adrian_1', 'Adrian@gmail.com', '$2y$12$j4HxQ9OHWnpFhbKS3A6S7.Z55vkYKupl9zn/69QrZoT6lZV5gsMlC', '2026-01-26 19:18:15', 11, 'Activo'),
+(13, 2, 'Kelvis_31', 'Kelvis31@gmail.com', '$2y$10$I8oMgEubzMrZ2y9o7z9L9evHcIWNdJwcdvZsR.//p5Z4bKwWrJsmm', '2026-01-28 22:22:05', NULL, 'Inactivo'),
+(14, 2, 'testuser1778969273', 'test1778969273@example.com', '$2y$12$qUP2lkJbT6gG.T6QW6CUFOStDg6d4/TWcvJZ75IyPMHLPUUEC9y4G', '2026-05-16 18:07:54', NULL, 'Activo'),
+(15, 2, 'testuser1778969279', 'test1778969279@example.com', '$2y$12$r2umy1wtbQNo5YOf.o1kgua40uGcgUMrYuuc//8K0wKPYPUfvb6he', '2026-05-16 18:08:00', NULL, 'Activo'),
+(16, 2, 'Michel', 'michelmarquez6080@gmail.com', '$2y$12$RRZBB5lEDp1lGL2OwccP/e5rbEY0RK3HEbk7iar.N7YHPSE2anm3e', '2026-05-16 18:22:09', 13, 'Activo');
 
 -- --------------------------------------------------------
 
@@ -782,12 +853,27 @@ ALTER TABLE `payslips`
   ADD PRIMARY KEY (`Id_Payslip`);
 
 --
+-- Indices de la tabla `preguntas_seguridad`
+--
+ALTER TABLE `preguntas_seguridad`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `preguntas_seguridad_pregunta_unique` (`pregunta`);
+
+--
 -- Indices de la tabla `recibo_pago`
 --
 ALTER TABLE `recibo_pago`
   ADD PRIMARY KEY (`Id_Recibo_Pago`),
   ADD KEY `Id_Tipo_Nomina` (`Id_Tipo_Nomina`),
   ADD KEY `Id_Trabajador` (`Id_Trabajador`);
+
+--
+-- Indices de la tabla `respuestas_seguridad_usuario`
+--
+ALTER TABLE `respuestas_seguridad_usuario`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `respuestas_seguridad_usuario_user_id_foreign` (`user_id`),
+  ADD KEY `respuestas_seguridad_usuario_pregunta_id_foreign` (`pregunta_id`);
 
 --
 -- Indices de la tabla `roles`
@@ -920,13 +1006,13 @@ ALTER TABLE `jobs`
 -- AUTO_INCREMENT de la tabla `migrations`
 --
 ALTER TABLE `migrations`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT de la tabla `nivel_educativo`
 --
 ALTER TABLE `nivel_educativo`
-  MODIFY `Id_Nivel_Educativo` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `Id_Nivel_Educativo` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de la tabla `novedades`
@@ -938,13 +1024,25 @@ ALTER TABLE `novedades`
 -- AUTO_INCREMENT de la tabla `payslips`
 --
 ALTER TABLE `payslips`
-  MODIFY `Id_Payslip` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `Id_Payslip` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+
+--
+-- AUTO_INCREMENT de la tabla `preguntas_seguridad`
+--
+ALTER TABLE `preguntas_seguridad`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT de la tabla `recibo_pago`
 --
 ALTER TABLE `recibo_pago`
   MODIFY `Id_Recibo_Pago` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `respuestas_seguridad_usuario`
+--
+ALTER TABLE `respuestas_seguridad_usuario`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT de la tabla `roles`
@@ -956,7 +1054,7 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT de la tabla `solicitudes_vacaciones`
 --
 ALTER TABLE `solicitudes_vacaciones`
-  MODIFY `Id_Solicitud` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `Id_Solicitud` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT de la tabla `tipo_nomina`
@@ -980,7 +1078,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT de la tabla `usuario`
 --
 ALTER TABLE `usuario`
-  MODIFY `Id_Usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `Id_Usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT de la tabla `vacations`
@@ -1044,6 +1142,12 @@ ALTER TABLE `detalle_recibo_deduccion`
 ALTER TABLE `recibo_pago`
   ADD CONSTRAINT `recibo_pago_ibfk_1` FOREIGN KEY (`Id_Tipo_Nomina`) REFERENCES `tipo_nomina` (`Id_Tipo_Nomina`) ON UPDATE CASCADE,
   ADD CONSTRAINT `recibo_pago_ibfk_2` FOREIGN KEY (`Id_Trabajador`) REFERENCES `trabajador` (`Id_Trabajador`) ON UPDATE CASCADE;
+
+--
+-- Filtros para la tabla `respuestas_seguridad_usuario`
+--
+ALTER TABLE `respuestas_seguridad_usuario`
+  ADD CONSTRAINT `respuestas_seguridad_usuario_pregunta_id_foreign` FOREIGN KEY (`pregunta_id`) REFERENCES `preguntas_seguridad` (`id`);
 
 --
 -- Filtros para la tabla `solicitudes_vacaciones`
