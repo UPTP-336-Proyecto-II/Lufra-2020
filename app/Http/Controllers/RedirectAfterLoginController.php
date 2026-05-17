@@ -36,18 +36,15 @@ class RedirectAfterLoginController extends Controller
         /**
          * 2. REDIRECCIÓN SINCRONIZADA CON LA BASE DE DATOS LUFRA200
          * Si ya tiene sus preguntas, continúa su camino normal según su rol.
-         * ID 1 = Administrativo
-         * ID 2 = Trabajador
-         * ID 3 = SuperUsuario
          */
-        switch ($user->Id_rol) {
-            case 3: // ID 3 de tu tabla 'roles' -> SuperUsuario
+        switch (strtolower($user->role)) {
+            case 'superusuario':
                 return redirect()->route('superusuario.dashboard');
             
-            case 1: // ID 1 de tu tabla 'roles' -> Administrativo
+            case 'administrativo':
                 return redirect()->route('administrativo.dashboard');
 
-            case 2: // ID 2 de tu tabla 'roles' -> Trabajador
+            case 'trabajador':
             default:
                 return redirect()->route('trabajador.dashboard');
         }

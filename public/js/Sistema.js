@@ -3864,6 +3864,7 @@ function initPayrollPage() {
                 el.classList.add('open');
                 // ensure display block for accessibility (some forms rely on display)
                 el.style.display = 'block';
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 // remove explicit max-height after transition to allow natural height growth
                 setTimeout(() => { try { el.style.maxHeight = ''; } catch (e) { } }, 300);
             }
@@ -4113,8 +4114,10 @@ function initPayrollPage() {
                 document.getElementById('u-role').value = 'Trabajador';
                 document.getElementById('u-password').value = '';
                 document.getElementById('u-password-confirm').value = '';
+                if (document.getElementById('u-worker')) document.getElementById('u-worker').value = '';
                 editUserId = null;
                 formTitle.textContent = 'Crear Usuario';
+                if (window.loadWorkersForUsers) window.loadWorkersForUsers();
             }
 
             async function loadAndRenderUsers() {

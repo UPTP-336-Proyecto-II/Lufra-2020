@@ -43,26 +43,28 @@ class AdminController extends Controller
         $data = $request->validate([
             'Nombre_Completo' => 'required|string|max:100',
             'Apellidos' => 'required|string|max:100',
-            'Documento_Identidad' => ['required', 'string', 'unique:trabajador,Documento_Identidad', 'regex:/^[VEPGJ]-[0-9]{7,8}$/'],
+            'Fecha_de_Ingreso' => 'required|date|before_or_equal:today',
+            'Documento_Identidad' => ['required', 'string', 'unique:trabajador,Documento_Identidad', 'regex:/^([VPG]-[0-9]{7,8}|E-[0-9]{9,10})$/'],
             'Id_Cargo' => 'required|integer',
             'Id_Nivel_Educativo' => 'required|integer',
             'Id_Tipo_Nomina' => 'required|integer',
-            'Fecha_de_Ingreso' => 'required|date|before_or_equal:today',
             'Genero' => 'nullable|string|max:1',
             'Fecha_Nacimiento' => 'nullable|date|before:-18 years',
             'Correo' => ['nullable', 'string', 'email:rfc', 'regex:/^.+@(gmail\.com|hotmail\.com|outlook\.com|yahoo\.com|icloud\.com|live\.com)$/i'],
             'Telefono_Movil' => ['nullable', 'string', 'regex:/^([0-9]{4}-)?[0-9]{7}$/'],
             'Direccion' => 'nullable|string|max:255',
-            'Estado_Civil' => 'nullable|string',
+            'Estado_Civil' => 'required|string',
             'Observaciones' => 'nullable|string',
             'Estado' => 'nullable|string'
         ], [
-            'Documento_Identidad.regex' => 'La cédula debe tener el formato V-12345678 (7 a 8 dígitos).',
+            'Documento_Identidad.regex' => 'La cédula debe tener el formato V-12345678 o E-1234567890.',
+            'Documento_Identidad.unique' => 'Ya existe un trabajador registrado con este documento de identidad.',
             'Telefono_Movil.regex' => 'El teléfono debe tener 7 dígitos después del prefijo.',
             'Fecha_Nacimiento.before' => 'El trabajador debe ser mayor de 18 años.',
             'Fecha_de_Ingreso.before_or_equal' => 'La fecha de ingreso no puede ser futura.',
             'Correo.regex' => 'Solo se permiten correos de dominios comunes (Gmail, Hotmail, Outlook, Yahoo, iCloud).',
-            'Correo.email' => 'El formato del correo no es válido.'
+            'Correo.email' => 'El formato del correo no es válido.',
+            'Estado_Civil.required' => 'El estado civil es obligatorio.'
         ]);
 
         return DB::transaction(function () use ($data) {
@@ -102,7 +104,7 @@ class AdminController extends Controller
         $data = $request->validate([
             'Nombre_Completo' => 'required|string|max:100',
             'Apellidos' => 'required|string|max:100',
-            'Documento_Identidad' => ['required', 'string', 'regex:/^[VEPGJ]-[0-9]{7,8}$/', 'unique:trabajador,Documento_Identidad,'.$id.',Id_Trabajador'],
+            'Documento_Identidad' => ['required', 'string', 'regex:/^([VPG]-[0-9]{7,8}|E-[0-9]{9,10})$/', 'unique:trabajador,Documento_Identidad,'.$id.',Id_Trabajador'],
             'Id_Cargo' => 'required|integer',
             'Id_Nivel_Educativo' => 'required|integer',
             'Id_Tipo_Nomina' => 'required|integer',
@@ -112,16 +114,18 @@ class AdminController extends Controller
             'Correo' => ['nullable', 'string', 'email:rfc', 'regex:/^.+@(gmail\.com|hotmail\.com|outlook\.com|yahoo\.com|icloud\.com|live\.com)$/i'],
             'Telefono_Movil' => ['nullable', 'string', 'regex:/^([0-9]{4}-)?[0-9]{7}$/'],
             'Direccion' => 'nullable|string|max:255',
-            'Estado_Civil' => 'nullable|string',
+            'Estado_Civil' => 'required|string',
             'Observaciones' => 'nullable|string',
             'Estado' => 'nullable|string'
         ], [
-            'Documento_Identidad.regex' => 'La cédula debe tener el formato V-12345678 (7 a 8 dígitos).',
+            'Documento_Identidad.regex' => 'La cédula debe tener el formato V-12345678 o E-1234567890.',
+            'Documento_Identidad.unique' => 'Ya existe un trabajador registrado con este documento de identidad.',
             'Telefono_Movil.regex' => 'El teléfono debe tener 7 dígitos después del prefijo.',
             'Fecha_Nacimiento.before' => 'El trabajador debe ser mayor de 18 años.',
             'Fecha_de_Ingreso.before_or_equal' => 'La fecha de ingreso no puede ser futura.',
             'Correo.regex' => 'Solo se permiten correos de dominios comunes (Gmail, Hotmail, Outlook, Yahoo, iCloud).',
-            'Correo.email' => 'El formato del correo no es válido.'
+            'Correo.email' => 'El formato del correo no es válido.',
+            'Estado_Civil.required' => 'El estado civil es obligatorio.'
         ]);
 
         return DB::transaction(function () use ($worker, $data, $id) {
@@ -383,5 +387,100 @@ class AdminController extends Controller
     {
         $niveles = DB::table('nivel_educativo')->get();
         return response()->json(['niveles' => $niveles]);
+    }
+
+    // --- Pagos de Vacaciones ---
+
+    public function listVacationPayments()
+    {
+        if (!DB::getSchemaBuilder()->hasTable('vacation_payments')) {
+            return response()->json(['payments' => []]);
+        }
+
+        $payments = DB::table('vacation_payments as vp')
+            ->join('trabajador as w', 'vp.Id_Trabajador', '=', 'w.Id_Trabajador')
+            ->select(
+                'vp.*',
+                'w.Nombre_Completo',
+                'w.Apellidos',
+                'w.Documento_Identidad'
+            )
+            ->orderBy('vp.created_at', 'desc')
+            ->get();
+
+        return response()->json(['payments' => $payments]);
+    }
+
+    public function getPaidYears($workerId)
+    {
+        if (!DB::getSchemaBuilder()->hasTable('vacation_payments')) {
+            return response()->json(['paid_years' => []]);
+        }
+        $years = DB::table('vacation_payments')
+            ->where('Id_Trabajador', $workerId)
+            ->pluck('payment_year')
+            ->toArray();
+
+        return response()->json(['paid_years' => $years]);
+    }
+
+    public function storeVacationPayment(Request $request)
+    {
+        $data = $request->validate([
+            'Id_Trabajador'    => 'required|integer|exists:trabajador,Id_Trabajador',
+            'payment_year'     => 'required|integer|min:2000|max:2099',
+            'salario_mensual'  => 'required|numeric|min:130',
+            'dias_vacaciones'  => 'required|integer|min:1|max:30',
+            'dias_bono'        => 'required|integer|min:1|max:30',
+            'monto_vacaciones' => 'required|numeric|min:0',
+            'monto_bono'       => 'required|numeric|min:0',
+            'total'            => 'required|numeric|min:0',
+        ]);
+
+        // Verificar que el año no haya sido pagado ya
+        if (DB::getSchemaBuilder()->hasTable('vacation_payments')) {
+            $alreadyPaid = DB::table('vacation_payments')
+                ->where('Id_Trabajador', $data['Id_Trabajador'])
+                ->where('payment_year', $data['payment_year'])
+                ->exists();
+
+            if ($alreadyPaid) {
+                return response()->json(['error' => 'Este año vacacional ya fue pagado para este trabajador.'], 422);
+            }
+        }
+
+        // Crear tabla si no existe (migración perezosa para no romper sistemas existentes)
+        if (!DB::getSchemaBuilder()->hasTable('vacation_payments')) {
+            DB::statement('
+                CREATE TABLE vacation_payments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Id_Trabajador INTEGER NOT NULL,
+                    payment_year INTEGER NOT NULL,
+                    salario_mensual DECIMAL(10,2) NOT NULL,
+                    dias_vacaciones INTEGER NOT NULL,
+                    dias_bono INTEGER NOT NULL,
+                    monto_vacaciones DECIMAL(10,2) NOT NULL,
+                    monto_bono DECIMAL(10,2) NOT NULL,
+                    total DECIMAL(10,2) NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ');
+        }
+
+        $id = DB::table('vacation_payments')->insertGetId([
+            'Id_Trabajador'    => $data['Id_Trabajador'],
+            'payment_year'     => $data['payment_year'],
+            'salario_mensual'  => $data['salario_mensual'],
+            'dias_vacaciones'  => $data['dias_vacaciones'],
+            'dias_bono'        => $data['dias_bono'],
+            'monto_vacaciones' => $data['monto_vacaciones'],
+            'monto_bono'       => $data['monto_bono'],
+            'total'            => $data['total'],
+            'created_at'       => now(),
+            'updated_at'       => now(),
+        ]);
+
+        return response()->json(['success' => true, 'id' => $id]);
     }
 }

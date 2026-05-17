@@ -70,4 +70,59 @@ class User extends Authenticatable
     {
         return $this->hasMany(RespuestaSeguridadUsuario::class, 'user_id', 'Id_Usuario');
     }
+
+    public function getIdAttribute()
+    {
+        return $this->Id_Usuario;
+    }
+    
+    public function getNameAttribute()
+    {
+        return $this->trabajador ? ($this->trabajador->Nombre_Completo . ' ' . $this->trabajador->Apellidos) : $this->Nombre_usuario;
+    }
+
+
+    public function getUsernameAttribute()
+    {
+        return $this->Nombre_usuario;
+    }
+
+    public function setUsernameAttribute($value)
+    {
+        $this->Nombre_usuario = $value;
+    }
+
+    public function getEmailAttribute()
+    {
+        return $this->Correo;
+    }
+
+    public function setEmailAttribute($value)
+    {
+        $this->Correo = $value;
+    }
+
+    public function getAuthIdentifierName()
+    {
+        return 'Id_Usuario';
+    }
+
+    public function getAuthIdentifier()
+    {
+        return $this->Id_Usuario;
+    }
+
+    /**
+     * ACCESSOR PARA EL ROL (Sincronizado con RoleMiddleware)
+     */
+    public function getRoleAttribute()
+    {
+        $rolesMap = [
+            1 => 'administrativo',
+            2 => 'trabajador',
+            3 => 'superusuario',
+        ];
+
+        return $rolesMap[$this->Id_rol] ?? 'invitado';
+    }
 }

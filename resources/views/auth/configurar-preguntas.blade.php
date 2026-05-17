@@ -294,6 +294,72 @@
     }
     .alert-info { background-color: #eff6ff; color: #1e40af; border-left: 5px solid #3b82f6; }
     .alert-success { background-color: #f0fdf4; color: #166534; border-left: 5px solid #22c55e; }
+    .alert-danger { background-color: #fef2f2; color: #b91c1c; border-left: 5px solid #ef4444; }
+
+    /* Modal de confirmación de contraseña */
+    .password-modal-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+    .password-modal-overlay.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .password-modal {
+        background: var(--card-bg, #fff);
+        padding: 30px;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 400px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        transform: translateY(-20px);
+        transition: transform 0.3s ease;
+    }
+    .password-modal-overlay.active .password-modal {
+        transform: translateY(0);
+    }
+    .password-modal h3 {
+        margin: 0 0 15px 0;
+        color: var(--text-main, #1f2937);
+        font-size: 1.2rem;
+    }
+    .password-modal p {
+        color: #6b7280;
+        font-size: 0.9rem;
+        margin-bottom: 20px;
+    }
+    .password-modal .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .btn-cancel {
+        background: transparent;
+        border: 1px solid #d1d5db;
+        padding: 10px 15px;
+        border-radius: 8px;
+        color: #4b5563;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .btn-confirm {
+        background: #10a87a;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 8px;
+        color: #fff;
+        cursor: pointer;
+        font-weight: 600;
+    }
 </style>
 
 <div class="sidebar">
@@ -344,8 +410,25 @@
                 </div>
             @endif
 
+            @if($errors->has('current_password'))
+                <div class="custom-alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i> {{ $errors->first('current_password') }}
+                </div>
+            @endif
+            @if($errors->has('respuesta'))
+                <div class="custom-alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i> {{ $errors->first('respuesta') }}
+                </div>
+            @endif
+            @if($errors->has('pregunta_id'))
+                <div class="custom-alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i> {{ $errors->first('pregunta_id') }}
+                </div>
+            @endif
+
             <form id="setupQuestionsForm" action="{{ route('seguridad.guardar-preguntas') }}" method="POST">
                 @csrf
+                <input type="hidden" name="current_password" id="hidden_current_password" value="">
                 
                 <div class="form-group-modern">
                     <label for="pregunta1">
@@ -441,6 +524,28 @@
     </div>
 </div>
 
+<!-- Modal para confirmar contraseña -->
+<div class="password-modal-overlay" id="passwordModal">
+    <div class="password-modal">
+        <h3><i class="fas fa-lock" style="color:#10a87a;"></i> Confirmar Identidad</h3>
+        <p>Para guardar los cambios en tus parámetros de seguridad, por favor ingresa tu contraseña actual.</p>
+        
+        <div class="input-wrapper-icon">
+            <i class="fas fa-key field-icon"></i>
+            <input type="password" id="modal_password_input" class="form-control-modern" placeholder="Contraseña actual" style="padding-left: 45px;">
+            <button type="button" class="toggle-password-btn" onclick="toggleModalPasswordVisibility()">
+                <i id="modal-eye-icon" class="fas fa-eye"></i>
+            </button>
+        </div>
+        <div id="modal_error_msg" style="color: #e74c3c; font-size: 0.85rem; margin-top: 5px; display: none;">Debe ingresar su contraseña.</div>
+
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel" onclick="closePasswordModal()">Cancelar</button>
+            <button type="button" class="btn-confirm" onclick="submitWithPassword()">Confirmar y Guardar</button>
+        </div>
+    </div>
+</div>
+
 <script>
     // Función interactiva para ocultar/mostrar la respuesta haciendo clic en el ojo
     function toggleResponseVisibility() {
@@ -458,9 +563,82 @@
         }
     }
 
+    // Función interactiva para ocultar/mostrar la contraseña en el modal
+    function toggleModalPasswordVisibility() {
+        const passInput = document.getElementById('modal_password_input');
+        const eyeIcon = document.getElementById('modal-eye-icon');
+        
+        if (passInput.type === 'password') {
+            passInput.type = 'text';
+            eyeIcon.classList.remove('fa-eye');
+            eyeIcon.classList.add('fa-eye-slash');
+        } else {
+            passInput.type = 'password';
+            eyeIcon.classList.remove('fa-eye-slash');
+            eyeIcon.classList.add('fa-eye');
+        }
+    }
+
+
     // Mantener consistencia con el Modo Oscuro si está guardado en localStorage
     if(localStorage.getItem('theme') === 'dark') {
         document.body.classList.add('dark-mode');
     }
+
+    // Lógica para interceptar el formulario y pedir contraseña
+    const form = document.getElementById('setupQuestionsForm');
+    const modal = document.getElementById('passwordModal');
+    const passInput = document.getElementById('modal_password_input');
+    const hiddenPassInput = document.getElementById('hidden_current_password');
+    const errorMsg = document.getElementById('modal_error_msg');
+
+    form.addEventListener('submit', function(e) {
+        // Solo interceptamos si el campo oculto está vacío
+        if (!hiddenPassInput.value) {
+            e.preventDefault();
+            // Validar campos básicos antes de mostrar modal
+            const pId = document.getElementById('pregunta1').value;
+            const r1 = document.getElementById('respuesta1').value.trim();
+            
+            if (!pId || !r1) {
+                // Dejar que el navegador muestre las validaciones 'required' HTML5
+                form.reportValidity();
+                return;
+            }
+
+            // Mostrar el modal
+            modal.classList.add('active');
+            passInput.value = '';
+            passInput.focus();
+            errorMsg.style.display = 'none';
+        }
+    });
+
+    function closePasswordModal() {
+        modal.classList.remove('active');
+        hiddenPassInput.value = ''; // Limpiar por seguridad
+    }
+
+    function submitWithPassword() {
+        const pass = passInput.value;
+        if (!pass) {
+            errorMsg.style.display = 'block';
+            passInput.focus();
+            return;
+        }
+        
+        errorMsg.style.display = 'none';
+        hiddenPassInput.value = pass; // Colocar la contraseña en el form
+        modal.classList.remove('active'); // Cerrar modal
+        form.submit(); // Enviar formulario
+    }
+
+    // Permitir enviar con la tecla Enter dentro del modal
+    passInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submitWithPassword();
+        }
+    });
 </script>
 @endsection

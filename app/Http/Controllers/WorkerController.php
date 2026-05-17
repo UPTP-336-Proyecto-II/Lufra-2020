@@ -41,10 +41,15 @@ class WorkerController extends Controller
         $lastRequest = Vacacion::where('Id_Trabajador', $user->Id_Trabajador)
             ->orderBy('Id_Solicitud', 'desc')
             ->first();
+            
+        $allRequests = Vacacion::where('Id_Trabajador', $user->Id_Trabajador)
+            ->orderBy('Id_Solicitud', 'desc')
+            ->get();
 
         return response()->json([
             'fechaIngreso' => $trabajador->Fecha_de_Ingreso,
             'lastRequest' => $lastRequest,
+            'allRequests' => $allRequests
         ]);
     }
 
@@ -134,6 +139,17 @@ class WorkerController extends Controller
         $fechaFin = $data['fechaFin'] ?? '';
         $conceptos = $data['conceptos'] ?? [];
         $numeroRecibo = $data['numeroRecibo'] ?? str_pad($id, 10, '0', STR_PAD_LEFT);
+
+        $trabajadorData = DB::table('trabajador as w')
+            ->leftJoin('cargo as c', 'w.Id_Cargo', '=', 'c.Id_Cargo')
+            ->leftJoin('contrato_trabajadores as ct', 'w.Id_Trabajador', '=', 'ct.Id_Trabajador')
+            ->leftJoin('tipo_nomina as tn', 'ct.Id_Tipo_Nomina', '=', 'tn.Id_Tipo_Nomina')
+            ->select('tn.Frecuencia as Tipo_Nomina', 'c.Nombre_profesión as Cargo')
+            ->where('w.Id_Trabajador', $user->Id_Trabajador)
+            ->first();
+            
+        $cargo = $trabajadorData->Cargo ?? 'N/A';
+        $tipoNomina = $trabajadorData->Tipo_Nomina ?? 'N/A';
 
         $totalAsig = 0;
         $totalDeduc = 0;
@@ -287,6 +303,8 @@ class WorkerController extends Controller
             'cedula' => $cedula,
             'fechaFin' => $this->formatDate($fechaFin),
             'salarioBase' => $this->formatCurrency($salarioBase),
+            'cargo' => $cargo,
+            'tipoNomina' => $tipoNomina,
             'periodo' => is_numeric($periodo) ? "Quincena " . $periodo : $periodo,
             'conceptos' => $finalConceptos,
             'totalAsig' => $this->formatCurrency($totalAsig),

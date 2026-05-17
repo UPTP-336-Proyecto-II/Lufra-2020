@@ -15,14 +15,17 @@ class LoginResponse implements LoginResponseContract
                     : redirect('/');
         }
 
+        // Normalizamos el rol usando el Accessor que acabamos de crear en el modelo User
+        $role = strtolower($user->role);
+
         if ($request->expectsJson() || $request->ajax() || $request->isXmlHttpRequest()) {
             return response()->json([
-                'role' => strtolower($user->role),
-                'name' => $user->name,
+                'role' => $role,
+                'name' => $user->Nombre_usuario, // Usamos el nombre real de la DB
             ]);
         }
 
-        switch (strtolower($user->role)) {
+        switch ($role) {
             case 'superusuario':
                 return redirect()->route('superusuario.dashboard');
             case 'administrativo':
