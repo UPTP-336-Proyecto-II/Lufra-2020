@@ -274,6 +274,7 @@
         });
     </script>
     <script src="{{ asset('js/Admin.js') }}"></script>
+    <script src="{{ asset('js/session-timeout.js') }}"></script>
     <script>
         window.laravelUser = {
             name: "{{ auth()->user()->name }}",

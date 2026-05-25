@@ -10,5 +10,8 @@
 </head>
 <body>
     @inertia
+    @auth
+        <script src="{{ asset('js/session-timeout.js') }}"></script>
+    @endauth
 </body>
 </html>

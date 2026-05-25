@@ -278,6 +278,7 @@
     </script>
     <script src="{{ asset('js/Sistema.js') }}"></script>
     <script src="{{ asset('js/Worker.js') }}"></script>
+    <script src="{{ asset('js/session-timeout.js') }}"></script>
     <script>
         window.addEventListener('pageshow', function (event) {
             if (event.persisted) {

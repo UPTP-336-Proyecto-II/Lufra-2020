@@ -393,6 +393,15 @@ function initPayrollPage() {
                     }
                     .density-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
+                    .timeout-btn {
+                        flex: 1; padding: 9px 6px; border: 1px solid var(--border-color, #ddd); background: transparent;
+                        color: var(--text-main); border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.82em;
+                        transition: all 0.18s ease; text-align: center;
+                    }
+                    .timeout-btn:hover { border-color: var(--primary); color: var(--primary); }
+                    .timeout-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+                    .timeout-btn.active-off { background: #ef4444; color: white; border-color: #ef4444; }
+
                     .theme-switch input:checked + .slider { background-color: #666; }
                     .theme-switch input:checked + .slider .knob { left: 28px !important; }
                 </style>
@@ -428,6 +437,17 @@ function initPayrollPage() {
                             <div style="display: flex; gap: 10px;">
                                 <button class="density-btn active" data-density="normal">Normal</button>
                                 <button class="density-btn" data-density="compact">Compacta</button>
+                            </div>
+                        </div>
+
+                        <div class="set-group">
+                            <h4 class="set-title">⏱️ Expiración de Sesión</h4>
+                            <p style="margin: 0 0 12px; font-size: 0.82em; color: var(--text-muted);">Cierre automático por inactividad</p>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button class="timeout-btn" data-timeout="30">30 seg</button>
+                                <button class="timeout-btn active" data-timeout="60">1 min</button>
+                                <button class="timeout-btn" data-timeout="120">2 min</button>
+                                <button class="timeout-btn active-off" data-timeout="off">Desactivar</button>
                             </div>
                         </div>
                     </div>
@@ -517,6 +537,47 @@ function initPayrollPage() {
         const savedDensity = localStorage.getItem('density') || 'normal';
         applyDensity(savedDensity);
         densityBtns.forEach(btn => btn.addEventListener('click', () => applyDensity(btn.dataset.density)));
+
+        // Session Timeout Logic
+        const timeoutBtns = modal.querySelectorAll('.timeout-btn');
+        const applyTimeout = (value) => {
+            timeoutBtns.forEach(b => {
+                b.classList.remove('active', 'active-off');
+            });
+            const activeBtn = Array.from(timeoutBtns).find(b => b.dataset.timeout === value);
+            if (activeBtn) {
+                activeBtn.classList.add(value === 'off' ? 'active-off' : 'active');
+            }
+
+            // Guardar por usuario para que el cambio NO afecte a otros usuarios
+            try {
+                const u = window.laravelUser || null;
+                const id = u && (u.id || u.userId || u.user_id);
+                const lsKey = id ? `sessionTimeout_${id}` : 'global';
+                localStorage.setItem(lsKey, value);
+            } catch (e) {
+                // Fallback: no romper UI
+            }
+
+            // Notificar a session-timeout.js sin recargar la página (incluye lsKey para evitar afectar otros usuarios)
+            window.dispatchEvent(new CustomEvent('sessionTimeoutChanged', { detail: { value, lsKey: (() => {
+                const u = window.laravelUser || null;
+                const id = u && (u.id || u.userId || u.user_id);
+                return id ? `sessionTimeout_${id}` : 'global';
+            })() } }));
+        };
+        // Leer por usuario (si existe) para que cada sesión use su propia configuración
+        let savedTimeout = '60';
+        try {
+            const u = window.laravelUser || null;
+            const id = u && (u.id || u.userId || u.user_id);
+            const lsKey = id ? `sessionTimeout_${id}` : 'global';
+            savedTimeout = localStorage.getItem(lsKey) || '60';
+        } catch (e) {
+            savedTimeout = '60';
+        }
+        applyTimeout(savedTimeout);
+        timeoutBtns.forEach(btn => btn.addEventListener('click', () => applyTimeout(btn.dataset.timeout)));
     }
 
     // --- Implementaciones Administrativo ---
