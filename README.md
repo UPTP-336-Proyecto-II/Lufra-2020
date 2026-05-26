@@ -156,7 +156,7 @@ Ejemplo típico:
 
 ## Soporte y Contacto
 
-- Email: soporte@lufra2020.com
+- Email: soporte@emailejemplo.com
 - Documentación extendida: [Wiki del repositorio, si existe]
 
 ---
