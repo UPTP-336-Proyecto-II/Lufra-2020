@@ -201,6 +201,49 @@ const showWarning = (msg, title) => showModal({ type: 'warning', message: msg, t
 const showConfirm = (msg, title = 'Confirmar') => showModal({ type: 'warning', message: msg, title, okText: 'Confirmar', cancelText: 'Cancelar' });
 const showAlert = (msg, title) => showInfo(msg, title);
 
+// --- Helpers de Paginación (globales: usados por Sistema.js y Admin.js) ---
+const TABLE_PAGE_SIZE = 10;
+
+function paginateItems(items, page, perPage = TABLE_PAGE_SIZE) {
+    const total = items.length;
+    const totalPages = Math.max(1, Math.ceil(total / perPage));
+    const current = Math.min(Math.max(1, page || 1), totalPages);
+    return { items: items.slice((current - 1) * perPage, current * perPage), current, totalPages, total };
+}
+
+function renderPaginationHTML(cls, current, totalPages, total, perPage = TABLE_PAGE_SIZE) {
+    if (totalPages <= 1) return '';
+    const btn = (page, label, opts = {}) => `<button type="button" class="${cls}" data-page="${page}" ${opts.disabled ? 'disabled' : ''} style="min-width:34px; height:34px; padding:0 10px; border-radius:8px; border:1px solid var(--border-color); background:${opts.active ? 'var(--primary)' : 'var(--card-bg)'}; color:${opts.active ? 'white' : 'var(--text-main)'}; cursor:${opts.disabled ? 'default' : 'pointer'}; opacity:${opts.disabled ? '0.45' : '1'}; font-weight:600;">${label}</button>`;
+    const ellipsis = '<span style="color:var(--text-muted); padding:0 2px;">…</span>';
+
+    let start = Math.max(1, current - 2);
+    const end = Math.min(totalPages, start + 4);
+    start = Math.max(1, end - 4);
+
+    const pages = [];
+    if (start > 1) { pages.push(btn(1, '1')); if (start > 2) pages.push(ellipsis); }
+    for (let p = start; p <= end; p++) pages.push(btn(p, String(p), { active: p === current }));
+    if (end < totalPages) { if (end < totalPages - 1) pages.push(ellipsis); pages.push(btn(totalPages, String(totalPages))); }
+
+    const from = (current - 1) * perPage + 1;
+    const to = Math.min(total, current * perPage);
+    return `
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-top:16px;">
+            <span style="color:var(--text-muted); font-size:0.9em;">Mostrando ${from}–${to} de ${total}</span>
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                ${btn(current - 1, '‹', { disabled: current === 1 })}
+                ${pages.join('')}
+                ${btn(current + 1, '›', { disabled: current === totalPages })}
+            </div>
+        </div>`;
+}
+
+function attachPaginationListeners(root, cls, onPage) {
+    (root || document).querySelectorAll(`.${cls}`).forEach(b => {
+        b.addEventListener('click', () => { if (!b.disabled) onPage(parseInt(b.dataset.page, 10)); });
+    });
+}
+
 // --- 1. Definición de Módulos por Rol ---
 const roleModules = {
     "SuperUsuario": {
@@ -285,6 +328,17 @@ const roleModules = {
             "Solicitud de Vacaciones",
             "Solicitud de Permisos"
         ]
+    },
+    "Pasante": {
+        name: "Pasante",
+        description: "Acceso restringido: solo los módulos habilitados desde Gestión de Usuarios y Roles.",
+        // Catálogo máximo del Pasante (igual al Trabajador); lo visible se controla vía menu_config
+        modules: [
+            "Mi Perfil",
+            "Historial de Pagos y Recibos",
+            "Solicitud de Vacaciones",
+            "Solicitud de Permisos"
+        ]
     }
 };
 
@@ -318,6 +372,24 @@ function initPayrollPage() {
 
         // guardar rol actual (usar la clave real encontrada)
         currentRole = Object.keys(roleModules).find(k => roleModules[k] === roleData) || 'Administrativo';
+
+        // --- Filtrado dinámico del menú según configuración por rol (menu_config en BD) ---
+        // window.menuConfig se carga desde GET /menu-config al iniciar. Si no hay
+        // configuración para el rol, se muestra el menú completo (comportamiento por defecto).
+        const menuCfg = window.menuConfig || null;
+        const allowedModules = (menuCfg && Array.isArray(menuCfg[currentRole])) ? menuCfg[currentRole] : null;
+        if (allowedModules && !allowedModules.includes('*')) {
+            const isModuleAllowed = (name) => allowedModules.includes(name);
+            roleData = {
+                ...roleData,
+                modules: (roleData.modules || []).filter(isModuleAllowed),
+                groups: roleData.groups
+                    ? roleData.groups
+                        .map(g => ({ ...g, modules: g.modules.filter(m => isModuleAllowed(m.name)) }))
+                        .filter(g => g.modules.length > 0)
+                    : roleData.groups
+            };
+        }
 
         // 1. Actualizar la barra lateral (Módulos) y agregar handlers
         if (sidebarNav) sidebarNav.innerHTML = '';
@@ -5229,6 +5301,10 @@ function initPayrollPage() {
     function renderSuperUserView() {
         if (!contentDetails) return;
             let allUsers = []; // Cache local para filtrado
+            // Paginación de la tabla de usuarios (secciones Activos/Inactivos independientes)
+            let usersPageActive = 1;
+            let usersPageInactive = 1;
+            let lastUsersList = [];
             if (contentHeader) contentHeader.innerHTML = `<h4>Gestión de Usuarios y Roles</h4>`;
             contentDetails.innerHTML = `
                 <div id="users-app">
@@ -5277,6 +5353,7 @@ function initPayrollPage() {
                                 <option value="SuperUsuario">SuperUsuario</option>
                                 <option value="Administrativo">Administrativo</option>
                                 <option value="Trabajador">Trabajador</option>
+                                <option value="Pasante">Pasante</option>
                             </select>
                         </div>
                         <div style="width:130px;">
@@ -5332,6 +5409,7 @@ function initPayrollPage() {
                                     <label style="display:block; font-weight:600; margin-bottom:8px; color:var(--text-main); font-size:0.9em;">Rol <span style="color:#e74c3c;">*</span></label>
                                     <select id="u-role" style="width:100%; padding:12px; border:1px solid var(--border-color, #ddd); border-radius:8px; font-size:0.95em; background:var(--bg-color); color:var(--text-main);">
                                         <option value="Trabajador">Trabajador</option>
+                                        <option value="Pasante">Pasante</option>
                                         <option value="Administrativo">Administrativo</option>
                                         <option value="SuperUsuario">SuperUsuario</option>
                                     </select>
@@ -5454,6 +5532,8 @@ function initPayrollPage() {
                     return matchesSearch && matchesWorker && matchesRole && matchesStatus;
                 });
 
+                usersPageActive = 1;
+                usersPageInactive = 1;
                 renderUsersTable(filtered);
             }
 
@@ -5923,8 +6003,14 @@ function initPayrollPage() {
                     document.head.appendChild(style);
                 }
 
+                lastUsersList = users;
                 const activeUsers = users.filter(u => u.Estado !== 'Inactivo');
                 const inactiveUsers = users.filter(u => u.Estado === 'Inactivo');
+
+                const pgActive = paginateItems(activeUsers, usersPageActive);
+                usersPageActive = pgActive.current;
+                const pgInactive = paginateItems(inactiveUsers, usersPageInactive);
+                usersPageInactive = pgInactive.current;
 
                 const buildTable = (list, title, titleColor) => {
                     if (!list.length) return '';
@@ -5976,13 +6062,22 @@ function initPayrollPage() {
                 };
 
                 let html = '';
-                if (activeUsers.length) html += buildTable(activeUsers, 'Usuarios Activos', 'var(--text-main)');
-                else html += '<p>No hay usuarios activos.</p>';
+                if (activeUsers.length) {
+                    html += buildTable(pgActive.items, 'Usuarios Activos', 'var(--text-main)');
+                    html += renderPaginationHTML('users-active-page-btn', pgActive.current, pgActive.totalPages, pgActive.total);
+                } else {
+                    html += '<p>No hay usuarios activos.</p>';
+                }
 
-                if (inactiveUsers.length) html += buildTable(inactiveUsers, 'Usuarios Inactivos', '#e74c3c');
+                if (inactiveUsers.length) {
+                    html += buildTable(pgInactive.items, 'Usuarios Inactivos', '#e74c3c');
+                    html += renderPaginationHTML('users-inactive-page-btn', pgInactive.current, pgInactive.totalPages, pgInactive.total);
+                }
 
                 el.innerHTML = html;
                 attachUserListeners();
+                attachPaginationListeners(el, 'users-active-page-btn', (p) => { usersPageActive = p; renderUsersTable(lastUsersList); });
+                attachPaginationListeners(el, 'users-inactive-page-btn', (p) => { usersPageInactive = p; renderUsersTable(lastUsersList); });
             }
 
             function attachUserListeners() {
@@ -6154,6 +6249,116 @@ function initPayrollPage() {
 
             loadWorkersForUsers();
             loadAndRenderUsers();
+            setupMenuConfigPanel();
+    }
+
+    // --- Panel: Configurar Menú por Rol (dentro de Gestión de Usuarios y Roles) ---
+    function setupMenuConfigPanel() {
+        const usersApp = document.getElementById('users-app');
+        if (!usersApp || document.getElementById('menu-config-box')) return;
+
+        // Módulos que el SuperUsuario nunca puede ocultar para sí mismo (anti-bloqueo)
+        const SUPER_LOCKED = ['Inicio', 'Gestión de Usuarios y Roles'];
+
+        // Catálogo por rol: lista por defecto definida en roleModules
+        const catalogForRole = (role) => {
+            const rd = roleModules[role];
+            if (!rd) return [];
+            if (rd.groups) {
+                return rd.groups.flatMap(g => g.modules.map(m => ({ name: m.name, group: g.label })));
+            }
+            return (rd.modules || []).map(name => ({ name, group: null }));
+        };
+
+        usersApp.insertAdjacentHTML('beforeend', `
+            <div id="menu-config-box" style="margin-top:30px; background:var(--card-bg); padding:25px; border-radius:12px; border:1px solid var(--border-color);">
+                <h5 style="margin-top:0; color:var(--text-main); border-bottom:1px solid var(--border-color); padding-bottom:10px; margin-bottom:8px;">🧩 Configurar Menú por Rol</h5>
+                <p style="color:var(--text-muted); font-size:0.92em; margin:0 0 18px;">Selecciona qué opciones del menú lateral verá cada rol. Los cambios se aplican al recargar la página o iniciar sesión.</p>
+                <div style="display:flex; gap:15px; align-items:flex-end; flex-wrap:wrap; margin-bottom:18px;">
+                    <div style="display:flex; flex-direction:column; gap:6px; min-width:220px;">
+                        <label style="font-weight:600; color:var(--text-main);">Rol</label>
+                        <select id="mc-role" style="padding:10px; border-radius:10px; border:1px solid var(--border-color); background:var(--bg-color); color:var(--text-main);">
+                            <option value="Administrativo">Administrativo</option>
+                            <option value="Trabajador">Trabajador</option>
+                            <option value="Pasante">Pasante</option>
+                            <option value="SuperUsuario">SuperUsuario</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="mc-modules" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:10px; margin-bottom:18px;"></div>
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button id="mc-save" class="primary" style="min-width:160px; padding:10px 20px; border:none; border-radius:8px; background:var(--primary); color:white; font-weight:600; cursor:pointer;">💾 Guardar Menú</button>
+                </div>
+            </div>
+        `);
+
+        const roleSelect = document.getElementById('mc-role');
+        const modulesBox = document.getElementById('mc-modules');
+        const saveBtn = document.getElementById('mc-save');
+
+        const renderChecks = () => {
+            const role = roleSelect.value;
+            const catalog = catalogForRole(role);
+            const cfg = window.menuConfig || {};
+            const allowed = Array.isArray(cfg[role]) ? cfg[role] : null; // null = sin config → todo visible
+            const isChecked = (name) => !allowed || allowed.includes('*') || allowed.includes(name);
+            const isLocked = (name) => role === 'SuperUsuario' && SUPER_LOCKED.includes(name);
+
+            let lastGroup = null;
+            modulesBox.innerHTML = catalog.map(m => {
+                const groupHeader = (m.group && m.group !== lastGroup)
+                    ? `<div style="grid-column:1 / -1; font-size:0.8em; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-top:6px;">${m.group}</div>`
+                    : '';
+                lastGroup = m.group;
+                return `
+                    ${groupHeader}
+                    <label style="display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border-color); border-radius:10px; cursor:${isLocked(m.name) ? 'not-allowed' : 'pointer'}; background:var(--bg-color); color:var(--text-main); opacity:${isLocked(m.name) ? '0.7' : '1'};">
+                        <input type="checkbox" class="mc-module-check" value="${m.name}" ${isChecked(m.name) ? 'checked' : ''} ${isLocked(m.name) ? 'disabled' : ''} style="width:17px; height:17px; cursor:inherit;">
+                        <span>${m.name}</span>${isLocked(m.name) ? '<span style="margin-left:auto; font-size:0.78em; color:var(--text-muted);">🔒 fijo</span>' : ''}
+                    </label>`;
+            }).join('');
+        };
+
+        roleSelect.addEventListener('change', renderChecks);
+        renderChecks();
+
+        saveBtn.addEventListener('click', async () => {
+            const role = roleSelect.value;
+            const seleccionados = Array.from(modulesBox.querySelectorAll('.mc-module-check'))
+                .filter(cb => cb.checked || cb.disabled)
+                .map(cb => cb.value);
+
+            if (!seleccionados.length) {
+                showError('El rol debe conservar al menos un módulo visible.');
+                return;
+            }
+
+            const newConfig = { ...(window.menuConfig || {}) };
+            newConfig[role] = seleccionados;
+
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Guardando...';
+            try {
+                const res = await fetch('/superusuario/admin/menu-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({ config: newConfig })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.message || data.error || 'Error al guardar la configuración');
+                window.menuConfig = data.config || newConfig;
+                showSuccess(`Menú del rol "${role}" actualizado. Los usuarios lo verán al recargar o iniciar sesión.`);
+            } catch (e) {
+                showError(e.message);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 Guardar Menú';
+            }
+        });
     }
 
 
@@ -6647,8 +6852,15 @@ function initPayrollPage() {
     if (logoutForm) logoutForm.addEventListener('submit', logout);
 
     // Cargar vista según rol autenticado (fallback administrativo)
+    // Primero se obtiene la configuración dinámica del menú por rol (menu_config);
+    // si falla la petición, se muestra el menú completo por defecto.
     if (typeof loadRoleView === 'function') {
-        loadRoleView((auth && auth.role) ? auth.role : 'Administrativo');
+        const initialRole = (auth && auth.role) ? auth.role : 'Administrativo';
+        fetch('/menu-config', { headers: { 'Accept': 'application/json' } })
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { window.menuConfig = (data && data.config) || null; })
+            .catch(() => { window.menuConfig = null; })
+            .finally(() => loadRoleView(initialRole));
     } else {
         // Si la función aún no está disponible, será invocada cuando se inicialice la interfaz (initPayrollPage)
         console.warn('loadRoleView no está disponible todavía; se inicializará con initPayrollPage');

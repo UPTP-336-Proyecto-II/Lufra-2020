@@ -196,48 +196,9 @@
         return await apiFetch(endpoint, opts);
     }
 
-    // --- Helpers de Paginación (cliente) ---
-    const TABLE_PAGE_SIZE = 10;
-
-    function paginateItems(items, page, perPage = TABLE_PAGE_SIZE) {
-        const total = items.length;
-        const totalPages = Math.max(1, Math.ceil(total / perPage));
-        const current = Math.min(Math.max(1, page || 1), totalPages);
-        return { items: items.slice((current - 1) * perPage, current * perPage), current, totalPages, total };
-    }
-
-    function renderPaginationHTML(cls, current, totalPages, total, perPage = TABLE_PAGE_SIZE) {
-        if (totalPages <= 1) return '';
-        const btn = (page, label, opts = {}) => `<button type="button" class="${cls}" data-page="${page}" ${opts.disabled ? 'disabled' : ''} style="min-width:34px; height:34px; padding:0 10px; border-radius:8px; border:1px solid var(--border-color); background:${opts.active ? 'var(--primary)' : 'var(--card-bg)'}; color:${opts.active ? 'white' : 'var(--text-main)'}; cursor:${opts.disabled ? 'default' : 'pointer'}; opacity:${opts.disabled ? '0.45' : '1'}; font-weight:600;">${label}</button>`;
-        const ellipsis = '<span style="color:var(--text-muted); padding:0 2px;">…</span>';
-
-        let start = Math.max(1, current - 2);
-        const end = Math.min(totalPages, start + 4);
-        start = Math.max(1, end - 4);
-
-        const pages = [];
-        if (start > 1) { pages.push(btn(1, '1')); if (start > 2) pages.push(ellipsis); }
-        for (let p = start; p <= end; p++) pages.push(btn(p, String(p), { active: p === current }));
-        if (end < totalPages) { if (end < totalPages - 1) pages.push(ellipsis); pages.push(btn(totalPages, String(totalPages))); }
-
-        const from = (current - 1) * perPage + 1;
-        const to = Math.min(total, current * perPage);
-        return `
-            <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-top:16px;">
-                <span style="color:var(--text-muted); font-size:0.9em;">Mostrando ${from}–${to} de ${total}</span>
-                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                    ${btn(current - 1, '‹', { disabled: current === 1 })}
-                    ${pages.join('')}
-                    ${btn(current + 1, '›', { disabled: current === totalPages })}
-                </div>
-            </div>`;
-    }
-
-    function attachPaginationListeners(root, cls, onPage) {
-        (root || document).querySelectorAll(`.${cls}`).forEach(b => {
-            b.addEventListener('click', () => { if (!b.disabled) onPage(parseInt(b.dataset.page, 10)); });
-        });
-    }
+    // --- Helpers de Paginación ---
+    // Definidos como globales en Sistema.js (que siempre se carga antes que Admin.js):
+    // TABLE_PAGE_SIZE, paginateItems, renderPaginationHTML, attachPaginationListeners
 
     // --- Módulo: Registro de Trabajadores ---
     async function renderWorkerRegistration() {

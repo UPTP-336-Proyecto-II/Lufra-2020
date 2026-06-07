@@ -23,7 +23,7 @@ class UserListController extends Controller
         }
 
         if ($request->filled('rol')) {
-            $rolesMap = ['administrativo' => 1, 'trabajador' => 2, 'superusuario' => 3];
+            $rolesMap = ['administrativo' => 1, 'trabajador' => 2, 'superusuario' => 3, 'pasante' => 4];
             $roleId = $rolesMap[strtolower($request->rol)] ?? null;
             if ($roleId) {
                 $query->where('Id_rol', $roleId);
@@ -103,7 +103,7 @@ class UserListController extends Controller
             'Id_Trabajador.exists' => 'El trabajador seleccionado no existe.'
         ]);
 
-        $rolesMap = ['administrativo' => 1, 'trabajador' => 2, 'superusuario' => 3];
+        $rolesMap = ['administrativo' => 1, 'trabajador' => 2, 'superusuario' => 3, 'pasante' => 4];
         $roleId = $rolesMap[strtolower($validated['role'])] ?? 2;
 
         $user = User::create([
@@ -133,7 +133,7 @@ class UserListController extends Controller
             'Id_Trabajador' => 'nullable|exists:trabajador,Id_Trabajador',
         ]);
 
-        $rolesMap = ['administrativo' => 1, 'trabajador' => 2, 'superusuario' => 3];
+        $rolesMap = ['administrativo' => 1, 'trabajador' => 2, 'superusuario' => 3, 'pasante' => 4];
         $roleId = $rolesMap[strtolower($validated['role'])] ?? 2;
 
         $user->Nombre_usuario = $validated['username'];

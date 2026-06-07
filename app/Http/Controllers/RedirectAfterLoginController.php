@@ -45,6 +45,7 @@ class RedirectAfterLoginController extends Controller
                 return redirect()->route('administrativo.dashboard');
 
             case 'trabajador':
+            case 'pasante': // El Pasante usa el dashboard de trabajador (su menú se limita vía menu_config)
             default:
                 return redirect()->route('trabajador.dashboard');
         }

@@ -1,5 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../wayfinder'
 import users from './users'
+import menu_config from './menu_config'
 import worker from './worker'
 import admin from './admin'
 /**
@@ -542,6 +543,7 @@ const superusuario = {
     users_data: Object.assign(users_data, users_data),
     users: Object.assign(users, users),
     create_default: Object.assign(create_default, create_default),
+    menu_config: Object.assign(menu_config, menu_config),
     workers_list: Object.assign(workers_list, workers_list),
     reports_users: Object.assign(reports_users, reports_users),
     worker: Object.assign(worker, worker),

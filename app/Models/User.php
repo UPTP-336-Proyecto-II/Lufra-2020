@@ -132,6 +132,13 @@ class User extends Authenticatable
      */
     public function getRoleAttribute()
     {
+        // Resolver primero desde la tabla `roles` (soporta roles nuevos, ej. Pasante)
+        $nombreRol = $this->roleModel ? $this->roleModel->Nombre_rol : null;
+        if ($nombreRol) {
+            return $nombreRol;
+        }
+
+        // Fallback al mapa histórico si la relación no está disponible
         $rolesMap = [
             1 => 'Administrativo',
             2 => 'Trabajador',

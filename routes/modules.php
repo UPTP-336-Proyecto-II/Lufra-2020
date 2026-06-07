@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'role:trabajador'])->prefix('trabajador')->group(function () {
+Route::middleware(['auth', 'role:trabajador,pasante'])->prefix('trabajador')->group(function () {
     Route::get('/', function () {
         return view('trabajador.dashboard');
     })->name('trabajador.dashboard');
@@ -82,6 +82,7 @@ Route::middleware(['auth', 'role:superusuario'])->prefix('superusuario')->group(
     Route::post('/users/{id}/activate', [\App\Http\Controllers\UserListController::class, 'activate'])->name('superusuario.users.activate');
     Route::post('/users/{id}/deactivate', [\App\Http\Controllers\UserListController::class, 'deactivate'])->name('superusuario.users.deactivate');
     Route::post('/create-superuser', [\App\Http\Controllers\UserListController::class, 'createDefault'])->name('superusuario.create_default');
+    Route::post('/admin/menu-config', [\App\Http\Controllers\MenuConfigController::class, 'store'])->name('superusuario.menu_config.store');
     Route::get('/workers-list', [\App\Http\Controllers\AdminController::class, 'listWorkers'])->name('superusuario.workers_list');
     Route::get('/reports/users', [\App\Http\Controllers\UserListController::class, 'getUsers'])->name('superusuario.reports_users');
 

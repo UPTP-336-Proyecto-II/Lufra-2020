@@ -71,3 +71,6 @@ require __DIR__.'/modules.php';
 Route::get('/session/alive', function () {
     return response()->json(['alive' => auth()->check()]);
 })->name('session.alive');
+
+// Configuración dinámica del menú por rol (lectura para cualquier usuario autenticado)
+Route::middleware('auth')->get('/menu-config', [\App\Http\Controllers\MenuConfigController::class, 'show'])->name('menu.config');
