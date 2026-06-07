@@ -23,6 +23,60 @@
     let recoveryStep = 1; // 1: Verificar Usuario, 2: Verificar Respuesta
     let activePreguntaId = null; // Almacenará el ID dinámico de la pregunta devuelta
 
+    // --- NUEVAS FUNCIONES DE PROTECCIÓN Y AUTO-REFRESCO CSRF ---
+    async function refreshCsrfToken() {
+        try {
+            const response = await fetch('/login', { method: 'GET', headers: { 'Accept': 'text/html', 'Cache-Control': 'no-cache' } });
+            if (response.ok) {
+                const htmlText = await response.text();
+                // Extracción ultra-rápida del token sin procesar todo el DOM
+                const match = htmlText.match(/content="([^"]+)" name="csrf-token"/i) || 
+                              htmlText.match(/name="csrf-token" content="([^"]+)"/i);
+                const newToken = match ? match[1] : null;
+
+                if (newToken) {
+                    const currentMeta = document.querySelector('meta[name="csrf-token"]');
+                    if (currentMeta) {
+                        currentMeta.setAttribute('content', newToken);
+                    } else {
+                        const newMeta = document.createElement('meta');
+                        newMeta.name = 'csrf-token';
+                        newMeta.content = newToken;
+                        document.head.appendChild(newMeta);
+                    }
+                    console.log('CSRF Token refreshed successfully.');
+                    return newToken;
+                }
+            }
+        } catch (e) {
+            console.error('Error refreshing CSRF token:', e);
+        }
+        return null;
+    }
+
+    async function fetchWithCsrf(url, options = {}) {
+        let csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        if (!options.headers) {
+            options.headers = {};
+        }
+        if (csrfToken) {
+            options.headers['X-CSRF-TOKEN'] = csrfToken;
+        }
+
+        let response = await fetch(url, options);
+
+        if (response.status === 419) {
+            console.warn('419 detected. Refreshing CSRF token...');
+            const newToken = await refreshCsrfToken();
+            if (newToken) {
+                options.headers['X-CSRF-TOKEN'] = newToken;
+                response = await fetch(url, options);
+            }
+        }
+
+        return response;
+    }
+
     // SVGs originales para contraseña
     const eyeSvg = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M1.5 12s4-7 10.5-7S22.5 12 22.5 12s-4 7-10.5 7S1.5 12 1.5 12z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     const eyeOffSvg = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M3 3l18 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.47 10.47A3 3 0 0113.53 13.53" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.21 12.7C3.67 15.55 7.17 18 12 18c6.5 0 10.5-6 10.5-6s-1.99-2.55-4.58-4.19" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -93,8 +147,6 @@
     // --- PROCESO DE RECUPERACIÓN (FETCH VIA AJAX) ---
 
     btnRecoveryMain.addEventListener('click', async () => {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        
         if (recoveryStep === 1) {
             const usernameVal = recoveryUsernameInput.value.trim();
             if (!usernameVal) return showMessage('Por favor ingresa tu nombre de usuario.');
@@ -103,12 +155,11 @@
             hideMessage();
             
             try {
-                const response = await fetch('/seguridad/preguntas-desafio', {
+                const response = await fetchWithCsrf('/seguridad/preguntas-desafio', {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ username: usernameVal })
                 });
@@ -142,12 +193,11 @@
             hideMessage();
 
             try {
-                const response = await fetch('/seguridad/verificar-respuesta', {
+                const response = await fetchWithCsrf('/seguridad/verificar-respuesta', {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         username: recoveryUsernameInput.value.trim(),
@@ -209,21 +259,21 @@
             }
 
             const btn = loginForm.querySelector('.btn');
+            if (btn.classList.contains('loading')) return;
+
             btn.classList.add('loading');
+            btn.disabled = true;
 
             try {
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-                const response = await fetch('login', {
+                const response = await fetchWithCsrf('login', {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ username: u, password: p })
                 });
 
-                btn.classList.remove('loading');
                 const data = await response.json();
 
                 if (!response.ok) {
@@ -232,8 +282,10 @@
                     window.location.href = '/redirect-after-login';
                 }
             } catch (error) {
-                btn.classList.remove('loading');
                 showMessage('Error de conexión.');
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
             }
         });
     }

@@ -1,9 +1,9 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\WorkerController::store
- * @see app/Http/Controllers/WorkerController.php:56
- * @route '/trabajador/vacations-request'
- */
+* @see app/Http/Controllers/WorkerController.php:57
+* @route '/trabajador/vacations-request'
+*/
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(options),
     method: 'post',
@@ -16,44 +16,45 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\WorkerController::store
- * @see app/Http/Controllers/WorkerController.php:56
- * @route '/trabajador/vacations-request'
- */
+* @see app/Http/Controllers/WorkerController.php:57
+* @route '/trabajador/vacations-request'
+*/
 store.url = (options?: RouteQueryOptions) => {
     return store.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\WorkerController::store
- * @see app/Http/Controllers/WorkerController.php:56
- * @route '/trabajador/vacations-request'
- */
+* @see app/Http/Controllers/WorkerController.php:57
+* @route '/trabajador/vacations-request'
+*/
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(options),
     method: 'post',
 })
 
-    /**
+/**
 * @see \App\Http\Controllers\WorkerController::store
- * @see app/Http/Controllers/WorkerController.php:56
- * @route '/trabajador/vacations-request'
- */
-    const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: store.url(options),
-        method: 'post',
-    })
+* @see app/Http/Controllers/WorkerController.php:57
+* @route '/trabajador/vacations-request'
+*/
+const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: store.url(options),
+    method: 'post',
+})
 
-            /**
+/**
 * @see \App\Http\Controllers\WorkerController::store
- * @see app/Http/Controllers/WorkerController.php:56
- * @route '/trabajador/vacations-request'
- */
-        storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: store.url(options),
-            method: 'post',
-        })
-    
-    store.form = storeForm
+* @see app/Http/Controllers/WorkerController.php:57
+* @route '/trabajador/vacations-request'
+*/
+storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: store.url(options),
+    method: 'post',
+})
+
+store.form = storeForm
+
 const vacations = {
     store: Object.assign(store, store),
 }

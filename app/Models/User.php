@@ -133,9 +133,9 @@ class User extends Authenticatable
     public function getRoleAttribute()
     {
         $rolesMap = [
-            1 => 'administrativo',
-            2 => 'trabajador',
-            3 => 'superusuario',
+            1 => 'Administrativo',
+            2 => 'Trabajador',
+            3 => 'SuperUsuario',
         ];
 
         return $rolesMap[$this->Id_rol] ?? 'invitado';

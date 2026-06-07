@@ -1,9 +1,9 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\AdminController::status
- * @see app/Http/Controllers/AdminController.php:196
- * @route '/administrativo/vacations/{id}/status'
- */
+* @see app/Http/Controllers/AdminController.php:238
+* @route '/administrativo/vacations/{id}/status'
+*/
 export const status = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: status.url(args, options),
     method: 'post',
@@ -16,26 +16,25 @@ status.definition = {
 
 /**
 * @see \App\Http\Controllers\AdminController::status
- * @see app/Http/Controllers/AdminController.php:196
- * @route '/administrativo/vacations/{id}/status'
- */
+* @see app/Http/Controllers/AdminController.php:238
+* @route '/administrativo/vacations/{id}/status'
+*/
 status.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { id: args }
     }
 
-    
     if (Array.isArray(args)) {
         args = {
-                    id: args[0],
-                }
+            id: args[0],
+        }
     }
 
     args = applyUrlDefaults(args)
 
     const parsedArgs = {
-                        id: args.id,
-                }
+        id: args.id,
+    }
 
     return status.definition.url
             .replace('{id}', parsedArgs.id.toString())
@@ -44,35 +43,36 @@ status.url = (args: { id: string | number } | [id: string | number ] | string | 
 
 /**
 * @see \App\Http\Controllers\AdminController::status
- * @see app/Http/Controllers/AdminController.php:196
- * @route '/administrativo/vacations/{id}/status'
- */
+* @see app/Http/Controllers/AdminController.php:238
+* @route '/administrativo/vacations/{id}/status'
+*/
 status.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: status.url(args, options),
     method: 'post',
 })
 
-    /**
+/**
 * @see \App\Http\Controllers\AdminController::status
- * @see app/Http/Controllers/AdminController.php:196
- * @route '/administrativo/vacations/{id}/status'
- */
-    const statusForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: status.url(args, options),
-        method: 'post',
-    })
+* @see app/Http/Controllers/AdminController.php:238
+* @route '/administrativo/vacations/{id}/status'
+*/
+const statusForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: status.url(args, options),
+    method: 'post',
+})
 
-            /**
+/**
 * @see \App\Http\Controllers\AdminController::status
- * @see app/Http/Controllers/AdminController.php:196
- * @route '/administrativo/vacations/{id}/status'
- */
-        statusForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: status.url(args, options),
-            method: 'post',
-        })
-    
-    status.form = statusForm
+* @see app/Http/Controllers/AdminController.php:238
+* @route '/administrativo/vacations/{id}/status'
+*/
+statusForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: status.url(args, options),
+    method: 'post',
+})
+
+status.form = statusForm
+
 const vacations = {
     status: Object.assign(status, status),
 }

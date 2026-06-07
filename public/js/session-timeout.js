@@ -13,16 +13,17 @@
         return `sessionTimeout_${getUserKey()}`;
     }
 
-    // Clave real en localStorage (por usuario)
-    const LS_KEY = getUserLSKey();
+    // NOTE: compute the per-user LS key lazily because `window.laravelUser`
+    // may not be available at script-evaluation time (it can be injected later).
+    function getLSKey() { return getUserLSKey(); }
 
     // Opciones válidas en segundos ('off' = desactivado)
     const OPTIONS = { '30': 30, '60': 60, '120': 120, 'off': null };
 
     // Retorna los segundos configurados o null si está desactivado
     function getConfiguredSeconds() {
-        const saved = localStorage.getItem(LS_KEY) || '30';
-        return OPTIONS.hasOwnProperty(saved) ? OPTIONS[saved] : 30;
+        const saved = localStorage.getItem(getLSKey()) || '120';
+        return OPTIONS.hasOwnProperty(saved) ? OPTIONS[saved] : 120;
     }
 
     // ─── Estilos del modal ───────────────────────────────────────────────────
@@ -216,6 +217,29 @@
         let lastActivity  = Date.now();
         let disabled      = (totalSeconds === null);
 
+        // ── Heartbeat (Latido de sesión) ───────────────────────────────────
+        // Envía una señal al servidor para mantener la sesión de Laravel viva.
+        function doHeartbeat() {
+            if (loggedOut) return;
+            // No enviamos latido automático si el aviso está en pantalla (el usuario debe decidir)
+            // a menos que el temporizador esté desactivado.
+            if (warningShown && !disabled) return; 
+
+            fetch('/session/alive', { credentials: 'same-origin', cache: 'no-store' })
+                .then(res => {
+                    if (res.status === 401 || res.status === 419) doLogout();
+                    return res.json().catch(() => ({}));
+                })
+                .then(data => {
+                    if (data && data.alive === false) doLogout();
+                })
+                .catch(() => {}); // Ignorar errores de red para evitar cierres falsos
+        }
+
+        // Ejecutar el latido cada 60 segundos de forma ininterrumpida
+        // para garantizar que Laravel no cierre la sesión por inactividad.
+        setInterval(doHeartbeat, 60000);
+
         // ── Actualizar configuración en caliente ─────────────────────────────
         window.addEventListener('sessionTimeoutChanged', (e) => {
             const raw = e.detail && e.detail.value;
@@ -223,7 +247,7 @@
             // Solo aplicar si el evento corresponde a ESTE usuario.
             // Esto evita que otra pestaña/usuario cambie el timeout globalmente.
             const incomingKey = e.detail && e.detail.lsKey;
-            if (incomingKey && incomingKey !== LS_KEY) return;
+            if (incomingKey && incomingKey !== getLSKey()) return;
 
             totalSeconds = OPTIONS.hasOwnProperty(raw) ? OPTIONS[raw] : 30;
             disabled     = (totalSeconds === null);
@@ -233,21 +257,35 @@
 
             // Reiniciar el contador de inactividad
             elapsed = 0;
+            doHeartbeat();
         });
 
         // ── Detectar actividad ───────────────────────────────────────────────
         function onActivity() {
+            if (warningShown || loggedOut) return;
             const now = Date.now();
             if (now - lastActivity < 200) return;
             lastActivity = now;
             elapsed = 0;
-            if (warningShown && !loggedOut) hideWarning();
         }
+        
+        // Exponer globalmente para poder resetear el timer desde otras funciones críticas
+        window.resetSessionInactivity = onActivity;
 
         ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click']
             .forEach(e => window.addEventListener(e, onActivity, { passive: true }));
 
-        keepBtn.addEventListener('click', onActivity);
+        keepBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (loggedOut || disabled) return;
+
+            // Refrescar sesión en el servidor inmediatamente al dar clic en el botón
+            doHeartbeat();
+
+            lastActivity = Date.now();
+            elapsed = 0;
+            if (warningShown) hideWarning();
+        });
 
         // ── Mostrar / Ocultar ────────────────────────────────────────────────
         function showWarning(remaining) {
@@ -281,38 +319,14 @@
         function doLogout() {
             if (loggedOut) return;
             loggedOut = true;
-
-            // Cuando la sesión expira, el token CSRF puede quedar desactualizado.
-            // Evitar envío POST con token viejo.
-            const metaTokenEl = document.querySelector('meta[name="csrf-token"]');
-            const token = metaTokenEl ? String(metaTokenEl.getAttribute('content') || '') : '';
-
-            // Preferir GET para evitar 419/CSRF mismatch.
             window.location.href = '/login';
-
-            // Intento POST queda como fallback no-bloqueante.
-            if (!token) return;
-            try {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/logout';
-
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = '_token';
-                input.value = token;
-
-                form.appendChild(input);
-                document.body.appendChild(form);
-                form.submit();
-            } catch (e) {
-                // Ya redirigimos a /login; no hacer nada.
-            }
         }
 
         // ── Tick principal (1 s) ─────────────────────────────────────────────
         setInterval(() => {
-            if (loggedOut || disabled) return;
+            if (loggedOut) return;
+
+            if (disabled) return;
 
             elapsed++;
 

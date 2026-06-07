@@ -78,12 +78,7 @@
                     </div>
                 </div>
                 
-                <div class="form-options">
-                    <label class="checkbox-container">
-                        <input type="checkbox" id="remember" name="remember">
-                        <span class="checkmark"></span>
-                        Recuérdame
-                    </label>
+                <div class="form-options" style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
                     <a href="javascript:void(0)" id="show-recovery" class="forgot-link">Recuperar contraseña</a>
                 </div>
 

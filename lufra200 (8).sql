@@ -589,9 +589,7 @@ CREATE TABLE `tipo_nomina` (
 
 INSERT INTO `tipo_nomina` (`Id_Tipo_Nomina`, `Frecuencia`, `Fecha_Inicio`, `Fecha_Fin`, `Estado`) VALUES
 (1, 'Semanal', '0000-00-00', '0000-00-00', 'Activo'),
-(2, 'Quincenal', '0000-00-00', '0000-00-00', 'Activo'),
-(3, 'Mensual', '0000-00-00', '0000-00-00', 'Activo'),
-(4, 'Mixta', '0000-00-00', '0000-00-00', 'Activo');
+(2, 'Quincenal', '0000-00-00', '0000-00-00', 'Activo');
 
 -- --------------------------------------------------------
 

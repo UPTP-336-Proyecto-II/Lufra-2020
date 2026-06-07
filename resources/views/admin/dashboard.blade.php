@@ -44,6 +44,7 @@
     <script src="{{ asset('js/session-timeout.js') }}"></script>
     <script>
         window.laravelUser = {
+            id: "{{ auth()->user()->id }}",
             name: "{{ auth()->user()->name }}",
             role: "{{ auth()->user()->role }}"
         };

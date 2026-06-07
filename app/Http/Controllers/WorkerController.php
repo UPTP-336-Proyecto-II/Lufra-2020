@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Trabajador;
 use App\Models\Vacacion;
+use App\Models\SolicitudPermiso;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -71,6 +72,8 @@ class WorkerController extends Controller
             'Estado' => 'Pendiente',
         ]);
 
+        \App\Models\SystemLog::write('Solicitud de Vacaciones', "El trabajador '{$user->Nombre_usuario}' solicitó vacaciones a partir del {$request->startDate} (ID Solicitud: {$vacacion->Id_Solicitud}).");
+
         return response()->json(['success' => true, 'id' => $vacacion->Id_Solicitud]);
     }
 
@@ -85,21 +88,30 @@ class WorkerController extends Controller
         $cedula = $trabajador->Documento_Identidad;
 
         $payslips = DB::table('payslips')
-            ->where('Id_Trabajador', $user->Id_Trabajador)
-            ->orWhere('Data', 'like', '%"cedula":"' . $cedula . '"%')
+            ->where(function ($query) use ($user, $cedula) {
+                $query->where('Id_Trabajador', $user->Id_Trabajador)
+                      ->orWhere('Data', 'like', '%"cedula":"' . $cedula . '"%');
+            })
+            ->where('Data', 'like', '%"status":"Publicado"%')
             ->orderBy('Fecha_Pago', 'desc')
             ->get();
 
         // Parse JSON data
         $formattedPayslips = $payslips->map(function ($p) {
             $data = json_decode($p->Data);
+            
+            if (isset($data->isBatch) && $data->isBatch) {
+                return null;
+            }
+
             return [
                 'id' => $p->Id_Payslip,
                 'fechaPago' => $p->Fecha_Pago,
                 'periodo' => $data->periodo ?? '-',
                 'neto' => $p->Neto,
+                'status' => $data->status ?? 'Pendiente',
             ];
-        });
+        })->filter()->unique('id')->values();
 
         return response()->json($formattedPayslips);
     }
@@ -121,6 +133,11 @@ class WorkerController extends Controller
 
         // Decode JSON extended data
         $data = json_decode($payslip->Data, true);
+
+        $status = $data['status'] ?? 'Pendiente';
+        if ($status !== 'Publicado') {
+            abort(404, 'Recibo no disponible.');
+        }
 
         // Access checks (Ensure worker only views their own by validating DB id or JSON cedula)
         $trabajador = Trabajador::find($user->Id_Trabajador);
@@ -328,5 +345,221 @@ class WorkerController extends Controller
             return floatval($matches[0]);
         }
         return 1.0;
+    }
+
+    public function getVacationPayments()
+    {
+        $user = Auth::user();
+        if (!$user->Id_Trabajador) {
+            return response()->json(['error' => 'Trabajador no identificado.'], 404);
+        }
+
+        if (!DB::getSchemaBuilder()->hasTable('vacation_payments')) {
+            return response()->json([]);
+        }
+
+        $payments = DB::table('vacation_payments')
+            ->where('Id_Trabajador', $user->Id_Trabajador)
+            ->where('status', 'Publicado')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $formatted = $payments->map(function ($p) {
+            return [
+                'id' => $p->id,
+                'fechaPago' => date('Y-m-d', strtotime($p->created_at)),
+                'periodo' => 'Período ' . $p->payment_year . ' → ' . ($p->payment_year + 1),
+                'neto' => $p->total,
+                'status' => $p->status,
+            ];
+        });
+
+        return response()->json($formatted);
+    }
+
+    public function showVacationPayslip($id)
+    {
+        $user = Auth::user();
+        if (!$user->Id_Trabajador) {
+            abort(404, 'Trabajador no identificado.');
+        }
+
+        if (!DB::getSchemaBuilder()->hasTable('vacation_payments')) {
+            abort(404, 'Pago no encontrado.');
+        }
+
+        $vp = DB::table('vacation_payments as vp')
+            ->join('trabajador as w', 'vp.Id_Trabajador', '=', 'w.Id_Trabajador')
+            ->leftJoin('cargo as c', 'w.Id_Cargo', '=', 'c.Id_Cargo')
+            ->leftJoin('contrato_trabajadores as ct', 'w.Id_Trabajador', '=', 'ct.Id_Trabajador')
+            ->leftJoin('tipo_nomina as tn', 'ct.Id_Tipo_Nomina', '=', 'tn.Id_Tipo_Nomina')
+            ->select(
+                'vp.*',
+                'w.Nombre_Completo',
+                'w.Apellidos',
+                'w.Documento_Identidad',
+                'w.Fecha_de_Ingreso',
+                'c.Nombre_profesión as Cargo',
+                'tn.Frecuencia as TipoNomina'
+            )
+            ->where('vp.id', $id)
+            ->first();
+
+        if (!$vp) abort(404, 'Pago de vacaciones no encontrado.');
+
+        // Enforce worker check
+        if ($vp->Id_Trabajador != $user->Id_Trabajador) {
+            abort(403, 'Acceso denegado a este recibo.');
+        }
+
+        if ($vp->status !== 'Publicado') {
+            abort(404, 'Recibo no disponible/publicado.');
+        }
+
+        $formatCurrency = function($amount) { return number_format($amount, 2, ',', '.'); };
+        $formatDate     = function($date)   { return $date ? date('d/m/Y', strtotime($date)) : 'N/A'; };
+
+        $salarioDiario   = $vp->salario_mensual / 30;
+        $montoVacaciones = round($salarioDiario * $vp->dias_vacaciones, 2);
+        $montoBono       = round($salarioDiario * $vp->dias_bono, 2);
+        $totalAsig       = $montoVacaciones + $montoBono;
+
+        $conceptos = [
+            [
+                'codigo'     => 'VAC',
+                'nombre'     => 'Días de vacaciones',
+                'aux'        => $vp->dias_vacaciones . ' días',
+                'asignacion' => $formatCurrency($montoVacaciones),
+                'deduccion'  => '',
+            ],
+            [
+                'codigo'     => 'BVAC',
+                'nombre'     => 'Bono vacacional',
+                'aux'        => $vp->dias_bono . ' días',
+                'asignacion' => $formatCurrency($montoBono),
+                'deduccion'  => '',
+            ],
+        ];
+
+        $numeroRecibo = 'VAC-' . str_pad($id, 8, '0', STR_PAD_LEFT);
+        $fechaEmision = $formatDate($vp->created_at ?? now()->toDateString());
+
+        // Período: Año vacacional pagado (e.g. "Período 2022 → 2023")
+        $periodoLabel = 'Período ' . $vp->payment_year . ' → ' . ($vp->payment_year + 1);
+
+        // Calcular Desde (un día después de emisión, saltando fin de semana a lunes)
+        $emissionTime = strtotime($vp->created_at ?? now());
+        $dayOfWeek = (int)date('N', $emissionTime);
+
+        if ($dayOfWeek == 6 || $dayOfWeek == 7) {
+            $desdeTime = strtotime('next Monday', $emissionTime);
+        } else {
+            $desdeTime = strtotime('+1 day', $emissionTime);
+        }
+
+        // Calcular Hasta sin fines de semana (contando Desde como Día 1)
+        $currentDate = $desdeTime;
+        $daysCounted = 0;
+        $targetDays = (int)$vp->dias_vacaciones;
+
+        while ($daysCounted < $targetDays) {
+            $currentW = (int)date('N', $currentDate);
+            if ($currentW < 6) {
+                $daysCounted++;
+            }
+            if ($daysCounted < $targetDays) {
+                $currentDate = strtotime('+1 day', $currentDate);
+            }
+        }
+        $hastaTime = $currentDate;
+
+        $fechaDesde = $formatDate(date('Y-m-d', $desdeTime));
+        $fechaHasta = $formatDate(date('Y-m-d', $hastaTime));
+
+        return view('trabajador.vacation_payslip', [
+            'fechaPago'    => $fechaEmision,
+            'numeroRecibo' => $numeroRecibo,
+            'trabajador'   => trim($vp->Nombre_Completo . ' ' . $vp->Apellidos),
+            'cedula'       => $vp->Documento_Identidad,
+            'cargo'        => $vp->Cargo ?? 'N/A',
+            'tipoNomina'   => $vp->TipoNomina ?? 'Vacaciones',
+            'salarioBase'  => $formatCurrency($vp->salario_mensual),
+            'periodo'      => $periodoLabel,
+            'fechaDesde'   => $fechaDesde,
+            'fechaHasta'   => $fechaHasta,
+            'conceptos'    => $conceptos,
+            'totalAsig'    => $formatCurrency($totalAsig),
+            'totalDeduc'   => '0,00',
+            'netoPago'     => $formatCurrency($totalAsig),
+        ]);
+    }
+
+    public function getPermissionRequests()
+    {
+        $user = Auth::user();
+        if (!$user->Id_Trabajador) {
+            return response()->json(['error' => 'Trabajador no identificado.'], 404);
+        }
+
+        $requests = SolicitudPermiso::where('Id_Trabajador', $user->Id_Trabajador)
+            ->orderBy('Fecha', 'desc')
+            ->orderBy('Id_Solicitud', 'desc')
+            ->get();
+
+        $formatted = $requests->map(function ($r) use ($user) {
+            $worker = $user->trabajador;
+            $nombreCompleto = $worker ? ($worker->Nombre_Completo . ' ' . $worker->Apellidos) : '';
+            return [
+                'id' => $r->custom_id ?? (string)$r->Id_Solicitud,
+                'Fecha' => $r->Fecha,
+                'FechaInicio' => str_replace(' ', 'T', substr($r->Fecha_Inicio, 0, 16)),
+                'FechaFin' => str_replace(' ', 'T', substr($r->Fecha_Fin, 0, 16)),
+                'Motivo' => $r->Motivo,
+                'Estatus' => $r->Estado,
+                'Remuneracion' => $r->Remuneracion,
+                'Estado' => $r->Estado,
+                'Trabajador' => $nombreCompleto,
+                'Nombre_Completo' => $nombreCompleto,
+                'Nombre' => $worker->Nombre_Completo ?? '',
+                'Apellidos' => $worker->Apellidos ?? '',
+                'Cedula' => $worker->Documento_Identidad ?? '',
+                'Motivo_Rechazo' => $r->motivo_rechazo
+            ];
+        });
+
+        return response()->json(['requests' => $formatted]);
+    }
+
+    public function storePermissionRequest(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user->Id_Trabajador) {
+            return response()->json(['error' => 'Trabajador no identificado.'], 404);
+        }
+
+        $validated = $request->validate([
+            'FechaInicio' => 'required',
+            'FechaFin' => 'required',
+            'Motivo' => 'required|string',
+            'id' => 'nullable|string'
+        ]);
+
+        $fechaInicio = str_replace('T', ' ', $validated['FechaInicio']);
+        $fechaFin = str_replace('T', ' ', $validated['FechaFin']);
+
+        $permiso = SolicitudPermiso::create([
+            'Id_Trabajador' => $user->Id_Trabajador,
+            'Fecha' => now()->toDateString(),
+            'Fecha_Inicio' => $fechaInicio,
+            'Fecha_Fin' => $fechaFin,
+            'Motivo' => $validated['Motivo'],
+            'Estado' => 'Pendiente',
+            'Remuneracion' => 'Pendiente',
+            'custom_id' => $validated['id'] ?? null
+        ]);
+
+        \App\Models\SystemLog::write('Solicitud de Permiso', "El trabajador '{$user->Nombre_usuario}' solicitó un permiso por motivo: '{$validated['Motivo']}' desde el {$fechaInicio} hasta el {$fechaFin} (ID: {$permiso->Id_Solicitud}).");
+
+        return response()->json(['success' => true, 'id' => $permiso->Id_Solicitud]);
     }
 }

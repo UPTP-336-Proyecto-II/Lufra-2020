@@ -166,6 +166,27 @@
             font-weight: bold;
             color: #000;
         }
+        .signature-footer {
+            margin-top: 35px;
+            padding-top: 15px;
+            border-top: 1px solid #000;
+            display: flex;
+            justify-content: flex-start;
+            gap: 15px;
+            align-items: center;
+            font-size: 12px;
+        }
+        .signature-label {
+            font-weight: bold;
+            min-width: 90px;
+            color: #333;
+        }
+        .signature-line {
+            flex: 1;
+            border-bottom: 1px solid #000;
+            padding-bottom: 6px;
+            min-height: 18px;
+        }
         .no-print {
             margin-bottom: 20px;
             text-align: center;
@@ -191,6 +212,10 @@
         .btn-print:hover {
             background-color: #219653;
         }
+        .page-break {
+            page-break-after: always;
+            break-after: page;
+        }
         @media print {
             .no-print {
                 display: none;
@@ -203,9 +228,19 @@
                 box-shadow: none;
                 border: 2px solid #000;
                 margin: 0;
+                page-break-inside: avoid;
+                break-inside: avoid;
             }
             .box {
                 border-width: 1px;
+            }
+            .page-break {
+                page-break-after: always !important;
+                break-after: page !important;
+            }
+            .page-break:last-child {
+                page-break-after: avoid !important;
+                break-after: avoid !important;
             }
         }
         .clearfix::after {
@@ -221,6 +256,135 @@
     <button onclick="window.print()" class="btn-print">🖨️ Imprimir Recibo / Guardar PDF</button>
 </div>
 
+@if(isset($isMultiple) && $isMultiple)
+    @foreach($payslips as $p)
+        <div class="page-break">
+            <div class="container" style="margin-bottom: 30px;">
+            <table class="header-table">
+                <tr>
+                    <td class="company-info" style="vertical-align: top;">
+                        <div class="box clearfix" style="display: inline-block; padding-right: 25px;">
+                            <div class="logo-box">
+                                <img src="{{ asset('img/logo-exacto.png') }}" alt="Logo Lufra" style="width: 100%; height: auto; border-radius: 4px; display: block;">
+                            </div>
+                            <div class="company-text">
+                                <h2>LUFRA 2020</h2>
+                                <p><strong>R.I.F.:</strong> J-50032437-5</p>
+                                <p><strong>Dirección:</strong> Acarigua, Venezuela</p>
+                                <p><strong>Teléfonos:</strong> +58 424-5114575</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="receipt-info">
+                        <h1>RECIBO DE PAGO</h1>
+                        <p><strong>Fecha Emisión:</strong> {{ $p['fechaPago'] }}</p>
+                        <div class="number-box">
+                            Número: {{ $p['numeroRecibo'] }}
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            <div class="worker-box box">
+                <table class="worker-table">
+                    <tr>
+                        <td width="12%" class="label">Empleado:</td>
+                        <td width="38%">{{ $p['trabajador'] }}</td>
+                        <td width="12%" class="label">Desde:</td>
+                        <td width="38%">{{ $p['fechaInicio'] }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Cédula:</td>
+                        <td>{{ $p['cedula'] }}</td>
+                        <td class="label">Hasta:</td>
+                        <td>{{ $p['fechaFin'] }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Cargo:</td>
+                        <td>{{ $p['cargo'] }}</td>
+                        <td class="label">Tipo de Nómina:</td>
+                        <td>{{ $p['tipoNomina'] }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Sueldo Mensual:</td>
+                        <td>Bs. {{ $p['salarioBase'] }}</td>
+                        <td class="label">Período:</td>
+                        <td>{{ $p['periodo'] }}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <table class="concepts-table">
+                <thead>
+                    <tr>
+                        <th width="8%" class="text-center">COD</th>
+                        <th width="47%">Descripción</th>
+                        <th width="15%" class="text-right">Auxiliar</th>
+                        <th width="15%" class="text-right">Asignación</th>
+                        <th width="15%" class="text-right">Deducción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{-- Primero: Asignaciones y Bonificaciones --}}
+                    @foreach ($p['conceptos'] as $c)
+                        @if($c['asignacion'] !== '')
+                        <tr>
+                            <td class="text-center">{{ $c['codigo'] }}</td>
+                            <td>{{ $c['nombre'] }}</td>
+                            <td class="text-right">{{ $c['aux'] }}</td>
+                            <td class="text-right col-monto">{{ 'Bs. ' . $c['asignacion'] }}</td>
+                            <td class="text-right col-monto"></td>
+                        </tr>
+                        @endif
+                    @endforeach
+                    {{-- Luego: Deducciones --}}
+                    @foreach ($p['conceptos'] as $c)
+                        @if($c['deduccion'] !== '')
+                        <tr>
+                            <td class="text-center">{{ $c['codigo'] }}</td>
+                            <td>{{ $c['nombre'] }}</td>
+                            <td class="text-right">{{ $c['aux'] }}</td>
+                            <td class="text-right col-monto"></td>
+                            <td class="text-right col-monto">{{ 'Bs. ' . $c['deduccion'] }}</td>
+                        </tr>
+                        @endif
+                    @endforeach
+                    
+                    @for ($i = 0; $i < 2; $i++)
+                        <tr>
+                            <td colspan="5">&nbsp;</td>
+                        </tr>
+                    @endfor
+
+                    <tr class="totals-row">
+                        <td colspan="3" class="text-right">TOTALES ACUMULADOS:</td>
+                        <td class="text-right col-monto">Bs. {{ $p['totalAsig'] }}</td>
+                        <td class="text-right col-monto">Bs. {{ $p['totalDeduc'] }}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="clearfix">
+                <div class="net-pay-box clearfix">
+                    <span class="net-pay-label">NETO A PAGAR:</span>
+                    <span class="net-pay-amount">Bs. {{ $p['netoPago'] }}</span>
+                </div>
+            </div>
+
+            <div class="signature-footer" style="margin-top: 50px; padding-top: 0; border-top: none; display: flex; justify-content: space-between; gap: 40px; align-items: flex-end;">
+                <div style="flex:1; text-align:center;">
+                    <div style="border-bottom: 1px solid #000; min-height: 30px; margin-bottom: 6px;">&nbsp;</div>
+                    <span style="font-size:11px; font-weight:bold; color:#555;">Firma del Trabajador</span>
+                </div>
+                <div style="flex:1; text-align:center;">
+                    <div style="border-bottom: 1px solid #000; min-height: 30px; margin-bottom: 6px;">&nbsp;</div>
+                    <span style="font-size:11px; font-weight:bold; color:#555;">Firma del Administrador</span>
+                </div>
+            </div>
+            </div>
+        </div>
+    @endforeach
+@else
 <div class="container">
     <table class="header-table">
         <tr>
@@ -287,21 +451,32 @@
             </tr>
         </thead>
         <tbody>
+            {{-- Primero: Asignaciones y Bonificaciones --}}
             @foreach ($conceptos as $c)
+                @if($c['asignacion'] !== '')
                 <tr>
                     <td class="text-center">{{ $c['codigo'] }}</td>
                     <td>{{ $c['nombre'] }}</td>
                     <td class="text-right">{{ $c['aux'] }}</td>
-                    <td class="text-right col-monto">{{ $c['asignacion'] ? 'Bs. ' . $c['asignacion'] : '' }}</td>
-                    <td class="text-right col-monto">{{ $c['deduccion'] ? 'Bs. ' . $c['deduccion'] : '' }}</td>
+                    <td class="text-right col-monto">{{ 'Bs. ' . $c['asignacion'] }}</td>
+                    <td class="text-right col-monto"></td>
                 </tr>
+                @endif
+            @endforeach
+            {{-- Luego: Deducciones --}}
+            @foreach ($conceptos as $c)
+                @if($c['deduccion'] !== '')
+                <tr>
+                    <td class="text-center">{{ $c['codigo'] }}</td>
+                    <td>{{ $c['nombre'] }}</td>
+                    <td class="text-right">{{ $c['aux'] }}</td>
+                    <td class="text-right col-monto"></td>
+                    <td class="text-right col-monto">{{ 'Bs. ' . $c['deduccion'] }}</td>
+                </tr>
+                @endif
             @endforeach
             
-            @php
-                $minRows = 10;
-                $rowsNeeded = $minRows - count($conceptos);
-            @endphp
-            @for ($i = 0; $i < $rowsNeeded; $i++)
+            @for ($i = 0; $i < 2; $i++)
                 <tr>
                     <td colspan="5">&nbsp;</td>
                 </tr>
@@ -321,7 +496,19 @@
             <span class="net-pay-amount">Bs. {{ $netoPago }}</span>
         </div>
     </div>
+
+    <div class="signature-footer" style="margin-top: 50px; padding-top: 0; border-top: none; display: flex; justify-content: space-between; gap: 40px; align-items: flex-end;">
+        <div style="flex:1; text-align:center;">
+            <div style="border-bottom: 1px solid #000; min-height: 30px; margin-bottom: 6px;">&nbsp;</div>
+            <span style="font-size:11px; font-weight:bold; color:#555;">Firma del Trabajador</span>
+        </div>
+        <div style="flex:1; text-align:center;">
+            <div style="border-bottom: 1px solid #000; min-height: 30px; margin-bottom: 6px;">&nbsp;</div>
+            <span style="font-size:11px; font-weight:bold; color:#555;">Firma del Administrador</span>
+        </div>
+    </div>
 </div>
+@endif
 
 </body>
 </html>

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use App\Http\Controllers\Auth\SeguridadController;
+use App\Http\Controllers\Auth\CustomLoginController;
 
 Route::get('/', function () {
     return view('homepage');
@@ -61,4 +62,12 @@ Route::prefix('seguridad')->group(function () {
     Route::post('/actualizar-clave', [SeguridadController::class, 'restablecerPassword'])->name('seguridad.update');
 });
 
+// Sobrescribe la ruta POST /login predeterminada de Fortify para incluir la lógica personalizada
+Route::post('/login', [CustomLoginController::class, 'store'])->middleware('guest');
+
 require __DIR__.'/modules.php';
+
+// Endpoint para que el frontend verifique si la sesión del usuario sigue activa
+Route::get('/session/alive', function () {
+    return response()->json(['alive' => auth()->check()]);
+})->name('session.alive');

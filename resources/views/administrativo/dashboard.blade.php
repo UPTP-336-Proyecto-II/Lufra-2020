@@ -82,32 +82,6 @@
             box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
         }
 
-        /* ESTILO INTERNO: Botón de Seguridad en el Sidebar */
-        #security-btn {
-            background-color: transparent;
-            border: 1px solid rgba(16, 168, 122, 0.6);
-            color: #a7f3d0;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            text-decoration: none;
-        }
-
-        #security-btn:hover {
-            background-color: #10a87a;
-            color: white;
-            border-color: #10a87a;
-            box-shadow: 0 4px 12px rgba(16, 168, 122, 0.4);
-        }
-
         /* Navigation Links */
         #module-navigation {
             padding: 20px 15px 0 15px;
@@ -232,15 +206,6 @@
             <p id="username-display">{{ auth()->user()->name }}</p>
             
             <div id="user-actions-container" style="display: flex; gap: 8px; justify-content: center; align-items: center; width: 100%;">
-                
-                <a href="{{ route('seguridad.configurar.vista') }}" id="security-btn" style="flex: 1;">
-                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                    </svg>
-                    Seguridad
-                </a>
-
                 <form action="{{ route('logout') }}" method="POST" style="margin: 0; flex: 1;">
                     @csrf
                     <button type="submit" id="logout-btn" style="padding: 8px 10px; font-size: 0.85rem;">
@@ -270,6 +235,7 @@
     <script src="{{ asset('js/session-timeout.js') }}"></script>
     <script>
         window.laravelUser = {
+            id: "{{ auth()->user()->id }}",
             name: "{{ auth()->user()->name }}",
             role: "{{ auth()->user()->role }}"
         };

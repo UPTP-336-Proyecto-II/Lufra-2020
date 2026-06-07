@@ -11,14 +11,98 @@ async function checkSessionAsync() {
     }
     return null;
 }
-function logout() {
-    // El logout ahora lo maneja Laravel
+// --- Global safe fetch wrapper: prevents sending POSTs when session is expired ---
+(function() {
+    if (typeof window === 'undefined' || !window.fetch) return;
+    const _origFetch = window.fetch.bind(window);
+    window.fetch = async function(input, init) {
+        // Si estamos en la página de login, evitamos cualquier intercepción para máxima velocidad
+        if (window.location.pathname.toLowerCase().includes('login')) {
+            return _origFetch(input, init);
+        }
+
+        try {
+            const method = (init && init.method) ? String(init.method).toUpperCase() : 'GET';
+            const url = (typeof input === 'string') ? input : (input && input.url) ? input.url : '';
+            const lowerUrl = url.toLowerCase();
+
+            // No interceptar peticiones de autenticación, logout, seguridad o verificación de vida
+            const isAuthAction = lowerUrl.includes('login') || lowerUrl.includes('logout') || 
+                                 lowerUrl.includes('seguridad') || lowerUrl.includes('session/alive');
+
+            if (method === 'POST' && !isAuthAction) {
+                try {
+                    const aliveRes = await _origFetch('/session/alive', { credentials: 'same-origin', cache: 'no-store' });
+
+                    if (!aliveRes.ok && (aliveRes.status === 401 || aliveRes.status === 419)) {
+                        window.location.href = '/login';
+                        return new Promise(() => {}); // Detiene la ejecución para evitar modales de error
+                    }
+
+                    const aliveData = aliveRes.ok ? await aliveRes.json().catch(() => ({})) : { alive: true };
+                    if (aliveData.hasOwnProperty('alive') && aliveData.alive === false) {
+                        window.location.href = '/login';
+                        return new Promise(() => {}); // Detiene la ejecución para evitar modales de error
+                    }
+                } catch (e) {
+                    // Si falla la verificación por red, no expulsar inmediatamente, dejar que la petición principal proceda
+                    console.warn('Session check fail (network):', e);
+                }
+            }
+        } catch (e) {
+            // if anything goes wrong, fall back to original fetch
+        }
+        return _origFetch(input, init);
+    };
+})();
+async function logout(event) {
+    if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    }
+
     const form = document.querySelector('form[action$="logout"]');
+    let alive = false;
+
+    try {
+        const res = await fetch('/session/alive', { credentials: 'same-origin', cache: 'no-store' });
+        if (res.ok) {
+            const data = await res.json();
+            alive = data && data.alive;
+        }
+    } catch (e) {
+        alive = false;
+    }
+
+    if (!alive) {
+        window.location.href = '/login';
+        return;
+    }
+
     if (form) {
         form.submit();
-    } else {
-        window.location.href = '/logout';
+        return;
     }
+
+    const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+    const token = tokenMeta ? tokenMeta.getAttribute('content') : null;
+
+    if (token) {
+        const fallback = document.createElement('form');
+        fallback.method = 'POST';
+        fallback.action = '/logout';
+
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = '_token';
+        input.value = token;
+
+        fallback.appendChild(input);
+        document.body.appendChild(fallback);
+        fallback.submit();
+        return;
+    }
+
+    window.location.href = '/login';
 }
 function setAuth(data) {
     if (data) {
@@ -58,6 +142,8 @@ function showModal(options) {
         const html = options.html || `<p>${message}</p>`;
         const okText = options.okText || 'Aceptar';
         const cancelText = options.cancelText || null;
+        const modalClass = options.modalClass ? `modal-content ${options.modalClass}` : 'modal-content';
+        const modalStyle = options.modalStyle ? `style="${options.modalStyle}"` : '';
 
         const icons = {
             success: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`,
@@ -70,13 +156,13 @@ function showModal(options) {
         overlay.className = `modal-overlay modal-${type}`;
 
         overlay.innerHTML = `
-            <div class="modal-content">
+            <div class="${modalClass}" ${modalStyle}>
                 <button class="modal-close-x">✖</button>
                 <div class="modal-header">
                     <div class="modal-icon">${icons[type]}</div>
                     <h3 class="modal-title">${title}</h3>
                 </div>
-                <div class="modal-body">${html}</div>
+                <div class="modal-body" style="word-break: break-word; overflow-wrap: break-word;">${html}</div>
                 <div class="modal-footer">
                     ${cancelText ? `<button class="modal-btn modal-cancel">${cancelText}</button>` : ''}
                     <button class="modal-btn modal-ok">${okText}</button>
@@ -120,9 +206,62 @@ const roleModules = {
     "SuperUsuario": {
         name: "SuperUsuario",
         description: "Acceso total para mantenimiento y configuración del sistema.",
+        // Lista plana usada como fallback y para resúmenes
         modules: [
+            "Inicio",
             "Gestión de Usuarios y Roles",
-            "Generar Reportes"
+            "Generar Reportes de Usuario",
+            "Registro de Trabajadores",
+            "Pago de Nómina",
+            "Panel de Permisos",
+            "Gestión de Conceptos",
+            "Gestión de Cargos",
+            "Panel de Vacaciones",
+            "Bitácora del Sistema"
+        ],
+        // Grupos colapsables para el sidebar del superusuario
+        groups: [
+            {
+                id: 'super-own',
+                label: 'SuperUsuario',
+                color: '#a78bfa',          // violeta
+                collapsible: true,
+                defaultOpen: true,
+                modules: [
+                    { name: "Inicio",                    icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' },
+                    { name: "Gestión de Usuarios y Roles", icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
+                    { name: "Generar Reportes de Usuario", icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>' },
+                    { name: "Bitácora del Sistema",       icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' }
+                ]
+            },
+            {
+                id: 'super-admin',
+                label: 'Funciones Administrativas',
+                color: '#34d399',          // verde
+                collapsible: true,
+                defaultOpen: true,
+                modules: [
+                    { name: "Registro de Trabajadores",  icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="12" y1="17" x2="12" y2="23"/><line x1="9" y1="20" x2="15" y2="20"/></svg>' },
+                    { name: "Pago de Nómina",            icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>' },
+                    { name: "Panel de Permisos",          icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' },
+                    { name: "Gestión de Conceptos",      icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>' },
+                    { name: "Gestión de Cargos",          icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>' },
+                    { name: "Panel de Vacaciones",        icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' }
+                ]
+            },
+            {
+                id: 'super-worker',
+                label: 'Funciones del Trabajador',
+                color: '#60a5fa',          // azul
+                collapsible: true,
+                defaultOpen: true,
+                modules: [
+                    { name: "Mi Perfil",                  icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' },
+                    { name: "Historial de Pagos y Recibos", icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>' },
+                    { name: "Solicitud de Vacaciones",    icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
+                    { name: "Solicitud de Permisos",      icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' }
+                ]
+            }
         ]
     },
     "Administrativo": {
@@ -131,9 +270,9 @@ const roleModules = {
         modules: [
             "Registro de Trabajadores",
             "Pago de Nómina",
-            "Tipo de Nomina",
-            "Gestion de conceptos",
-            "Gestion de Cargos",
+            "Panel de Permisos",
+            "Gestión de Conceptos",
+            "Gestión de Cargos",
             "Panel de Vacaciones"
         ]
     },
@@ -143,7 +282,8 @@ const roleModules = {
         modules: [
             "Mi Perfil",
             "Historial de Pagos y Recibos",
-            "Solicitud de Vacaciones"
+            "Solicitud de Vacaciones",
+            "Solicitud de Permisos"
         ]
     }
 };
@@ -181,59 +321,269 @@ function initPayrollPage() {
 
         // 1. Actualizar la barra lateral (Módulos) y agregar handlers
         if (sidebarNav) sidebarNav.innerHTML = '';
-        roleData.modules.forEach((moduleName, index) => {
-            const link = document.createElement('a');
-            link.href = "#";
-            link.className = "nav-link";
-            link.dataset.moduleName = moduleName;
-            link.textContent = moduleName;
 
-            // Agregar indicador de notificación para "Solicitud de Vacaciones" si ha pasado un año
-            if (roleName === 'Trabajador' && moduleName === 'Solicitud de Vacaciones') {
-                link.innerHTML = `${moduleName} <span style="display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%; border:1px solid #ffffff; background:#ffffff; color:#ff6b6b; font-weight:800; margin-left:8px; font-size:0.78rem;">!</span>`;
-                // Verificar async y quitar si no cumple
-                checkVacationEligibility().then(canRequest => {
-                    if (!canRequest) {
-                        link.textContent = moduleName;
+        // --- Sidebar especial para SuperUsuario con grupos colapsables ---
+        if (desiredRole === 'SuperUsuario' && roleData.groups) {
+            let firstModuleRendered = false;
+
+            // Inyectar estilos del sidebar colapsable si no existen
+            if (!document.getElementById('super-sidebar-styles')) {
+                const styleEl = document.createElement('style');
+                styleEl.id = 'super-sidebar-styles';
+                styleEl.textContent = `
+                    /* ── Grupo contenedor ──────────────────────────────────── */
+                    .nav-group { margin-bottom: 0; }
+
+                    /* ── Encabezado de grupo: badge pill de color ────────── */
+                    .nav-group-header {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        padding: 8px 10px;
+                        margin: 12px 8px 4px 8px;
+                        font-size: 0.72rem;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: 0.7px;
+                        cursor: pointer;
+                        user-select: none;
+                        outline: none;
+                        -webkit-tap-highlight-color: transparent;
+                        transition: opacity 0.2s, color 0.2s;
+                        /* color dinámico por grupo via CSS var */
+                        color: var(--ng-color, rgba(255,255,255,0.7));
+                        background: transparent;
+                        border: none;
                     }
-                }).catch(err => {
-                    console.error('Error checking vacation eligibility:', err);
-                    link.textContent = moduleName; // Quitar en caso de error
-                });
+                    .nav-group-header:hover {
+                        opacity: 0.85;
+                    }
+
+                    /* Icono del grupo */
+                    .nav-group-header .ng-icon {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 22px;
+                        height: 22px;
+                        border-radius: 6px;
+                        background: rgba(255,255,255,0.07);
+                        flex-shrink: 0;
+                        color: var(--ng-color, white);
+                    }
+
+                    /* Texto label */
+                    .nav-group-header .ng-label {
+                        flex: 1;
+                        color: var(--ng-color, rgba(255,255,255,0.7));
+                    }
+
+                    /* Flecha */
+                    .nav-group-header .group-arrow {
+                        opacity: 0.5;
+                        flex-shrink: 0;
+                        transition: transform 0.25s ease, opacity 0.2s;
+                        color: var(--ng-color, white);
+                    }
+                    .nav-group-header.open .group-arrow {
+                        transform: rotate(90deg);
+                        opacity: 1;
+                    }
+
+                    /* ── Cuerpo colapsable ───────────────────────────────── */
+                    .nav-group-body {
+                        overflow: hidden;
+                        max-height: 0;
+                        transition: max-height 0.32s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease;
+                        opacity: 0;
+                        /* barra lateral de color del grupo */
+                        margin-left: 20px;
+                        padding-left: 8px;
+                        border-left: 2px solid var(--ng-color, rgba(255,255,255,0.15));
+                    }
+                    .nav-group-body.open {
+                        max-height: 800px;
+                        opacity: 1;
+                    }
+
+                    /* ── Links de módulo dentro de un grupo ─────────────── */
+                    .nav-group-body .nav-link {
+                        display: flex;
+                        align-items: center;
+                        gap: 9px;
+                        padding: 9px 12px;
+                        margin: 1px 0;
+                        border-radius: 7px;
+                        font-size: 0.88rem;
+                        font-weight: 400;
+                        color: rgba(255,255,255,0.65);
+                        transition: background 0.15s, color 0.15s, padding-left 0.15s;
+                    }
+                    .nav-group-body .nav-link:hover {
+                        background: rgba(255,255,255,0.07);
+                        color: #ffffff;
+                    }
+                    .nav-group-body .nav-link.active {
+                        background: rgba(255,255,255,0.12);
+                        color: #ffffff;
+                        font-weight: 600;
+                    }
+                    /* Icono del módulo */
+                    .nav-group-body .nav-link .mod-icon {
+                        display: flex;
+                        align-items: center;
+                        opacity: 0.55;
+                        flex-shrink: 0;
+                        transition: opacity 0.15s;
+                    }
+                    .nav-group-body .nav-link:hover .mod-icon,
+                    .nav-group-body .nav-link.active .mod-icon {
+                        opacity: 1;
+                    }
+
+                    /* ── Separador entre grupos ──────────────────────────── */
+                    .nav-group-divider {
+                        border: none;
+                        border-top: 1px solid rgba(255,255,255,0.05);
+                        margin: 4px 14px;
+                    }
+                `;
+                document.head.appendChild(styleEl);
             }
 
-            if (index === 0) link.classList.add('active');
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                // marcar activo
-                sidebarNav.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
-                link.classList.add('active');
-                renderModule(moduleName);
+            roleData.groups.forEach((group, groupIndex) => {
+                // Separador entre grupos (excepto antes del primero)
+                if (groupIndex > 0) {
+                    const divider = document.createElement('hr');
+                    divider.className = 'nav-group-divider';
+                    sidebarNav.appendChild(divider);
+                }
+
+                // Contenedor del grupo
+                const groupEl = document.createElement('div');
+                groupEl.className = 'nav-group';
+
+                let bodyEl = null;
+
+                if (group.collapsible && group.label) {
+                    // Encabezado colapsable con color de grupo
+                    const headerEl = document.createElement('div');
+                    headerEl.className = 'nav-group-header';
+                    headerEl.style.setProperty('--ng-color', group.color || 'rgba(255,255,255,0.6)');
+                    if (group.defaultOpen) headerEl.classList.add('open');
+
+                    // Determinar icono del encabezado según id del grupo
+                    const groupIcons = {
+                        'super-own':    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+                        'super-admin':  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
+                        'super-worker': '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+                    };
+                    headerEl.innerHTML = `
+                        <span class="ng-icon">${groupIcons[group.id] || ''}</span>
+                        <span class="ng-label">${group.label}</span>
+                        <svg class="group-arrow" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    `;
+
+                    // Cuerpo colapsable con barra de color
+                    bodyEl = document.createElement('div');
+                    bodyEl.className = 'nav-group-body';
+                    bodyEl.style.setProperty('--ng-color', group.color || 'rgba(255,255,255,0.15)');
+                    if (group.defaultOpen) bodyEl.classList.add('open');
+
+                    // Toggle al hacer click en el encabezado
+                    headerEl.addEventListener('click', () => {
+                        const isOpen = bodyEl.classList.contains('open');
+                        bodyEl.classList.toggle('open', !isOpen);
+                        headerEl.classList.toggle('open', !isOpen);
+                    });
+
+                    groupEl.appendChild(headerEl);
+                    groupEl.appendChild(bodyEl);
+                } else {
+                    // Sin encabezado (grupo plano): módulos directamente en el contenedor
+                    bodyEl = groupEl;
+                }
+
+                // Agregar módulos al cuerpo del grupo
+                group.modules.forEach((moduleItem) => {
+                    // Soportar formato { name, icon } o string puro
+                    const moduleName = (typeof moduleItem === 'object') ? moduleItem.name : moduleItem;
+                    const moduleIcon = (typeof moduleItem === 'object' && moduleItem.icon) ? moduleItem.icon : '';
+
+                    const link = document.createElement('a');
+                    link.href = '#';
+                    link.className = 'nav-link';
+                    link.dataset.moduleName = moduleName;
+                    link.innerHTML = moduleIcon
+                        ? `<span class="mod-icon">${moduleIcon}</span><span>${moduleName}</span>`
+                        : moduleName;
+
+                    if (!firstModuleRendered) {
+                        link.classList.add('active');
+                        firstModuleRendered = true;
+                    }
+
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        sidebarNav.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+                        link.classList.add('active');
+                        renderModule(moduleName);
+                    });
+                    bodyEl.appendChild(link);
+                });
+
+                sidebarNav.appendChild(groupEl);
             });
-            if (sidebarNav) sidebarNav.appendChild(link);
-        });
+
+            // Renderizar primer módulo ("Inicio")
+            if (roleData.groups[0] && roleData.groups[0].modules.length) {
+                const firstMod = roleData.groups[0].modules[0];
+                const firstModName = (typeof firstMod === 'object') ? firstMod.name : firstMod;
+                renderModule(firstModName);
+            }
+
+        } else {
+            // --- Sidebar estándar para Admin y Trabajador ---
+            roleData.modules.forEach((moduleName, index) => {
+                const link = document.createElement('a');
+                link.href = "#";
+                link.className = "nav-link";
+                link.dataset.moduleName = moduleName;
+                link.textContent = moduleName;
+
+                // Agregar indicador de notificación para "Solicitud de Vacaciones" si ha pasado un año
+                if (roleName === 'Trabajador' && moduleName === 'Solicitud de Vacaciones') {
+                    link.innerHTML = `${moduleName} <span style="display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%; border:1px solid #ffffff; background:#ffffff; color:#ff6b6b; font-weight:800; margin-left:8px; font-size:0.78rem;">!</span>`;
+                    checkVacationEligibility().then(canRequest => {
+                        if (!canRequest) { link.textContent = moduleName; }
+                    }).catch(err => {
+                        console.error('Error checking vacation eligibility:', err);
+                        link.textContent = moduleName;
+                    });
+                }
+
+                if (index === 0) link.classList.add('active');
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    sidebarNav.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+                    link.classList.add('active');
+                    renderModule(moduleName);
+                });
+                if (sidebarNav) sidebarNav.appendChild(link);
+            });
+
+            // renderizar primer módulo por defecto
+            if (roleData.modules && roleData.modules.length) renderModule(roleData.modules[0]);
+        }
 
         // 2. Actualizar el contenido principal resumen
         if (contentHeader) contentHeader.innerHTML = `<h4>Rol Actual: ${roleData.name}</h4>`;
-        if (contentDetails) contentDetails.innerHTML = `
-            <p>${roleData.description}</p>
-            <p><strong>Funcionalidades visibles en el menú:</strong></p>
-            <ul class="module-list">
-                ${roleData.modules.map(m => `<li>${m}</li>`).join('')}
-            </ul>
-            <p class="alert-info">
-                <strong>Resumen:</strong> El usuario **${roleData.name}** solo tiene acceso a las funcionalidades listadas arriba y no puede ver los módulos de otros roles.
-            </p>
-        `;
 
         // 3. Activar la pestaña correcta (visual)
         if (roleTabs) roleTabs.forEach(tab => {
             tab.classList.remove('active');
             if (tab.getAttribute('data-role') === roleName) tab.classList.add('active');
         });
-
-        // renderizar primer módulo por defecto
-        if (roleData.modules && roleData.modules.length) renderModule(roleData.modules[0]);
     }
 
     // Exponer la función globalmente para evitar errores si se invoca desde fuera (compatibilidad)
@@ -243,12 +593,19 @@ function initPayrollPage() {
     let currentRole = 'Administrativo';
 
     function renderModule(moduleName) {
+        window.currentActiveModule = moduleName;
         if (currentRole === 'Trabajador' && moduleName === 'Solicitud de Vacaciones') {
             sessionStorage.setItem(VACATION_MODULE_VISITED_KEY, 'true');
             updateVacationBadge();
         }
         const role = currentRole;
-        if (contentHeader) contentHeader.innerHTML = `<h4>${role} - ${moduleName}</h4>`;
+        if (contentHeader) {
+            if (role === 'SuperUsuario') {
+                contentHeader.innerHTML = `<h4>${moduleName}</h4>`;
+            } else {
+                contentHeader.innerHTML = `<h4>${role} - ${moduleName}</h4>`;
+            }
+        }
 
         if (role === 'Administrativo') return renderAdminModule(moduleName);
         if (role === 'Trabajador') {
@@ -450,11 +807,26 @@ function initPayrollPage() {
                                 <button class="timeout-btn active-off" data-timeout="off">Desactivar</button>
                             </div>
                         </div>
+
+                        <div class="set-group" id="set-group-security">
+                            <h4 class="set-title">🔒 Cuenta y Seguridad</h4>
+                            <p style="margin: 0 0 12px; font-size: 0.82em; color: var(--text-muted);">Configura tus preguntas de seguridad y opciones de acceso.</p>
+                            <a id="btn-go-security" href="#" style="display:inline-flex; align-items:center; gap:8px; padding: 10px 18px; background: var(--primary); color: #fff; border-radius: 8px; font-weight: 600; font-size: 0.9em; text-decoration: none; transition: opacity 0.2s;">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                Ir a Seguridad
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Wire the security button to the correct route based on role
+        const btnSecurity = document.getElementById('btn-go-security');
+        if (btnSecurity) {
+            btnSecurity.href = '/seguridad/configurar-preguntas';
+        }
 
         const modal = document.getElementById('settings-modal');
         const btnDark = document.getElementById('fab-dark-mode');
@@ -601,7 +973,13 @@ function initPayrollPage() {
             return;
         }
 
-        // Tipo de Nomina
+        // Panel de Permisos
+        if (name.toLowerCase().includes('permiso') || (name.toLowerCase().includes('panel') && name.toLowerCase().includes('permisos'))) {
+            renderAdminPermissionsPanel();
+            return;
+        }
+
+        // Tipo de Nomina (compatibilidad antigua)
         if (name.toLowerCase().includes('tipo') && name.toLowerCase().includes('nomina')) {
             renderTipoNominaModule();
             return;
@@ -664,7 +1042,7 @@ function initPayrollPage() {
             return;
         }
         if (name.toLowerCase().includes('reporte')) {
-            contentDetails.innerHTML = `<div><h4>Generar Reportes</h4><button id="gen-rep" class="primary">Generar CSV</button></div>`;
+            contentDetails.innerHTML = `<div><h4>Generar Reportes de Usuario</h4><button id="gen-rep" class="primary">Generar CSV</button></div>`;
             document.getElementById('gen-rep').addEventListener('click', async () => {
                 const emps = await loadWorkersFromServer();
                 const nov = await loadNovedades();
@@ -774,19 +1152,204 @@ function initPayrollPage() {
                             body: JSON.stringify({ id, status })
                         });
                         if (r.ok) {
-                            renderAdminVacations(); // Refresh
-                        } else {
-                            await showAlert('Error al actualizar estado');
+                            await safePost(`/payroll/${id}/status`, { action: 'annul' });
+                            showSuccess('Recibo anulado correctamente.');
+                            const data = await apiFetch('/payroll/history');
+                            await renderAdminPayslips(data || []);
                         }
-                    } catch (e) { await showAlert('Error de conexión'); }
+                    } catch (e) {
+                        showError(e.message);
+                        btn.disabled = false;
+                    }
                 });
             });
+
+            const attachBulkActionListeners = () => {
+                if (bulkApproveBtn) bulkApproveBtn.addEventListener('click', async () => await runBulkAction('publish', 'Recibos aprobados correctamente.'));
+                if (bulkAnnulBtn) bulkAnnulBtn.addEventListener('click', async () => await runBulkAction('annul', 'Recibos anulados correctamente.'));
+                if (bulkRevertBtn) bulkRevertBtn.addEventListener('click', async () => await runBulkAction('revert', 'Recibos revertidos a Pendiente.'));
+            };
+
+            attachHistoryActionListeners();
+            attachSelectAllListener();
+            attachBulkActionListeners();
+            refreshTable();
+            historyContainer.style.display = 'block';
 
         } catch (e) {
             const listEl = document.getElementById('vacation-requests-list');
             console.error('Error loading vacation requests:', e);
             listEl.innerHTML = `<p style="color:red">Error cargando solicitudes: ${e.message}</p>`;
         }
+    }
+
+    async function renderAdminPermissionsPanel() {
+        if (!contentDetails) return;
+        contentDetails.innerHTML = '<div class="loader">Cargando panel de permisos...</div>';
+        contentDetails.innerHTML = `
+            <div class="permissions-panel">
+                <h4 style="margin-top:0; color: var(--text-main); border-bottom: 2px solid var(--primary); padding-bottom: 10px;">Panel de Permisos</h4>
+                <p>Gestiona las solicitudes de permisos laborales de los trabajadores.</p>
+                <div id="permissions-requests-list" style="margin-top:24px;">Cargando solicitudes de permisos...</div>
+            </div>
+        `;
+
+        const listEl = document.getElementById('permissions-requests-list');
+
+        async function loadPermissionRequests() {
+            try {
+                const res = await fetch('/administrativo/permission-requests', {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                if (!res.ok) throw new Error('No endpoint disponible');
+                const data = await res.json();
+                if (Array.isArray(data.requests)) return data.requests;
+            } catch (e) {
+                // Silenciar el error en consola
+            }
+            return [];
+        }
+
+        function normalizePermissionWorkerName(r) {
+            const explicitFullName = r.Nombre_Completo || r.Nombre_completo || r.NombreCompleto || r['Nombre completo'] || r.Nombre_Trabajador || r.trabajador_nombre || r.FullName || r.fullName || r.full_name || r['full name'] || r.WorkerName || r.workerName || r.worker_name;
+            const first = r.Nombre || r.Nombres || r.nombre || r.nombres || r.FirstName || r.firstname || r.first_name;
+            const last = r.Apellidos || r.Apellido || r.apellidos || r.apellido || r.LastName || r.lastname || r.last_name;
+            const fallback = r.Trabajador || r.trabajador || r.Worker || r.worker;
+
+            if (explicitFullName) {
+                const full = String(explicitFullName).trim();
+                if (/\s+/.test(full)) return full;
+                if (last) return `${full} ${String(last).trim()}`.trim();
+                if (first) return `${String(first).trim()} ${full}`.trim();
+                return full;
+            }
+            if (first || last) return [first, last].filter(Boolean).join(' ').trim();
+            if (fallback) return String(fallback).trim();
+            return 'Desconocido';
+        }
+
+        const requests = await loadPermissionRequests();
+        if (!requests.length) {
+            listEl.innerHTML = '<div class="alert-info">No hay solicitudes de permisos registradas.</div>';
+            return;
+        }
+
+        if (window.currentActiveModule && window.currentActiveModule !== 'Panel de Permisos') return;
+        
+        listEl.innerHTML = `
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse;" id="perm-table-sistema">
+                    <thead>
+                        <tr style="background: var(--primary); color: #fff;">
+                            <th style="padding:12px; text-align:left;">Fecha</th>
+                            <th style="padding:12px; text-align:left;">Trabajador</th>
+                            <th style="padding:12px; text-align:left;">Tiempo solicitado</th>
+                            <th style="padding:12px; text-align:left;">Motivo</th>
+                            <th style="padding:12px; text-align:left;">Estado</th>
+                            <th style="padding:12px; text-align:left;">Acciones</th>
+                        </tr>
+                        <tr style="background:rgba(0,0,0,0.04);">
+                            <td style="padding:6px;"><input id="v1-f-fecha" type="date" style="width:100%;padding:5px;border-radius:5px;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-color);color:var(--text-main);"></td>
+                            <td style="padding:6px;"><input id="v1-f-trabajador" placeholder="Filtrar..." style="width:100%;padding:5px;border-radius:5px;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-color);color:var(--text-main);"></td>
+                            <td style="padding:6px;"><input id="v1-f-tiempo" placeholder="Filtrar..." style="width:100%;padding:5px;border-radius:5px;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-color);color:var(--text-main);"></td>
+                            <td style="padding:6px;text-align:center;font-size:0.82rem;color:var(--text-muted);">Sin filtro</td>
+                            <td style="padding:6px;">
+                                <select id="v1-f-estado" style="width:100%;padding:5px;border-radius:5px;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-color);color:var(--text-main);">
+                                    <option value="">Todos</option>
+                                    <option value="Pendiente">Pendiente</option>
+                                    <option value="Aprobado">Aprobado</option>
+                                    <option value="Rechazado">Rechazado</option>
+                                </select>
+                            </td>
+                            <td style="padding:6px;text-align:center;font-size:0.82rem;color:var(--text-muted);">Sin filtro</td>
+                        </tr>
+                    </thead>
+                    <tbody id="v1-tbody">
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        function applyV1Filters() {
+            const fFecha = document.getElementById('v1-f-fecha')?.value || '';
+            const fTrab = (document.getElementById('v1-f-trabajador')?.value || '').toLowerCase();
+            const fTiempo = (document.getElementById('v1-f-tiempo')?.value || '').toLowerCase();
+            const fEstado = document.getElementById('v1-f-estado')?.value || '';
+
+            const tbody = document.getElementById('v1-tbody');
+            if (!tbody) return;
+
+            const filtered = requests.filter(r => {
+                const rFecha = r.Fecha || '';
+                const rTrab = normalizePermissionWorkerName(r).toLowerCase();
+                const rTiempo = (r.Tiempo || '').toLowerCase();
+                const rEstado = r.Estado || '';
+
+                return (!fFecha || rFecha === fFecha) &&
+                       (!fTrab || rTrab.includes(fTrab)) &&
+                       (!fTiempo || rTiempo.includes(fTiempo)) &&
+                       (!fEstado || rEstado === fEstado);
+            });
+
+            tbody.innerHTML = filtered.map(r => {
+                const workerName = normalizePermissionWorkerName(r);
+                return `
+                <tr style="border-bottom:1px solid var(--border-color); background: var(--card-bg);">
+                    <td style="padding:12px; vertical-align:top;">${r.Fecha}</td>
+                    <td style="padding:12px; vertical-align:top;">${workerName}</td>
+                    <td style="padding:12px; vertical-align:top;">${r.Tiempo}</td>
+                    <td style="padding:12px; vertical-align:top;">${r.Motivo}</td>
+                    <td style="padding:12px; vertical-align:top;"><span style="padding:5px 10px; border-radius:999px; background:${r.Estado === 'Aprobado' ? '#2ecc71' : r.Estado === 'Rechazado' ? '#e74c3c' : '#f39c12'}; color:#fff; font-weight:700;">${r.Estado}</span></td>
+                    <td style="padding:12px; vertical-align:top;">
+                        ${r.Estado === 'Pendiente' ? `
+                            <button class="btn-permission-action" data-id="${r.id}" data-action="approve" style="margin-right:6px; background:#2ecc71; border:none; color:#fff; padding:7px 12px; border-radius:8px; cursor:pointer;">Aprobar</button>
+                            <button class="btn-permission-action" data-id="${r.id}" data-action="reject" style="background:#e74c3c; border:none; color:#fff; padding:7px 12px; border-radius:8px; cursor:pointer;">Rechazar</button>
+                        ` : '-'}
+                    </td>
+                </tr>
+            `; }).join('');
+            
+            attachActions();
+        }
+
+        ['v1-f-fecha', 'v1-f-trabajador', 'v1-f-tiempo', 'v1-f-estado'].forEach(id => {
+            document.getElementById(id)?.addEventListener('input', applyV1Filters);
+        });
+
+        function attachActions() {
+            listEl.querySelectorAll('.btn-permission-action').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    const action = btn.dataset.action;
+                    const label = action === 'approve' ? 'aprobar' : 'rechazar';
+                    if (!await showConfirm(`¿Desea ${label} esta solicitud de permiso?`)) return;
+                    btn.disabled = true;
+                    try {
+                        const token = document.querySelector('meta[name="csrf-token"]');
+                        const headers = {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        };
+                        if (token) headers['X-CSRF-TOKEN'] = token.content;
+
+                        await fetch(`/administrativo/permission-requests/${id}/status`, {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify({ status: action === 'approve' ? 'Aprobado' : 'Rechazado' })
+                        });
+                    } catch (e) {
+                        console.warn('No se pudo actualizar el backend de permisos, se aplica solo localmente.', e);
+                    }
+                    renderAdminPermissionsPanel();
+                });
+            });
+        }
+        
+        applyV1Filters();
     }
 
     // --- Funciones para Trabajadores ---
@@ -810,10 +1373,17 @@ function initPayrollPage() {
                     fetch('./includes/users/list_niveles.php'),
                     fetch('./includes/nomina/list_tipo_nomina.php')
                 ]);
-                const [cData, nData, tData] = await Promise.all([cRes.json().catch(() => ({})), nRes.json().catch(() => ({})), tRes.json().catch(() => ({}))]);
-                cargos = cData.cargos || [];
-                niveles = nData.niveles || [];
-                tiposNomina = tData.tipos || [];
+                const [cData, nData, tData] = await Promise.all([
+                    cRes.ok ? cRes.json().catch(() => ({})) : Promise.resolve({}),
+                    nRes.ok ? nRes.json().catch(() => ({})) : Promise.resolve({}),
+                    tRes.ok ? tRes.json().catch(() => ({})) : Promise.resolve({})
+                ]);
+                cargos = (cData && cData.cargos) ? cData.cargos : [];
+                niveles = (nData && nData.niveles) ? nData.niveles : [];
+                tiposNomina = (tData && tData.tipos) ? tData.tipos.filter(t => {
+                    const freq = String(t.Frecuencia || '').trim().toLowerCase();
+                    return freq !== 'mixta' && freq !== 'mensual';
+                }) : [];
             } catch (e) {
                 // keep arrays empty as fallback
                 cargos = [];
@@ -825,7 +1395,7 @@ function initPayrollPage() {
         async function loadWorkersFromServer() {
             try {
                 const res = await fetch('./includes/workers/list_workers.php', { cache: 'no-store' });
-                const data = await res.json();
+                const data = (await res.json()) || {};
                 if (res.ok && data.workers) return data.workers;
                 return [];
             } catch (e) {
@@ -860,7 +1430,30 @@ function initPayrollPage() {
                                 <label style="display: block; font-weight: 600; margin-bottom: 5px; color: #34495e; font-size: 0.9em;">Por Fecha de Ingreso:</label>
                                 <input type="date" id="filter-fecha" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em;">
                             </div>
-                            
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; font-weight: 600; margin-bottom: 5px; color: #34495e; font-size: 0.9em;">Por Cargo:</label>
+                                <select id="filter-cargo" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; background: #fff;">
+                                    <option value="">Todos los cargos</option>
+                                    ${cargos.map(c => `<option value="${c.Id_Cargo}">${c.Nombre_profesión}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div style="margin-bottom: 15px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                <div>
+                                    <label style="display: block; font-weight: 600; margin-bottom: 5px; color: #34495e; font-size: 0.9em;">Por Tipo de Nómina:</label>
+                                    <select id="filter-tipo-nomina" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; background: #fff;">
+                                        <option value="">Todas las nóminas</option>
+                                        ${tiposNomina.map(t => `<option value="${t.Id_Tipo_Nomina}">${t.Frecuencia}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-weight: 600; margin-bottom: 5px; color: #34495e; font-size: 0.9em;">Por Estado:</label>
+                                    <select id="filter-estado" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; background: #fff;">
+                                        <option value="">Todos</option>
+                                        <option value="Activo">Activo</option>
+                                        <option value="Inactivo">Inactivo</option>
+                                    </select>
+                                </div>
+                            </div>
                             <div style="display: flex; gap: 8px; justify-content: flex-end;">
                                 <button id="clear-filters-btn" style="background: #95a5a6; color: #fff; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">✖ Limpiar</button>
                                 <button id="apply-filters-btn" style="background: #2ecc71; color: #fff; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">🔍 Buscar</button>
@@ -1209,7 +1802,7 @@ function initPayrollPage() {
         function renderWorkersTable(workers) {
             workersCache = workers || [];
             const el = document.getElementById('workers-table');
-            if (!el) return;
+            if (!el || !workers) return;
             if (!workers.length) { el.innerHTML = '<p style="color:#7f8c8d;padding:12px">No hay trabajadores registrados.</p>'; return; }
 
             // Sort icons based on current state
@@ -1521,9 +2114,16 @@ function initPayrollPage() {
             });
 
             // Apply filters
+            const filterCargo = document.getElementById('filter-cargo');
+            const filterTipoNomina = document.getElementById('filter-tipo-nomina');
+            const filterEstado = document.getElementById('filter-estado');
+
             function applyFilters() {
                 const cedulaValue = filterCedula.value.toLowerCase().trim();
                 const fechaValue = filterFecha.value;
+                const cargoValue = filterCargo ? filterCargo.value : '';
+                const tipoNominaValue = filterTipoNomina ? filterTipoNomina.value : '';
+                const estadoValue = filterEstado ? filterEstado.value : '';
 
                 let filteredWorkers = allWorkersSource;
 
@@ -1533,6 +2133,18 @@ function initPayrollPage() {
 
                 if (fechaValue) {
                     filteredWorkers = filteredWorkers.filter(w => (w.Fecha_de_Ingreso || '') === fechaValue);
+                }
+
+                if (cargoValue) {
+                    filteredWorkers = filteredWorkers.filter(w => String(w.Id_Cargo || w.Cargo_Id || '').trim() === String(cargoValue).trim());
+                }
+
+                if (tipoNominaValue) {
+                    filteredWorkers = filteredWorkers.filter(w => String(w.Id_Tipo_Nomina || '').trim() === String(tipoNominaValue).trim());
+                }
+
+                if (estadoValue) {
+                    filteredWorkers = filteredWorkers.filter(w => String(w.Estado || w.Estado_Trabajador || '').trim() === String(estadoValue).trim());
                 }
 
                 renderWorkersTable(filteredWorkers);
@@ -1553,6 +2165,9 @@ function initPayrollPage() {
             clearFiltersBtn.addEventListener('click', () => {
                 filterCedula.value = '';
                 filterFecha.value = '';
+                if (filterCargo) filterCargo.value = '';
+                if (filterTipoNomina) filterTipoNomina.value = '';
+                if (filterEstado) filterEstado.value = '';
                 renderWorkersTable(allWorkersSource);
                 filterDropdown.style.display = 'none';
             });
@@ -1737,7 +2352,7 @@ function initPayrollPage() {
         try {
             const [workersRes, usersRes] = await Promise.all([
                 fetch('./includes/workers/list_workers.php', { cache: 'no-store' }),
-                fetch('./includes/users/list_users.php', { cache: 'no-store' })
+                fetch('./includes/workers/list_workers.php', { cache: 'no-store' })
             ]);
 
             let linkedWorkerIds = [];
@@ -1764,7 +2379,10 @@ function initPayrollPage() {
             }
         } catch (e) { console.error("Error loading data for payroll:", e); }
 
-        allConcepts = await fetchConceptos();
+        allConcepts = (await fetchConceptos()).filter(c => {
+            const estado = String(c.Estado || c.estado || '').trim().toLowerCase();
+            return estado !== 'inactivo' && estado !== 'inactive';
+        });
 
         // --- Main HTML structure ---
         if (workers.length === 0) {
@@ -1795,14 +2413,14 @@ function initPayrollPage() {
                     
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
                         <div>
-                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #fff; font-size: 0.9em;">Trabajador <span style="color: #ffd700;">*</span></label>
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #fff; font-size: 0.9em;">Trabajador <span style="color: #e74c3c;">*</span></label>
                             <select id="payment-worker" style="width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 0.95em; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" required>
                                 <option value="">Seleccione un trabajador</option>
                                 ${workers.map(w => `<option value="${w.id}" data-cedula="${w.cedula}" data-nombres="${w.nombres}" data-apellidos="${w.apellidos}">${w.cedula} - ${w.nombres} ${w.apellidos}</option>`).join('')}
                             </select>
                         </div>
                         <div>
-                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #fff; font-size: 0.9em;">Período (Quincena 1-24) <span style="color: #ffd700;">*</span></label>
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #fff; font-size: 0.9em;">Período (Quincena 1-24) <span style="color: #e74c3c;">*</span></label>
                             <select id="payment-periodo" style="width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 0.95em; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" required>
                                 <option value="">Seleccione quincena</option>
                                 ${Array.from({ length: 24 }, (_, i) => `<option value="${i + 1}">Quincena ${i + 1}</option>`).join('')}
@@ -1812,15 +2430,15 @@ function initPayrollPage() {
                     
                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
                         <div>
-                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #fff; font-size: 0.9em;">Fecha de Pago <span style="color: #ffd700;">*</span></label>
-                            <input type="date" id="payment-fecha-pago" style="width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 0.95em; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" required readonly>
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #fff; font-size: 0.9em;">Fecha de Pago <span style="color: #e74c3c;">*</span></label>
+                            <input type="date" id="payment-fecha-pago" style="width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 0.95em; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" required>
                         </div>
                         <div>
-                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #fff; font-size: 0.9em;">Fecha Inicio Período</label>
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #fff; font-size: 0.9em;">Fecha Inicio Período <span style="color: #e74c3c;">*</span></label>
                             <input type="date" id="payment-fecha-inicio" style="width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 0.95em; background: #f0f0f0; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" readonly>
                         </div>
                         <div>
-                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #fff; font-size: 0.9em;">Fecha Fin Período</label>
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #fff; font-size: 0.9em;">Fecha Fin Período <span style="color: #e74c3c;">*</span></label>
                             <input type="date" id="payment-fecha-fin" style="width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 0.95em; background: #f0f0f0; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" readonly>
                         </div>
                     </div>
@@ -1831,7 +2449,7 @@ function initPayrollPage() {
                                 <line x1="12" y1="1" x2="12" y2="23"></line>
                                 <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
                             </svg>
-                            Salario Base (Bs.)
+                            Salario Base (Bs.) <span style="color: #e74c3c;">*</span>
                         </label>
                         <input type="number" id="payment-salario-base" value="130" step="0.01" style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1.1em; font-weight: 600; color: #2c3e50;" required>
                     </div>
@@ -1847,23 +2465,29 @@ function initPayrollPage() {
                             <line x1="16" y1="17" x2="8" y2="17"></line>
                             <polyline points="10 9 9 9 8 9"></polyline>
                         </svg>
-                        Conceptos del Recibo
+                        Conceptos del Recibo <span style="color: #e74c3c;">*</span>
                     </h5>
                     
-                    <div style="display: flex; gap: 12px; margin-bottom: 20px; align-items: center; background: #f8f9fa; padding: 15px; border-radius: 10px; border: 2px dashed #dee2e6;">
-                        <select id="add-concepto-select" style="flex-grow: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95em;">
-                            <option value="">Seleccionar concepto...</option>
-                            ${allConcepts.map(c => `<option value="${c.Id_Concepto}">${c.Nombre_Concepto} (${c.Tipo})</option>`).join('')}
-                        </select>
-                        <input type="text" id="add-concepto-aux" placeholder="Aux (Ej: 15 días)" style="width: 140px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95em;">
-                        <button id="add-concepto-btn" class="primary" style="padding: 12px 20px; background: #2ecc71; border: none; border-radius: 8px; color: #fff; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="12" y1="5" x2="12" y2="19"></line>
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                            </svg>
-                            Agregar
-                        </button>
-                    </div>
+<div style="display: grid; grid-template-columns: 1.5fr 1fr auto; gap: 12px; margin-bottom: 20px; align-items: end; background: #f8f9fa; padding: 15px; border-radius: 10px; border: 2px dashed #dee2e6;">
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #2c3e50; font-size: 0.9em;">Concepto <span style="color: #e74c3c;">*</span></label>
+                                <select id="add-concepto-select" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95em;" title="Seleccione un concepto" required>
+                                    <option value="">Seleccionar concepto...</option>
+                                    ${allConcepts.map(c => `<option value="${c.Id_Concepto}">${c.Nombre_Concepto} (${c.Tipo})</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #2c3e50; font-size: 0.9em;">Aux <span style="color: #e74c3c;">*</span></label>
+                                <input type="text" id="add-concepto-aux" placeholder="Aux (Ej: 15 días)" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95em;" required>
+                            </div>
+                            <button id="add-concepto-btn" class="primary" style="padding: 12px 20px; background: #2ecc71; border: none; border-radius: 8px; color: #fff; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Agregar
+                            </button>
+                        </div>
 
                     <div id="conceptos-list-container" style="background: #fafafa; padding: 20px; border-radius: 10px; min-height: 80px; border: 1px solid #e8e8e8;">
                         <p id="no-concepts-msg" style="color: #95a5a6; text-align: center; margin: 20px 0; font-style: italic;">No hay conceptos agregados aún</p>
@@ -1928,12 +2552,14 @@ function initPayrollPage() {
             salarioBaseInput.insertAdjacentElement('afterend', salaryWarning);
         }
 
-        // Fijar fecha de pago a hoy (solo vista)
-        // Usar fecha local para evitar desajustes por UTC (toISOString da día distinto en algunas zonas)
+        // Corrección definitiva: Obtener fecha de hoy local evitando desfases por UTC
         const now = new Date();
-        const pad = (n) => String(n).padStart(2, '0');
-        const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-        fechaPagoInput.value = today;
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
+        fechaPagoInput.valueAsDate = now;
+        fechaPagoInput.max = today;
 
         // --- Rendering and Update functions ---
         const formatCurrencyLocal = (amount) => `Bs. ${parseFloat(amount || 0).toFixed(2).replace('.', ',')}`;
@@ -2168,6 +2794,7 @@ function initPayrollPage() {
             const periodo = document.getElementById('payment-periodo').value.trim();
             const fechaPago = document.getElementById('payment-fecha-pago').value;
             if (!periodo || !fechaPago) { await showAlert('Por favor, complete los campos requeridos (Período y Fecha de Pago).'); return; }
+            if (addedConcepts.length === 0) { await showAlert('Por favor, agregue al menos un concepto antes de generar el recibo.'); return; }
 
             // Validar fechas: fecha inicio no puede ser posterior a fecha fin
             const fechaInicio = fechaInicioInput.value;
@@ -3078,6 +3705,9 @@ function initPayrollPage() {
         `;
 
         // --- Data fetching and rendering ---
+        const selectedCargoIds = new Set();
+        let cachedWorkers = null;
+
         async function fetchCargos() {
             try {
                 const res = await fetch('./includes/nomina/list_cargos.php', { cache: 'no-store' });
@@ -3086,9 +3716,70 @@ function initPayrollPage() {
             } catch (e) { return []; }
         }
 
+        async function fetchWorkers() {
+            if (cachedWorkers) return cachedWorkers;
+            try {
+                const res = await fetch('./includes/workers/list_workers.php', { cache: 'no-store' });
+                const data = await res.json();
+                cachedWorkers = res.ok ? (data.workers || []) : [];
+                return cachedWorkers;
+            } catch (e) { return []; }
+        }
+
+        function getCargoWorkerCounts(workers) {
+            return workers.reduce((acc, w) => {
+                const key = String(w.Id_Cargo || '');
+                if (!key) return acc;
+                acc[key] = (acc[key] || 0) + 1;
+                return acc;
+            }, {});
+        }
+
+        function updateCargoToolbar(cargos, workerCounts) {
+            const btnToggle = document.getElementById('btn-toggle-selected-cargos');
+            const btnClear = document.getElementById('btn-clear-cargo-selection');
+            const info = document.getElementById('selected-cargos-info');
+            if (!btnToggle || !btnClear || !info) return;
+
+            const selected = cargos.filter(c => selectedCargoIds.has(String(c.Id_Cargo)));
+            if (selected.length === 0) {
+                btnToggle.textContent = 'Seleccione cargos...';
+                btnToggle.disabled = true;
+                btnClear.disabled = true;
+                info.textContent = '';
+                return;
+            }
+
+            btnClear.disabled = false;
+            const allActive = selected.every(c => String(c.Estado || '').toLowerCase() === 'activo');
+            const allInactive = selected.every(c => String(c.Estado || '').toLowerCase() === 'inactivo');
+            const hasAssignedWorkers = selected.some(c => (workerCounts[String(c.Id_Cargo)] || 0) > 0);
+
+            if (allInactive) {
+                btnToggle.textContent = `Activar todos (${selected.length})`;
+                btnToggle.dataset.action = 'activate';
+                btnToggle.disabled = false;
+                info.textContent = '';
+            } else if (allActive) {
+                btnToggle.textContent = `Desactivar todos (${selected.length})`;
+                btnToggle.dataset.action = 'deactivate';
+                btnToggle.disabled = hasAssignedWorkers;
+                info.textContent = hasAssignedWorkers ? 'No puedes desactivar cargos que tienen trabajadores asignados.' : '';
+            } else {
+                btnToggle.textContent = 'Selecciona cargos del mismo estado';
+                btnToggle.dataset.action = 'mixed';
+                btnToggle.disabled = true;
+                info.textContent = 'Solo puede activar o desactivar cargos con el mismo estado.';
+            }
+        }
+
         async function loadCargos() {
             const container = document.getElementById('lista-cargos-container');
-            const cargos = await fetchCargos();
+            selectedCargoIds.clear();
+            cachedWorkers = null;
+
+            const [cargos, workers] = await Promise.all([fetchCargos(), fetchWorkers()]);
+            const workerCounts = getCargoWorkerCounts(workers);
 
             if (cargos.length === 0) {
                 container.innerHTML = '<div class="alert-info">No hay cargos registrados.</div>';
@@ -3096,34 +3787,122 @@ function initPayrollPage() {
             }
 
             container.innerHTML = `
+                <div id="cargo-actions-toolbar" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                        <button id="btn-toggle-selected-cargos" class="secondary" disabled style="padding:10px 18px; border-radius:8px; background:#bdc3c7; color:#2c3e50; border:none; cursor:pointer;">Seleccione cargos...</button>
+                        <button id="btn-clear-cargo-selection" class="secondary" disabled style="padding:10px 18px; border-radius:8px; background:#ecf0f1; color:#2c3e50; border:none; cursor:pointer;">Limpiar selección</button>
+                    </div>
+                    <div id="selected-cargos-info" style="color:#34495e; font-size:0.95em; min-width:220px;"></div>
+                </div>
                 <table style="width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
                     <thead>
                         <tr style="background:#3498db; color:#fff;">
+                            <th style="padding:12px; text-align:center; width:60px;"><input type="checkbox" id="select-all-cargos" /></th>
                             <th style="padding:12px; text-align:left;">Cargo</th>
                             <th style="padding:12px; text-align:left;">Área</th>
+                            <th style="padding:12px; text-align:center;">Estado</th>
                             <th style="padding:12px; text-align:center;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${cargos.map(cargo => `
+                        ${cargos.map(cargo => {
+                            const count = workerCounts[String(cargo.Id_Cargo)] || 0;
+                            const status = cargo.Estado ? cargo.Estado : 'Activo';
+                            const statusColor = String(status).toLowerCase() === 'activo' ? '#2ecc71' : '#e74c3c';
+                            return `
                             <tr style="border-bottom:1px solid #f0f0f0;">
+                                <td style="padding:12px; text-align:center;"><input type="checkbox" class="select-cargo-checkbox" data-id="${cargo.Id_Cargo}" data-status="${status}" /></td>
                                 <td style="padding:12px;"><strong>${cargo.Nombre_profesión}</strong></td>
                                 <td style="padding:12px; color:#7f8c8d;">${cargo.Area || '-'}</td>
-                                <td style="padding:12px; text-align:center; display:flex; gap:8px; justify-content:center;">
-                                    <button class="btn-view-workers-cargo" data-id="${cargo.Id_Cargo}" data-name="${cargo.Nombre_profesión}" style="background:#2ecc71; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;">
-                                        👥 Ver Trabajadores
+                                <td style="padding:12px; text-align:center;"><span style="display:inline-block; padding:6px 10px; border-radius:999px; background:${statusColor}; color:#fff; font-size:0.9em;">${status}</span></td>
+                                <td style="padding:12px; text-align:center; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+                                    <button class="btn-view-workers-cargo" data-id="${cargo.Id_Cargo}" data-name="${cargo.Nombre_profesión}" style="background:#2ecc71; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                                        👥 Ver Trabajadores <span style="background:rgba(255,255,255,0.22); padding:2px 8px; border-radius:999px; font-size:0.85em;">${count}</span>
                                     </button>
                                     <button class="btn-delete-cargo" data-id="${cargo.Id_Cargo}" data-name="${cargo.Nombre_profesión}" style="background:#e74c3c; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;">
                                         🗑️ Eliminar
                                     </button>
                                 </td>
-                            </tr>
-                        `).join('')}
+                            </tr>`;
+                        }).join('')}
                     </tbody>
                 </table>
             `;
 
-            // Attach listeners for new buttons
+            const selectAll = container.querySelector('#select-all-cargos');
+            const toggleBtn = document.getElementById('btn-toggle-selected-cargos');
+            const clearBtn = document.getElementById('btn-clear-cargo-selection');
+
+            const updateSelectionState = () => {
+                const checkboxes = Array.from(container.querySelectorAll('.select-cargo-checkbox'));
+                selectedCargoIds.clear();
+                checkboxes.forEach(chk => {
+                    if (chk.checked) selectedCargoIds.add(String(chk.dataset.id));
+                });
+                const allChecked = checkboxes.length > 0 && checkboxes.every(chk => chk.checked);
+                if (selectAll) selectAll.checked = allChecked;
+                updateCargoToolbar(cargos, workerCounts);
+            };
+
+            container.querySelectorAll('.select-cargo-checkbox').forEach(chk => {
+                chk.addEventListener('change', updateSelectionState);
+            });
+
+            if (selectAll) {
+                selectAll.addEventListener('change', () => {
+                    const checked = selectAll.checked;
+                    container.querySelectorAll('.select-cargo-checkbox').forEach(chk => { chk.checked = checked; });
+                    updateSelectionState();
+                });
+            }
+
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    selectedCargoIds.clear();
+                    container.querySelectorAll('.select-cargo-checkbox').forEach(chk => { chk.checked = false; });
+                    updateCargoToolbar(cargos, workerCounts);
+                    if (selectAll) selectAll.checked = false;
+                });
+            }
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', async () => {
+                    const action = toggleBtn.dataset.action;
+                    const selected = cargos.filter(c => selectedCargoIds.has(String(c.Id_Cargo)));
+                    if (!selected.length) return;
+
+                    const assignedCargo = selected.find(c => (workerCounts[String(c.Id_Cargo)] || 0) > 0);
+                    if (action === 'deactivate' && assignedCargo) {
+                        await showAlert('No puedes desactivar este cargo porque está siendo utilizado por algún trabajador.');
+                        return;
+                    }
+                    if (action === 'mixed') {
+                        return;
+                    }
+
+                    const confirmMessage = action === 'activate'
+                        ? `¿Desea activar ${selected.length} cargo(s)?`
+                        : `¿Desea desactivar ${selected.length} cargo(s)?`;
+                    if (!await showConfirm(confirmMessage)) return;
+
+                    for (const cargo of selected) {
+                        const res = await fetch(`/cargos/${cargo.Id_Cargo}/toggle`, {
+                            method: 'POST',
+                            credentials: 'same-origin'
+                        });
+                        if (!res.ok) {
+                            const data = await res.json().catch(() => ({}));
+                            await showAlert(data.error || `Error al actualizar el cargo ${cargo.Nombre_profesión}.`);
+                            return;
+                        }
+                    }
+
+                    selectedCargoIds.clear();
+                    await showAlert(`Los cargos seleccionados han sido ${action === 'activate' ? 'activados' : 'desactivados'} correctamente.`);
+                    await loadCargos();
+                });
+            }
+
             container.querySelectorAll('.btn-view-workers-cargo').forEach(btn => {
                 btn.addEventListener('click', () => {
                     showWorkersForCargo(btn.dataset.id, btn.dataset.name);
@@ -3143,7 +3922,7 @@ function initPayrollPage() {
                         });
                         const data = await res.json();
                         if (res.ok) {
-                            loadCargos(); // Refresh list
+                            await loadCargos(); // Refresh list
                         } else {
                             await showAlert(data.error || 'Error al eliminar el cargo.');
                         }
@@ -3165,10 +3944,7 @@ function initPayrollPage() {
             view.scrollIntoView({ behavior: 'smooth' });
 
             try {
-                const res = await fetch('./includes/workers/list_workers.php', { cache: 'no-store' });
-                const data = await res.json();
-                const workers = res.ok ? (data.workers || []) : [];
-
+                const workers = await fetchWorkers();
                 const filteredWorkers = workers.filter(w => String(w.Id_Cargo) === String(cargoId));
 
                 if (filteredWorkers.length === 0) {
@@ -3264,25 +4040,40 @@ function initPayrollPage() {
                 serverPayslips = [];
                 return;
             }
-            const rows = await res.json();
-            console.log('Raw API response:', rows);
-            serverPayslips = rows.map(r => ({
-                id: r.Id_Payslip || (r.Data && r.Data.id) || null,
-                fechaPago: (r.Data && r.Data.fechaPago) ? r.Data.fechaPago : (r.Fecha_Pago || null),
-                periodo: (r.Data && r.Data.periodo) ? r.Data.periodo : (r.Data && r.Data.periodo) || '',
-                trabajador: (r.Data && r.Data.trabajador) ? r.Data.trabajador : '',
-                trabajadorId: (r.Data && r.Data.trabajadorId) ? r.Data.trabajadorId : (r.Id_Trabajador || null),
-                cedula: (r.Data && r.Data.cedula) ? r.Data.cedula : null,
-                salarioBase: (r.Data && r.Data.salarioBase) ? r.Data.salarioBase : (r.Salario_Base || 0),
-                asignaciones: (r.Data && r.Data.asignaciones) ? r.Data.asignaciones : 0,
-                bonificaciones: (r.Data && r.Data.bonificaciones) ? r.Data.bonificaciones : 0,
-                deducciones: (r.Data && r.Data.deducciones) ? r.Data.deducciones : 0,
-                neto: (r.Data && r.Data.neto) ? r.Data.neto : (r.Neto || 0),
-                numeroRecibo: (r.Data && r.Data.numeroRecibo) ? r.Data.numeroRecibo : null,
-                fechaInicio: (r.Data && r.Data.fechaInicio) ? r.Data.fechaInicio : null,
-                fechaFin: (r.Data && r.Data.fechaFin) ? r.Data.fechaFin : null,
-                conceptos: (r.Data && r.Data.conceptos) ? r.Data.conceptos : []
-            }));
+            const rows = (await res.json()) || [];
+            serverPayslips = rows.map(r => {
+                let d = {};
+                if (r.Data) {
+                    try { d = typeof r.Data === 'string' ? JSON.parse(r.Data) : r.Data; } catch(e) { d = {}; }
+                }
+                return {
+                    id: r.Id_Payslip || d.id || null,
+                    fechaPago: d.fechaPago ? d.fechaPago : (r.Fecha_Pago || null),
+                    periodo: d.periodo ? d.periodo : '',
+                    trabajador: d.trabajador ? d.trabajador : '',
+                    trabajadorId: d.trabajadorId ? d.trabajadorId : (r.Id_Trabajador || null),
+                    cedula: d.cedula ? d.cedula : null,
+                    salarioBase: d.salarioBase ? d.salarioBase : (r.Salario_Base || 0),
+                    asignaciones: d.asignaciones ? d.asignaciones : 0,
+                    bonificaciones: d.bonificaciones ? d.bonificaciones : 0,
+                    deducciones: d.deducciones ? d.deducciones : 0,
+                    neto: d.neto ? d.neto : (r.Neto || 0),
+                    numeroRecibo: d.numeroRecibo ? d.numeroRecibo : null,
+                    fechaInicio: d.fechaInicio ? d.fechaInicio : null,
+                    fechaFin: d.fechaFin ? d.fechaFin : null,
+                    conceptos: d.conceptos ? d.conceptos : []
+                };
+            });
+
+            // Deduplicación de seguridad por ID antes de asignar al estado global
+            const seenIds = new Set();
+            serverPayslips = serverPayslips.filter(p => {
+                if (!p.id) return true;
+                const isDuplicate = seenIds.has(p.id);
+                seenIds.add(p.id);
+                return !isDuplicate;
+            });
+
             console.log('Processed payslips:', serverPayslips);
         } catch (e) {
             console.log('Error in initializePayslipData:', e);
@@ -3433,7 +4224,7 @@ function initPayrollPage() {
             listEl.innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr style="background:#ecf0f1"><th style="padding:6px">Fecha</th><th style="padding:6px">Período</th><th style="padding:6px">Neto</th><th style="padding:6px"></th></tr></thead><tbody>${myPays.map(p => `<tr><td style="padding:6px">${formatDate(p.fechaPago)}</td><td style="padding:6px">${p.periodo}</td><td style="padding:6px">${formatCurrency(p.neto)}</td><td style="padding:6px"><button class="perfil-download" data-pid="${p.id}" style="background:#3498db;color:#fff;border:none;padding:6px 8px;border-radius:4px;cursor:pointer">📄 Descargar</button></td></tr>`).join('')}</tbody></table>`;
             listEl.querySelectorAll('.perfil-download').forEach(b => b.addEventListener('click', () => {
                 const pid = b.getAttribute('data-pid');
-                if (pid) window.open(`./includes/reports/recibo_de_pago.php?id=${pid}`, '_blank');
+                if (pid) window.open(`/administrativo/payroll/payslip/${pid}`, '_blank');
             }));
         } catch (e) { console.warn('Error renderProfilePays', e); listEl.innerHTML = '<p style="color:#e74c3c">Error al cargar historial.</p>'; }
     }
@@ -3441,9 +4232,52 @@ function initPayrollPage() {
     // --- Implementaciones SuperUsuario ---
     function renderSuperModule(name) {
         if (!contentDetails) return;
-        if (name.toLowerCase().includes('usuarios')) { renderSuperUserView(); return; }
-        if (name.toLowerCase().includes('reportes')) { renderSuperReports(); return; }
-        if (name.toLowerCase().includes('configur')) {
+
+        const n = name.toLowerCase();
+
+        // Delegar módulos del trabajador al renderizador de trabajador
+        const workerModules = [
+            'mi perfil', 'perfil',
+            'historial de pagos', 'historial',
+            'solicitud de vacaciones',
+            'solicitud de permisos'
+        ];
+        const isWorkerModule = workerModules.some(kw => n.includes(kw));
+        if (isWorkerModule) {
+            if (typeof window.renderWorkerModuleV2 === 'function') {
+                return window.renderWorkerModuleV2(name);
+            }
+            contentDetails.innerHTML = `<div class="alert-info">Módulo de trabajador no disponible.</div>`;
+            return;
+        }
+
+        // Delegar módulos administrativos al superusuario con prefijo propio
+        const adminModules = [
+            'registro', 'trabajador',
+            'pago', 'nómina', 'nomina',
+            'permiso',
+            'concept',
+            'cargo',
+            'vacaciones'
+        ];
+        const isAdminModule = adminModules.some(kw => n.includes(kw));
+        if (isAdminModule) {
+            window.adminApiPrefix = '/superusuario/admin';
+            if (typeof window.renderAdminModuleV2 === 'function') {
+                return window.renderAdminModuleV2(name);
+            }
+            return;
+        }
+        // Restaurar prefijo cuando se usan módulos propios del superusuario
+        window.adminApiPrefix = '/administrativo';
+
+        if (n === 'inicio') { renderSuperUsuarioInicio(); return; }
+        if (n.includes('usuarios')) { renderSuperUserView(); return; }
+        if (n.includes('reportes')) { renderSuperReports(); return; }
+        if (n.includes('bitácora') || n.includes('bitacora') || n.includes('registros del sistema')) {
+            renderBitacoraView(); return;
+        }
+        if (n.includes('configur')) {
             const key = 'payroll_global_config';
             function loadGlobalCfg() { return fetch('./includes/settings.php?key=' + encodeURIComponent(key)).then(r => r.ok ? r.text().then(t => { try { return JSON.parse(t); } catch (e) { return {}; } }) : {}).catch(() => ({})); }
             loadGlobalCfg().then(cfg => {
@@ -3454,7 +4288,7 @@ function initPayrollPage() {
             });
             return;
         }
-        if (name.toLowerCase().includes('logs')) {
+        if (n.includes('logs')) {
             const key = 'payroll_logs';
             fetch('./includes/settings.php?key=' + encodeURIComponent(key)).then(r => r.ok ? r.text() : Promise.resolve('[]')).then(text => {
                 let logs = [];
@@ -3464,12 +4298,12 @@ function initPayrollPage() {
             }).catch(() => { contentDetails.innerHTML = `<div><h4>Logs</h4><p>No hay logs.</p></div>`; });
             return;
         }
-        if (name.toLowerCase().includes('respaldo') || name.toLowerCase().includes('respaldo')) {
+        if (n.includes('respaldo')) {
             contentDetails.innerHTML = `<div><h4>Respaldo de Base de Datos (simulado)</h4><button id="export-db" class="primary">Exportar JSON</button></div>`;
             document.getElementById('export-db').addEventListener('click', async () => {
                 try {
                     const [usersRes, workersRes, novRes] = await Promise.all([
-                        fetch('./includes/users/list_users.php'),
+                        fetch('./includes/workers/list_workers.php'),
                         fetch('./includes/workers/list_workers.php'),
                         fetch('./includes/reports/novedades.php')
                     ]);
@@ -3484,9 +4318,916 @@ function initPayrollPage() {
             return;
         }
 
-        // Gestión de Usuarios - vista y CRUD simple (con edición)
-        function renderSuperUserView() {
-            if (!contentDetails) return;
+        contentDetails.innerHTML = `<p>Módulo '${name}' no implementado (SuperUsuario).</p>`;
+    }
+
+    // --- Inicio / Dashboard (SuperUsuario) ---
+    async function renderSuperUsuarioInicio() {
+        if (!contentDetails) return;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+        contentDetails.innerHTML = `
+            <div id="su-dashboard" class="fade-in" style="font-family: 'Inter', sans-serif;">
+                <!-- Grid de Tarjetas de Métricas Operativas -->
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:24px; margin-bottom:32px;">
+                    <!-- Tarjeta 1: Vacaciones Hoy -->
+                    <div id="dash-card-vacations" class="dash-card" style="background:var(--card-bg, #fff); border:1px solid var(--border-color); border-radius:20px; padding:26px; display:flex; align-items:center; gap:20px; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); cursor:pointer; position:relative; overflow:hidden;">
+                        <div style="position:absolute; top:0; left:0; right:0; height:4px; background:#f59e0b;"></div>
+                        <div style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.2s ease;">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="8" width="18" height="12" rx="2" ry="2"></rect>
+                                <path d="M16 8V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3"></path>
+                                <line x1="12" y1="8" x2="12" y2="20"></line>
+                            </svg>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:4px; text-align: left;">
+                            <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.8px;">Trabajadores en Vacaciones Hoy</span>
+                            <span id="dash-vacations-val" style="font-size:2.2rem; font-weight:800; color:var(--text-main); line-height: 1.1;">—</span>
+                            <span id="dash-vacations-sub" style="font-size:0.78rem; color:var(--text-muted); font-weight:500;">Cargando información...</span>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta 2: Permiso Hoy -->
+                    <div id="dash-card-permits" class="dash-card" style="background:var(--card-bg, #fff); border:1px solid var(--border-color); border-radius:20px; padding:26px; display:flex; align-items:center; gap:20px; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); cursor:pointer; position:relative; overflow:hidden;">
+                        <div style="position:absolute; top:0; left:0; right:0; height:4px; background:#ef4444;"></div>
+                        <div style="background: rgba(239, 68, 68, 0.1); color: #ef4444; width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.2s ease;">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                                <circle cx="12" cy="16" r="1"></circle>
+                                <line x1="12" y1="12" x2="12" y2="14"></line>
+                            </svg>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:4px; text-align: left;">
+                            <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.8px;">Trabajadores de Permiso Hoy</span>
+                            <span id="dash-permits-val" style="font-size:2.2rem; font-weight:800; color:var(--text-main); line-height: 1.1;">—</span>
+                            <span id="dash-permits-sub" style="font-size:0.78rem; color:var(--text-muted); font-weight:500;">Cargando información...</span>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta 3: Personal Operativo -->
+                    <div id="dash-card-operativos" class="dash-card" style="background:var(--card-bg, #fff); border:1px solid var(--border-color); border-radius:20px; padding:26px; display:flex; align-items:center; gap:20px; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); cursor:pointer; position:relative; overflow:hidden;">
+                        <div style="position:absolute; top:0; left:0; right:0; height:4px; background:#10b981;"></div>
+                        <div style="background: rgba(16, 185, 129, 0.1); color: #10b981; width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.2s ease;">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:4px; text-align: left;">
+                            <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.8px;">Personal Operativo</span>
+                            <span id="dash-operativos-val" style="font-size:2.2rem; font-weight:800; color:var(--text-main); line-height: 1.1;">—</span>
+                            <span id="dash-operativos-sub" style="font-size:0.78rem; color:var(--text-muted); font-weight:500;">Cargando información...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documentación Reciente del Sistema -->
+                <div style="background:var(--card-bg, #fff); border:1px solid var(--border-color); border-radius:20px; padding:30px; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); margin-top: 32px; transition: all 0.3s ease;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px; flex-wrap: wrap; gap:12px;">
+                        <div style="text-align: left;">
+                            <h5 style="margin:0 0 4px 0; color:var(--text-main); font-weight:700; font-size:1.15rem; display:flex; align-items:center; gap:10px;">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                Documentación Reciente del Sistema
+                            </h5>
+                            <span style="font-size:0.8rem; color:var(--text-muted); font-weight:500;">Recibos de nómina generados, constancias y actas de auditoría recientes</span>
+                        </div>
+                        <button id="dash-view-all-docs" class="secondary" style="padding:8px 16px; font-size:0.85rem; border-radius:10px; border:1px solid var(--border-color); background:transparent; color:var(--text-main); cursor:pointer; font-weight:600; display:flex; align-items:center; gap:6px; transition: all 0.2s;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                            Ver Bitácora Completa
+                        </button>
+                    </div>
+                    <div id="dash-docs-list" style="display:flex; flex-direction:column; gap:14px;">
+                        <div style="padding:40px; text-align:center; color:var(--text-muted);">
+                            <div class="loader" style="margin: 0 auto 12px; border: 3px solid rgba(167, 139, 250, 0.1); border-top-color: #a78bfa; width: 28px; height: 28px; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                            Cargando archivos del sistema...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Estilo premium para Dashboard -->
+            <style>
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+                .dash-card:hover {
+                    transform: translateY(-5px);
+                    box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.08) !important;
+                }
+                .dash-card:hover svg {
+                    transform: scale(1.1);
+                }
+                .doc-row {
+                    display:flex; 
+                    align-items:center; 
+                    justify-content:space-between; 
+                    padding:16px 20px; 
+                    background:var(--bg-color, #f9fafb); 
+                    border-radius:14px; 
+                    border: 1px solid var(--border-color); 
+                    font-size:0.9rem; 
+                    transition:all 0.2s ease;
+                    gap: 16px;
+                }
+                .doc-row:hover {
+                    transform: translateX(4px);
+                    border-color: #a78bfa;
+                    background: var(--card-bg, #ffffff);
+                    box-shadow: 0 4px 12px rgba(167, 139, 250, 0.05);
+                }
+                .badge-doc {
+                    font-size: 0.72rem; 
+                    padding: 4px 10px; 
+                    border-radius: 12px; 
+                    font-weight: 700; 
+                    text-transform: uppercase; 
+                    letter-spacing: 0.3px;
+                }
+                .btn-doc-preview {
+                    padding: 6px 14px; 
+                    font-size: 0.8rem; 
+                    border-radius: 8px; 
+                    border: 1px solid var(--border-color); 
+                    background: var(--card-bg, #fff); 
+                    color: var(--text-main); 
+                    cursor: pointer; 
+                    font-weight: 600; 
+                    transition: all 0.2s;
+                }
+                .btn-doc-preview:hover {
+                    background: #a78bfa;
+                    color: white;
+                    border-color: #a78bfa;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes fadeOut {
+                    from { opacity: 1; }
+                    to { opacity: 0; }
+                }
+                @keyframes scaleUp {
+                    from { transform: scale(0.9); opacity: 0; }
+                    to { transform: scale(1); opacity: 1; }
+                }
+                @keyframes scaleDown {
+                    from { transform: scale(1); opacity: 1; }
+                    to { transform: scale(0.9); opacity: 0; }
+                }
+            </style>
+        `;
+
+        // Función interna para mostrar el modal de previsualización
+        function showDocumentDetailsModal(doc) {
+            document.getElementById('doc-details-modal')?.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'doc-details-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(0, 0, 0, 0.5);
+                backdrop-filter: blur(4px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.25s ease-out;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: var(--card-bg, #fff); border: 1px solid var(--border-color); border-radius: 20px; width: 90%; max-width: 550px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow: hidden; animation: scaleUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">
+                    <!-- Modal Header -->
+                    <div style="background: #a78bfa; padding: 20px; color: white; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            ${doc.icon.replace('width="24" height="24"', 'width="28" height="28"').replace('stroke="#ef4444"', 'stroke="white"').replace('stroke="#6366f1"', 'stroke="white"').replace('stroke="#10b981"', 'stroke="white"').replace('stroke="#f59e0b"', 'stroke="white"').replace('stroke="#3b82f6"', 'stroke="white"')}
+                            <h5 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: white;">Previsualización de Documento</h5>
+                        </div>
+                        <button id="modal-close-btn" style="background: transparent; border: none; color: white; font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
+                    </div>
+                    <!-- Modal Body -->
+                    <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px; text-align: left;">
+                        <div>
+                            <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;">Nombre de Archivo</span>
+                            <h4 style="margin: 4px 0 0 0; color: var(--text-main); font-weight: 700; font-size: 1.1rem; word-break: break-all;">${doc.name}</h4>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: var(--bg-color, #f9fafb); padding: 14px; border-radius: 12px; border: 1px solid var(--border-color);">
+                            <div>
+                                <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Tipo</span>
+                                <div style="font-weight: 600; color: var(--text-main); margin-top:2px;">${doc.type} (${doc.size})</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Emitido Por</span>
+                                <div style="font-weight: 600; color: var(--text-main); margin-top:2px;">@${doc.user}</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Fecha de Creación</span>
+                                <div style="font-weight: 600; color: var(--text-main); margin-top:2px;">${doc.date}</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Estado</span>
+                                <div style="font-weight: 600; color: #10b981; margin-top:2px; display:flex; align-items:center; gap:4px;">
+                                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+                                    Registrado en Auditoría
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;">Detalles de la Acción</span>
+                            <p style="margin: 4px 0 0 0; color: var(--text-main); font-size: 0.9rem; line-height: 1.5; background: var(--bg-color, #f9fafb); padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); max-height: 120px; overflow-y: auto;">${doc.details}</p>
+                        </div>
+                    </div>
+                    <!-- Modal Footer -->
+                    <div style="background: var(--bg-color, #f9fafb); padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 12px;">
+                        <button id="modal-cancel-btn" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); font-weight: 600; cursor: pointer;">Cerrar</button>
+                        <button id="modal-download-btn" style="padding: 8px 16px; border-radius: 8px; border: none; background: #a78bfa; color: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Descargar Copia
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            const close = () => {
+                modal.style.animation = 'fadeOut 0.2s ease-in';
+                modal.querySelector('div').style.animation = 'scaleDown 0.2s ease-in';
+                setTimeout(() => modal.remove(), 180);
+            };
+
+            document.getElementById('modal-close-btn').onclick = close;
+            document.getElementById('modal-cancel-btn').onclick = close;
+            document.getElementById('modal-download-btn').onclick = () => {
+                const btn = document.getElementById('modal-download-btn');
+                const oldHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.style.opacity = 0.7;
+                btn.innerHTML = 'Descargando...';
+                
+                setTimeout(() => {
+                    btn.innerHTML = '¡Completado!';
+                    btn.style.background = '#10b981';
+                    
+                    const blob = new Blob([`Documento: ${doc.name}\nGenerado por: ${doc.user}\nFecha: ${doc.date}\nAcción: ${doc.action}\nDetalles: ${doc.details}`], { type: 'text/plain;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = doc.name.replace('.pdf', '_copia.txt').replace('.csv', '_copia.txt').replace('.log', '_copia.txt');
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.style.opacity = 1;
+                        btn.style.background = '#a78bfa';
+                        btn.innerHTML = oldHtml;
+                    }, 1000);
+                }, 800);
+            };
+
+            modal.onclick = (e) => {
+                if (e.target === modal) close();
+            };
+        }
+
+        try {
+            // ─── UNA sola llamada al endpoint centralizado ──────────────────────
+            const res = await fetch('/superusuario/dashboard-metrics', {
+                headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }
+            });
+
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+
+            const personal  = data.personal  || {};
+            const sistema   = data.sistema   || {};
+            const nomina    = data.nomina    || {};
+            const auditoria = data.auditoria || {};
+
+            // ─── TARJETA 1: Vacaciones Hoy ───────────────────────────────────────
+            const vacHoyCount = personal.vacaciones_hoy ?? 0;
+            document.getElementById('dash-vacations-val').textContent = vacHoyCount;
+            document.getElementById('dash-vacations-sub').textContent = vacHoyCount === 1
+                ? '1 trabajador ausente por vacaciones'
+                : `${vacHoyCount} trabajadores ausentes por vacaciones`;
+
+            // ─── TARJETA 2: Permisos Hoy ─────────────────────────────────────────
+            const permHoyCount = personal.permisos_hoy ?? 0;
+            document.getElementById('dash-permits-val').textContent = permHoyCount;
+            document.getElementById('dash-permits-sub').textContent = permHoyCount === 1
+                ? '1 ausencia justificada activa'
+                : `${permHoyCount} ausencias justificadas activas`;
+
+            // ─── TARJETA 3: Personal Operativo ───────────────────────────────────
+            const operativoCount = personal.personal_operativo ?? 0;
+            const totalWorkers   = personal.total_trabajadores ?? 0;
+            document.getElementById('dash-operativos-val').textContent = operativoCount;
+            document.getElementById('dash-operativos-sub').textContent =
+                `Activos de un total de ${totalWorkers} registrados`;
+
+            // ─── INDICADOR EXTRA: alerta de permisos sin soporte ─────────────────
+            const sinSoporte = auditoria.permisos_sin_soporte ?? 0;
+            if (sinSoporte > 0) {
+                const cardPermits = document.getElementById('dash-card-permits');
+                if (cardPermits) {
+                    const badge = document.createElement('div');
+                    badge.title = `${sinSoporte} permiso(s) activo(s) sin soporte digital adjunto`;
+                    badge.style.cssText = `
+                        position:absolute; top:14px; right:14px;
+                        background:#ef4444; color:#fff;
+                        border-radius:50%; width:20px; height:20px;
+                        display:flex; align-items:center; justify-content:center;
+                        font-size:0.7rem; font-weight:800; z-index:2;
+                        box-shadow: 0 2px 6px rgba(239,68,68,0.4);
+                    `;
+                    badge.textContent = sinSoporte;
+                    cardPermits.appendChild(badge);
+                }
+            }
+
+            // ─── CLICKS en tarjetas ──────────────────────────────────────────────
+            document.getElementById('dash-card-vacations')?.addEventListener('click', () => {
+                document.querySelector('.nav-link[data-module-name="Vacaciones del Personal"]')?.click();
+            });
+            document.getElementById('dash-card-permits')?.addEventListener('click', () => {
+                document.querySelector('.nav-link[data-module-name="Permisos de Trabajadores"]')?.click();
+            });
+            document.getElementById('dash-card-operativos')?.addEventListener('click', () => {
+                document.querySelector('.nav-link[data-module-name="Registro de Trabajadores"]')?.click();
+            });
+
+            // ─── SECCIÓN: Auditoría / Documentación Reciente ────────────────────
+            const logs = auditoria.ultimos_logs || [];
+
+            function formatLogDate(dateStr) {
+                if (!dateStr) return '—';
+                const dateObj = new Date(dateStr);
+                const dToday = new Date();
+                const dYesterday = new Date();
+                dYesterday.setDate(dYesterday.getDate() - 1);
+                const timeStr = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                if (dateObj.toDateString() === dToday.toDateString()) return `Hoy, ${timeStr}`;
+                if (dateObj.toDateString() === dYesterday.toDateString()) return `Ayer, ${timeStr}`;
+                return `${dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${timeStr}`;
+            }
+
+            const documentItems = logs.map((l, index) => {
+                const action  = l.accion   || '';
+                const details = l.detalles || '';
+                const dateFormatted = formatLogDate(l.hora);
+
+                let docName = '', docType = '', docSize = '', docIcon = '';
+
+                if (action.includes('Nómina') || action.includes('Pago')) {
+                    docType = 'PDF'; docSize = '148 KB';
+                    const mb = details.match(/lote '([^']+)'/) || details.match(/para '([^']+)'/);
+                    docName = mb
+                        ? `Recibo_Nomina_${mb[1].replace(/\s+/g, '_')}.pdf`
+                        : `Recibo_Pago_${l.id || index}.pdf`;
+                    docIcon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`;
+                } else if (action.includes('Vacaci')) {
+                    docType = 'PDF'; docSize = '112 KB';
+                    const mw = details.match(/para '([^']+)'/) || details.match(/de '([^']+)'/);
+                    docName = mw
+                        ? `Constancia_Vacaciones_${mw[1].replace(/\s+/g, '_')}.pdf`
+                        : `Constancia_Vacacional_${l.id || index}.pdf`;
+                    docIcon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><circle cx="12" cy="14" r="3"></circle></svg>`;
+                } else if (action.includes('Permis')) {
+                    docType = 'PDF'; docSize = '95 KB';
+                    const mw = details.match(/para '([^']+)'/) || details.match(/de '([^']+)'/);
+                    docName = mw
+                        ? `Comprobante_Permiso_${mw[1].replace(/\s+/g, '_')}.pdf`
+                        : `Comprobante_Permiso_${l.id || index}.pdf`;
+                    docIcon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M9 15l2 2 4-4"></path></svg>`;
+                } else if (action.includes('Reporte') || action.includes('Exportar')) {
+                    docType = 'CSV'; docSize = '210 KB';
+                    docName = `Reporte_Auditoria_${l.id || index}.csv`;
+                    docIcon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><line x1="8" y1="9" x2="10" y2="9"></line></svg>`;
+                } else {
+                    docType = 'ACTA'; docSize = '45 KB';
+                    docName = `Acta_${action.replace(/\s+/g, '_')}_${l.id || index}.log`;
+                    docIcon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
+                }
+
+                return { name: docName, type: docType, size: docSize, user: l.usuario || 'Sistema',
+                         date: dateFormatted, action, details, icon: docIcon };
+            });
+
+            const docsListContainer = document.getElementById('dash-docs-list');
+            if (docsListContainer) {
+                if (documentItems.length === 0) {
+                    docsListContainer.innerHTML = '<div style="padding:24px; text-align:center; color:var(--text-muted);">No hay documentación reciente generada.</div>';
+                } else {
+                    docsListContainer.innerHTML = documentItems.map((doc, idx) => {
+                        const [bc, bb] = doc.type === 'PDF'
+                            ? ['#ef4444', 'rgba(239,68,68,0.1)']
+                            : doc.type === 'CSV'
+                                ? ['#3b82f6', 'rgba(59,130,246,0.1)']
+                                : ['#6366f1', 'rgba(99,102,241,0.1)'];
+                        return `
+                            <div class="doc-row">
+                                <div style="display:flex; align-items:center; gap:16px; flex:1; text-align:left; overflow:hidden;">
+                                    <div style="background:${bb}; width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                        ${doc.icon}
+                                    </div>
+                                    <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                        <div style="font-weight:700; color:var(--text-main); font-size:0.92rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${doc.name}">${doc.name}</div>
+                                        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                            Generado por: <span style="font-weight:600; color:var(--text-main);">@${doc.user}</span> • ${doc.action}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:16px; flex-shrink:0;">
+                                    <span class="badge-doc" style="background:${bb}; color:${bc};">${doc.type}</span>
+                                    <span style="font-size:0.78rem; color:var(--text-muted); font-family:monospace; white-space:nowrap;">${doc.date}</span>
+                                    <button class="btn-doc-preview" data-idx="${idx}">Previsualizar</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    docsListContainer.querySelectorAll('.btn-doc-preview').forEach(btn => {
+                        btn.addEventListener('click', e => {
+                            const selectedDoc = documentItems[e.target.getAttribute('data-idx')];
+                            if (selectedDoc) showDocumentDetailsModal(selectedDoc);
+                        });
+                    });
+                }
+            }
+
+            // Enlazar botón "Ver Bitácora Completa"
+            document.getElementById('dash-view-all-docs')?.addEventListener('click', () => {
+                document.querySelector('.nav-link[data-module-name="Bitácora del Sistema"]')?.click();
+            });
+
+        } catch (e) {
+            console.error('Error cargando el Dashboard de Superusuario', e);
+            if (contentDetails) {
+                contentDetails.innerHTML = `<div style="padding:40px; text-align:center; color:#ef4444; font-weight:600;">
+                    Hubo un problema al inicializar el Dashboard del Superusuario.
+                </div>`;
+            }
+        }
+    }
+
+
+
+    // --- Bitácora del Sistema (SuperUsuario) ---
+    async function renderBitacoraView() {
+        if (!contentDetails) return;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+        contentDetails.innerHTML = `
+            <div id="bitacora-app" class="fade-in" style="font-family: 'Inter', sans-serif;">
+                <!-- Header con estadísticas modernizado -->
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:20px; margin-bottom:28px;">
+                    <!-- Total Card -->
+                    <div id="bita-stat-total" style="background:var(--card-bg, #fff); border:1px solid var(--border-color); border-radius:16px; padding:20px; display:flex; align-items:center; gap:20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s;">
+                        <div style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:4px; text-align: left;">
+                            <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.8px;">Total Registros</span>
+                            <span id="stat-total-val" style="font-size:1.8rem; font-weight:800; color:var(--text-main); line-height: 1.1;">—</span>
+                        </div>
+                    </div>
+                    <!-- Hoy Card -->
+                    <div id="bita-stat-today" style="background:var(--card-bg, #fff); border:1px solid var(--border-color); border-radius:16px; padding:20px; display:flex; align-items:center; gap:20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s;">
+                        <div style="background: rgba(16, 185, 129, 0.1); color: #10b981; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:4px; text-align: left;">
+                            <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.8px;">Hoy</span>
+                            <span id="stat-today-val" style="font-size:1.8rem; font-weight:800; color:#10b981; line-height: 1.1;">—</span>
+                        </div>
+                    </div>
+                    <!-- Usuarios Activos Card -->
+                    <div id="bita-stat-users" style="background:var(--card-bg, #fff); border:1px solid var(--border-color); border-radius:16px; padding:20px; display:flex; align-items:center; gap:20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s;">
+                        <div style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:4px; text-align: left;">
+                            <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.8px;">Usuarios Activos</span>
+                            <span id="stat-users-val" style="font-size:1.8rem; font-weight:800; color:#8b5cf6; line-height: 1.1;">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Barra de filtros modernizada y extendida -->
+                <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin-bottom:24px; background:var(--card-bg,#fff); border:1px solid var(--border-color); border-radius:16px; padding:20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:260px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 16px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input id="bita-search" type="text" placeholder="Buscar por usuario, acción, detalles, IP..." style="border:none; outline:none; background:transparent; font-size:0.95rem; color:var(--text-main); width:100%; font-family: inherit;">
+                    </div>
+                    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                        <!-- Selector de Fechas -->
+                        <div style="display:flex; align-items:center; gap:8px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 12px;">
+                            <span style="font-size:0.8rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Desde</span>
+                            <input id="bita-date-start" type="date" style="border:none; outline:none; background:transparent; font-size:0.88rem; color:var(--text-main); font-family: inherit; cursor:pointer;">
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 12px;">
+                            <span style="font-size:0.8rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Hasta</span>
+                            <input id="bita-date-end" type="date" style="border:none; outline:none; background:transparent; font-size:0.88rem; color:var(--text-main); font-family: inherit; cursor:pointer;">
+                        </div>
+
+                        <select id="bita-action-filter" style="border:1px solid var(--border-color); border-radius:10px; padding:10px 16px; background:var(--card-bg,#fff); color:var(--text-main); font-size:0.92rem; min-width:180px; font-family: inherit; cursor: pointer; outline: none;">
+                            <option value="">Todas las acciones</option>
+                            <option value="Inicio de Sesión">Inicio de Sesión</option>
+                            <option value="Pago de Nómina">Pago de Nómina</option>
+                            <option value="Pago de Vacaciones">Pago de Vacaciones</option>
+                            <option value="Gestión de Vacaciones">Gestión de Vacaciones</option>
+                            <option value="Solicitud de Vacaciones">Solicitud de Vacaciones</option>
+                            <option value="Solicitud de Permiso">Solicitud de Permiso</option>
+                            <option value="Gestión de Permisos">Gestión de Permisos</option>
+                            <option value="Preguntas de Seguridad">Preguntas de Seguridad</option>
+                            <option value="Recuperación de Contraseña">Recuperación de Contraseña</option>
+                            <option value="Restablecer Clave (Admin)">Restablecer Clave (Admin)</option>
+                            <option value="Limpiar Preguntas (Admin)">Limpiar Preguntas (Admin)</option>
+                        </select>
+                        <button id="bita-refresh-btn" title="Actualizar" class="primary" style="padding:10px 20px; font-size:0.92rem; font-weight:600; border-radius:10px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                            Actualizar
+                        </button>
+                        <button id="bita-export-btn" title="Exportar CSV" class="secondary" style="padding:10px 20px; font-size:0.92rem; font-weight:600; border-radius:10px; border:1px solid var(--border-color); background:var(--card-bg);">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Exportar CSV
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabla -->
+                <div style="background:var(--card-bg,#fff); border:1px solid var(--border-color); border-radius:16px; overflow:hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div id="bita-table-container" style="overflow-x:auto;">
+                        <div style="padding:60px; text-align:center; color:var(--text-muted);">
+                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block; margin:0 auto 16px; opacity:.5;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                            Cargando registros de la bitácora...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Paginación -->
+                <div id="bita-pagination" style="display:flex; justify-content:center; gap:8px; margin-top:20px; align-items:center; flex-wrap:wrap;"></div>
+
+                <!-- Pie -->
+                <div id="bita-footer" style="margin-top:16px; font-size:0.85rem; color:var(--text-muted); text-align:right; display:none; font-weight: 500;">
+                    Mostrando <span id="bita-count" style="color:var(--text-main); font-weight:700;">0</span> registros (máx. 500)
+                </div>
+            </div>
+        `;
+
+        let allLogs = [];
+        let currentPage = 1;
+        const pageSize = 15;
+
+        function getActionBadge(action) {
+            const isDark = document.body.classList.contains('dark-mode');
+            const colorsLight = {
+                'Inicio de Sesión': { bg: 'rgba(59, 130, 246, 0.1)', color: '#1d4ed8', border: 'rgba(59, 130, 246, 0.2)' },
+                'Pago de Nómina': { bg: 'rgba(16, 185, 129, 0.1)', color: '#065f46', border: 'rgba(16, 185, 129, 0.2)' },
+                'Pago de Vacaciones': { bg: 'rgba(16, 185, 129, 0.1)', color: '#059669', border: 'rgba(16, 185, 129, 0.2)' },
+                'Gestión de Vacaciones': { bg: 'rgba(245, 158, 11, 0.1)', color: '#b45309', border: 'rgba(245, 158, 11, 0.2)' },
+                'Solicitud de Vacaciones': { bg: 'rgba(234, 179, 8, 0.1)', color: '#a16207', border: 'rgba(234, 179, 8, 0.2)' },
+                'Solicitud de Permiso': { bg: 'rgba(139, 92, 246, 0.1)', color: '#6d28d9', border: 'rgba(139, 92, 246, 0.2)' },
+                'Gestión de Permisos': { bg: 'rgba(168, 85, 247, 0.1)', color: '#7e22ce', border: 'rgba(168, 85, 247, 0.2)' },
+                'Preguntas de Seguridad': { bg: 'rgba(239, 68, 68, 0.1)', color: '#b91c1c', border: 'rgba(239, 68, 68, 0.2)' },
+                'Recuperación de Contraseña': { bg: 'rgba(249, 115, 22, 0.1)', color: '#c2410c', border: 'rgba(249, 115, 22, 0.2)' },
+                'Restablecer Clave (Admin)': { bg: 'rgba(236, 72, 153, 0.1)', color: '#be185d', border: 'rgba(236, 72, 153, 0.2)' },
+                'Limpiar Preguntas (Admin)': { bg: 'rgba(244, 63, 94, 0.1)', color: '#e11d48', border: 'rgba(244, 63, 94, 0.2)' },
+                'Gestión de Usuarios': { bg: 'rgba(99, 102, 241, 0.1)', color: '#4338ca', border: 'rgba(99, 102, 241, 0.2)' },
+                'Gestión de Trabajadores': { bg: 'rgba(20, 184, 166, 0.1)', color: '#0f766e', border: 'rgba(20, 184, 166, 0.2)' },
+                'Gestión de Cargos': { bg: 'rgba(6, 182, 212, 0.1)', color: '#0e7490', border: 'rgba(6, 182, 212, 0.2)' },
+                'Gestión de Conceptos': { bg: 'rgba(217, 119, 6, 0.1)', color: '#b45309', border: 'rgba(217, 119, 6, 0.2)' },
+                'Cierre de Sesión': { bg: 'rgba(100, 116, 139, 0.1)', color: '#475569', border: 'rgba(100, 116, 139, 0.2)' }
+            };
+            const colorsDark = {
+                'Inicio de Sesión': { bg: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: 'rgba(59, 130, 246, 0.3)' },
+                'Pago de Nómina': { bg: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: 'rgba(16, 185, 129, 0.3)' },
+                'Pago de Vacaciones': { bg: 'rgba(5, 150, 105, 0.15)', color: '#6ee7b7', border: 'rgba(5, 150, 105, 0.3)' },
+                'Gestión de Vacaciones': { bg: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: 'rgba(245, 158, 11, 0.3)' },
+                'Solicitud de Vacaciones': { bg: 'rgba(234, 179, 8, 0.15)', color: '#fef08a', border: 'rgba(234, 179, 8, 0.3)' },
+                'Solicitud de Permiso': { bg: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa', border: 'rgba(139, 92, 246, 0.3)' },
+                'Gestión de Permisos': { bg: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: 'rgba(168, 85, 247, 0.3)' },
+                'Preguntas de Seguridad': { bg: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'rgba(239, 68, 68, 0.3)' },
+                'Recuperación de Contraseña': { bg: 'rgba(249, 115, 22, 0.15)', color: '#fb923c', border: 'rgba(249, 115, 22, 0.3)' },
+                'Restablecer Clave (Admin)': { bg: 'rgba(236, 72, 153, 0.15)', color: '#f472b6', border: 'rgba(236, 72, 153, 0.3)' },
+                'Limpiar Preguntas (Admin)': { bg: 'rgba(244, 63, 94, 0.15)', color: '#fb7185', border: 'rgba(244, 63, 94, 0.3)' },
+                'Gestión de Usuarios': { bg: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', border: 'rgba(99, 102, 241, 0.3)' },
+                'Gestión de Trabajadores': { bg: 'rgba(20, 184, 166, 0.15)', color: '#2dd4bf', border: 'rgba(20, 184, 166, 0.3)' },
+                'Gestión de Cargos': { bg: 'rgba(6, 182, 212, 0.15)', color: '#22d3ee', border: 'rgba(6, 182, 212, 0.3)' },
+                'Gestión de Conceptos': { bg: 'rgba(217, 119, 6, 0.15)', color: '#fbbf24', border: 'rgba(217, 119, 6, 0.3)' },
+                'Cierre de Sesión': { bg: 'rgba(100, 116, 139, 0.15)', color: '#94a3b8', border: 'rgba(100, 116, 139, 0.3)' }
+            };
+            const palette = isDark ? colorsDark : colorsLight;
+            const c = palette[action] || (isDark ? { bg: 'rgba(255,255,255,0.05)', color: '#9ca3af', border: 'rgba(255,255,255,0.1)' } : { bg: 'rgba(0,0,0,0.05)', color: '#4b5563', border: 'rgba(0,0,0,0.1)' });
+            return `<span style="display:inline-block; background:${c.bg}; color:${c.color}; border: 1px solid ${c.border}; padding:4px 12px; border-radius:30px; font-size:0.78rem; font-weight:600; white-space:nowrap; letter-spacing:0.3px;">${action}</span>`;
+        }
+
+        function formatLogDate(dateStr) {
+            if (!dateStr) return '—';
+            try {
+                const d = new Date(dateStr);
+                return d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                    + ' ' + d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            } catch (e) { return dateStr; }
+        }
+
+        function renderTable(logs) {
+            const container = document.getElementById('bita-table-container');
+            if (!container) return;
+            const countEl = document.getElementById('bita-count');
+            const footer = document.getElementById('bita-footer');
+
+            // 1. Filtrar dinámicamente por Rango de Fechas
+            const dateStartVal = document.getElementById('bita-date-start')?.value;
+            const dateEndVal = document.getElementById('bita-date-end')?.value;
+            let filteredLogs = [...logs];
+
+            if (dateStartVal) {
+                const start = new Date(dateStartVal + 'T00:00:00');
+                filteredLogs = filteredLogs.filter(l => l.created_at && new Date(l.created_at) >= start);
+            }
+            if (dateEndVal) {
+                const end = new Date(dateEndVal + 'T23:59:59');
+                filteredLogs = filteredLogs.filter(l => l.created_at && new Date(l.created_at) <= end);
+            }
+
+            if (countEl) countEl.textContent = filteredLogs.length;
+            if (footer) footer.style.display = 'block';
+
+            if (!filteredLogs.length) {
+                container.innerHTML = `<div style="padding:60px; text-align:center; color:var(--text-muted);">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block; margin:0 auto 16px; opacity:.4;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    <p style="font-weight:600; font-size:1.05rem; margin:0 0 6px; color:var(--text-main);">Sin registros encontrados</p>
+                    <p style="font-size:0.88rem; margin:0;">Prueba ajustando los filtros de búsqueda o fechas.</p>
+                </div>`;
+                document.getElementById('bita-pagination').innerHTML = '';
+                return;
+            }
+
+            // 2. Calcular Paginación
+            const totalItems = filteredLogs.length;
+            const totalPages = Math.ceil(totalItems / pageSize) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
+            const startIndex = (currentPage - 1) * pageSize;
+            const paginatedLogs = filteredLogs.slice(startIndex, startIndex + pageSize);
+
+            container.innerHTML = `
+                <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                    <thead>
+                        <tr style="background:var(--bg-color); border-bottom:1.5px solid var(--border-color);">
+                            <th style="padding:14px 18px; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:.8px; white-space:nowrap;">ID</th>
+                            <th style="padding:14px 18px; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:.8px; white-space:nowrap;">Fecha y Hora</th>
+                            <th style="padding:14px 18px; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:.8px; white-space:nowrap;">Usuario</th>
+                            <th style="padding:14px 18px; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:.8px; white-space:nowrap;">Acción</th>
+                            <th style="padding:14px 18px; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:.8px;">Detalles</th>
+                            <th style="padding:14px 18px; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:.8px; white-space:nowrap;">IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${paginatedLogs.map((log, idx) => {
+                            const rowId = log.Id_Log || `temp-${idx}`;
+                            return `
+                                <tr class="bita-row" data-id="${rowId}" style="border-bottom:1px solid var(--border-color); transition:background .15s; cursor:pointer;" onmouseover="this.style.background='rgba(0,0,0,0.02)'" onmouseout="this.style.background=''">
+                                    <td style="padding:14px 18px; color:var(--text-muted); font-family:monospace; font-size:0.8rem; font-weight:600;">${log.Id_Log || idx + 1}</td>
+                                    <td style="padding:14px 18px; color:var(--text-muted); white-space:nowrap; font-family:monospace; font-size:0.82rem;">${formatLogDate(log.created_at)}</td>
+                                    <td style="padding:14px 18px; font-weight:600; color:var(--text-main); white-space:nowrap;">${log.username || '—'}</td>
+                                    <td style="padding:14px 18px;">${getActionBadge(log.action || '—')}</td>
+                                    <td style="padding:14px 18px; max-width:250px;">
+                                        <div style="display:flex; align-items:center; gap:12px; justify-content:space-between;">
+                                            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-main); font-weight: 500; flex:1;" title="${log.details || ''}">
+                                                ${log.details || '—'}
+                                            </span>
+                                            <button style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:6px; background:var(--bg-color); border:1px solid var(--border-color); color:var(--text-main); font-size:0.75rem; font-weight:700; cursor:pointer; flex-shrink:0; transition:all 0.2s; pointer-events:none;" onmouseover="this.style.borderColor='var(--primary)'; this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--border-color)'; this.style.color='var(--text-main)'">
+                                                Ver Más <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform 0.2s;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td style="padding:14px 18px; color:var(--text-muted); font-family:monospace; font-size:0.82rem; white-space:nowrap;">${log.ip_address || '—'}</td>
+                                </tr>
+                                <tr id="bita-details-${rowId}" style="display:none; background:rgba(0,0,0,0.01); border-bottom:1px solid var(--border-color);">
+                                    <td colspan="6" style="padding:20px 24px; text-align:left !important;">
+                                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:20px; font-size:0.88rem; line-height:1.6;">
+                                            <div style="text-align: left;">
+                                                <div style="font-weight:700; color:var(--text-main); margin-bottom:8px; font-size:0.95rem; border-bottom:1px dashed var(--border-color); padding-bottom:4px;">Dispositivo y Auditoría</div>
+                                                <div style="color:var(--text-muted);"><strong style="color:var(--text-main);">Dirección IP:</strong> ${log.ip_address || '—'}</div>
+                                                <div style="color:var(--text-muted);"><strong style="color:var(--text-main);">Fecha Servidor:</strong> ${formatLogDate(log.created_at)}</div>
+                                                <div style="color:var(--text-muted);"><strong style="color:var(--text-main);">Operador:</strong> ${log.username || '—'}</div>
+                                            </div>
+                                            <div style="text-align: left;">
+                                                <div style="font-weight:700; color:var(--text-main); margin-bottom:12px; font-size:0.95rem; border-bottom:1px dashed var(--border-color); padding-bottom:4px;">Resumen del Evento</div>
+                                                
+                                                <div style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                                    
+                                                    <div style="display:flex; align-items:center; gap:12px;">
+                                                        <div style="width:38px; height:38px; border-radius:10px; background:rgba(59, 130, 246, 0.1); color:#3b82f6; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                                        </div>
+                                                        <div style="flex:1;">
+                                                            <div style="font-weight:800; color:var(--text-main); font-size:0.95rem; letter-spacing:0.2px;">${log.action || 'Acción del Sistema'}</div>
+                                                            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Mensaje de Auditoría</div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div style="background:var(--card-bg); border-radius:8px; padding:14px; border:1px solid var(--border-color); font-size:0.88rem; color:var(--text-main); line-height:1.6; font-weight:500;">
+                                                        ${log.details || 'No hay detalles adicionales.'}
+                                                    </div>
+
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            // Vincular Clic en Fila (Accordion)
+            container.querySelectorAll('.bita-row').forEach(row => {
+                row.addEventListener('click', () => {
+                    const rowId = row.getAttribute('data-id');
+                    const detailsRow = document.getElementById(`bita-details-${rowId}`);
+                    const chevron = row.querySelector('.chevron-icon');
+                    const btnText = row.querySelector('button');
+                    
+                    if (detailsRow) {
+                        const isOpen = detailsRow.style.display !== 'none';
+                        detailsRow.style.display = isOpen ? 'none' : 'table-row';
+                        
+                        if (chevron) {
+                            chevron.style.transform = isOpen ? 'none' : 'rotate(180deg)';
+                        }
+                        
+                        if (btnText) {
+                            if (isOpen) {
+                                btnText.innerHTML = 'Ver Más <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform 0.2s;"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+                                row.style.background = '';
+                                row.style.borderLeft = 'none';
+                            } else {
+                                btnText.innerHTML = 'Ocultar <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform 0.2s; transform: rotate(180deg);"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+                                row.style.background = 'var(--bg-color)';
+                                row.style.borderLeft = '4px solid var(--primary)';
+                            }
+                        }
+                    }
+                });
+            });
+
+            // 3. Renderizar Controles de Paginación
+            const paginationEl = document.getElementById('bita-pagination');
+            if (paginationEl) {
+                let pagHtml = '';
+                if (totalPages > 1) {
+                    pagHtml += `<button class="secondary" id="bita-prev-page" ${currentPage === 1 ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''} style="padding:8px 14px; font-size:0.85rem; border-radius:8px; font-weight:600;">&larr; Anterior</button>`;
+                    for (let p = 1; p <= totalPages; p++) {
+                        if (p === 1 || p === totalPages || (p >= currentPage - 2 && p <= currentPage + 2)) {
+                            pagHtml += `<button class="${p === currentPage ? 'primary' : 'secondary'}" data-page="${p}" style="padding:8px 14px; font-size:0.85rem; border-radius:8px; min-width:38px; font-weight:600;">${p}</button>`;
+                        } else if (p === 2 || p === totalPages - 1) {
+                            pagHtml += `<span style="color:var(--text-muted); padding: 0 4px;">...</span>`;
+                        }
+                    }
+                    pagHtml += `<button class="secondary" id="bita-next-page" ${currentPage === totalPages ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''} style="padding:8px 14px; font-size:0.85rem; border-radius:8px; font-weight:600;">Siguiente &rarr;</button>`;
+                }
+                paginationEl.innerHTML = pagHtml;
+
+                // Eventos de Paginación
+                paginationEl.querySelectorAll('button[data-page]').forEach(b => {
+                    b.addEventListener('click', () => {
+                        currentPage = parseInt(b.getAttribute('data-page'), 10);
+                        renderTable(logs);
+                    });
+                });
+                document.getElementById('bita-prev-page')?.addEventListener('click', () => {
+                    if (currentPage > 1) {
+                        currentPage--;
+                        renderTable(logs);
+                    }
+                });
+                document.getElementById('bita-next-page')?.addEventListener('click', () => {
+                    if (currentPage < totalPages) {
+                        currentPage++;
+                        renderTable(logs);
+                    }
+                });
+            }
+        }
+
+        function updateStats(logs) {
+            const totalEl = document.getElementById('stat-total-val');
+            const todayEl = document.getElementById('stat-today-val');
+            const usersEl = document.getElementById('stat-users-val');
+            if (totalEl) totalEl.textContent = logs.length;
+            const today = new Date().toDateString();
+            const todayCount = logs.filter(l => l.created_at && new Date(l.created_at).toDateString() === today).length;
+            if (todayEl) todayEl.textContent = todayCount;
+            const uniqueUsers = new Set(logs.filter(l => l.username).map(l => l.username)).size;
+            if (usersEl) usersEl.textContent = uniqueUsers;
+        }
+
+        async function loadLogs() {
+            const container = document.getElementById('bita-table-container');
+            if (container) container.innerHTML = `<div style="padding:60px; text-align:center; color:var(--text-muted);">
+                <div style="display:inline-block; width:32px; height:32px; border:3px solid var(--border-color); border-top-color:#10b981; border-radius:50%; animation:spin 1s linear infinite;"></div>
+                <p style="margin-top:16px; font-weight:500;">Cargando registros...</p>
+            </div>`;
+
+            try {
+                const params = new URLSearchParams();
+                const search = document.getElementById('bita-search')?.value?.trim();
+                const actionFilter = document.getElementById('bita-action-filter')?.value;
+                if (search) params.append('search', search);
+                if (actionFilter) params.append('action_filter', actionFilter);
+
+                const res = await fetch(`/superusuario/system-logs?${params.toString()}`, {
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                allLogs = data.logs || [];
+                updateStats(allLogs);
+                currentPage = 1; // reset a la primera página al cargar
+                renderTable(allLogs);
+            } catch (e) {
+                const container = document.getElementById('bita-table-container');
+                if (container) container.innerHTML = `<div style="padding:60px; text-align:center; color:#dc2626;">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block; margin:0 auto 16px;"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                    <p style="font-weight:600; margin:0 0 6px; font-size:1.05rem;">Error al cargar la bitácora</p>
+                    <p style="font-size:0.88rem; color:var(--text-muted); margin:0;">${e.message}</p>
+                </div>`;
+            }
+        }
+
+        function exportCSV() {
+            if (!allLogs.length) { showWarning('No hay registros para exportar.'); return; }
+            const headers = ['ID', 'Fecha y Hora', 'Usuario', 'Acción', 'Detalles', 'IP'];
+            const rows = allLogs.map(l => [
+                l.Id_Log || '',
+                formatLogDate(l.created_at),
+                l.username || '',
+                l.action || '',
+                `"${(l.details || '').replace(/"/g, '""')}"`,
+                l.ip_address || ''
+            ]);
+            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const now = new Date();
+            a.href = url;
+            a.download = `bitacora-sistema-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        // Agregar animación CSS si no existe
+        if (!document.getElementById('bita-spin-style')) {
+            const style = document.createElement('style');
+            style.id = 'bita-spin-style';
+            style.textContent = `@keyframes spin { to { transform: rotate(360deg); } }`;
+            document.head.appendChild(style);
+        }
+
+        // Eventos
+        let debounceTimer;
+        document.getElementById('bita-search')?.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(loadLogs, 350);
+        });
+        document.getElementById('bita-action-filter')?.addEventListener('change', () => { currentPage = 1; loadLogs(); });
+        document.getElementById('bita-date-start')?.addEventListener('change', () => { currentPage = 1; renderTable(allLogs); });
+        document.getElementById('bita-date-end')?.addEventListener('change', () => { currentPage = 1; renderTable(allLogs); });
+        document.getElementById('bita-refresh-btn')?.addEventListener('click', loadLogs);
+        document.getElementById('bita-export-btn')?.addEventListener('click', exportCSV);
+
+        // Carga inicial
+        loadLogs();
+    }
+
+    // --- Gestión de Usuarios (SuperUsuario) ---
+    function renderSuperUserView() {
+        if (!contentDetails) return;
             let allUsers = []; // Cache local para filtrado
             if (contentHeader) contentHeader.innerHTML = `<h4>Gestión de Usuarios y Roles</h4>`;
             contentDetails.innerHTML = `
@@ -3686,6 +5427,8 @@ function initPayrollPage() {
             newUserBtn.addEventListener('click', () => {
                 editUserId = null;
                 formTitle.textContent = 'Crear Usuario';
+                document.getElementById('u-pass-req-star').style.display = 'inline';
+                document.getElementById('u-passconf-req-star').style.display = 'inline';
                 if (!userForm) return;
                 if (userForm.classList.contains('open')) closeSmooth(userForm);
                 else openSmooth(userForm);
@@ -3944,42 +5687,171 @@ function initPayrollPage() {
                 setTimeout(() => { try { el.style.display = 'none'; el.style.maxHeight = ''; el.style.opacity = ''; } catch (e) { } }, 320);
             }
 
-            // Load workers to populate the worker select in user form
+            // ─────────────────────────────────────────────────────────────────
+            // loadWorkersForUsers
+            // Carga la lista de trabajadores DISPONIBLES (sin usuario asignado)
+            // en el select #u-worker del formulario de creación/edición.
+            // Al seleccionar un trabajador, autocompleta Nombre y Correo desde
+            // la BD a través de getDatosTrabajador() y bloquea dichos campos.
+            // ─────────────────────────────────────────────────────────────────
             window.loadWorkersForUsers = async function loadWorkersForUsers() {
                 try {
-                    const res = await fetch('/superusuario/workers-list', { cache: 'no-store', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } });
+                    const res = await fetch('/superusuario/workers-list', {
+                        cache: 'no-store',
+                        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                    });
                     const data = await res.json();
                     const sel = document.getElementById('u-worker');
                     if (!sel) return;
-                    // clear except default
-                    sel.innerHTML = '<option value="">— Sin trabajador —</option>';
+
+                    // Limpiar opciones conservando la opción vacía
+                    sel.innerHTML = '<option value="">— Sin vincular —</option>';
+
                     if (res.ok && data.workers && data.workers.length) {
-                        // Determine which workers are already linked to users so we can hide them
+                        // Obtener lista de usuarios para identificar trabajadores ya vinculados
                         const usersList = await loadUsers().catch(() => []);
-                        // Enriquecer la lista de dominios permitidos con los dominios ya usados por usuarios existentes
+
+                        // Enriquecer dominios permitidos con los ya usados por usuarios existentes
                         try {
                             if (!window.allowedEmailDomains) window.allowedEmailDomains = new Set(['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com']);
                             usersList.forEach(u => {
-                                const c = (u.Correo || '').trim().toLowerCase();
-                                const d = extractDomain(c);
+                                const d = extractDomain((u.Correo || '').trim().toLowerCase());
                                 if (d) window.allowedEmailDomains.add(d);
                             });
-                        } catch (e) { /* no bloquear si falla */ }
-                        // If editing a user, allow that user's linked worker to remain in the list
-                        const currentAssigned = editUserId ? String((usersList.find(u => String(u.Id_Usuario) === String(editUserId)) || {}).Id_Trabajador || '') : '';
-                        const assigned = new Set();
-                        usersList.forEach(u => { if (u.Id_Trabajador && String(u.Id_Trabajador) !== currentAssigned) assigned.add(String(u.Id_Trabajador)); });
+                        } catch (_) { /* no bloquear si falla */ }
 
+                        // Si estamos editando, permitir el trabajador ya asignado a ESE usuario
+                        const currentAssigned = editUserId
+                            ? String((usersList.find(u => String(u.Id_Usuario) === String(editUserId)) || {}).Id_Trabajador || '')
+                            : '';
+
+                        // Construir conjunto de IDs ya asignados (excluyendo el del usuario en edición)
+                        const assigned = new Set();
+                        usersList.forEach(u => {
+                            if (u.Id_Trabajador && String(u.Id_Trabajador) !== currentAssigned)
+                                assigned.add(String(u.Id_Trabajador));
+                        });
+
+                        // Poblar select solo con trabajadores disponibles
                         data.workers.forEach(w => {
                             const wid = String(w.Id_Trabajador || '');
-                            if (assigned.has(wid)) return; // skip workers already with a user (unless it's the one we're editing)
+                            if (assigned.has(wid)) return; // excluir trabajadores ya con usuario
                             const opt = document.createElement('option');
                             opt.value = w.Id_Trabajador;
-                            opt.textContent = `${w.Nombre_Completo || w.Nombre} ${w.Apellidos || ''} ${w.Documento_Identidad ? '· ' + w.Documento_Identidad : ''}`;
+                            opt.textContent = `${w.Nombre_Completo || ''} ${w.Apellidos || ''} ${w.Documento_Identidad ? '· ' + w.Documento_Identidad : ''}`.trim();
                             sel.appendChild(opt);
                         });
                     }
-                } catch (e) { /* ignore */ }
+
+                    // ── Autocomplete: al cambiar el select de trabajador ──────────
+                    // Evitar registrar el listener más de una vez
+                    if (!sel.dataset.autocompleteAttached) {
+                        sel.dataset.autocompleteAttached = 'true';
+
+                        sel.addEventListener('change', async function () {
+                            const workerId   = this.value;
+                            const nameInput  = document.getElementById('u-name');
+                            const emailInput = document.getElementById('u-email');
+                            const nameLabel  = document.getElementById('u-name-autocomplete-badge');
+
+                            if (!workerId) {
+                                // Sin trabajador seleccionado → campos editables y vacíos
+                                _setWorkerFieldsEditable(nameInput, emailInput);
+                                return;
+                            }
+
+                            // Indicador visual de carga
+                            if (nameInput)  { nameInput.value = 'Consultando...'; nameInput.style.opacity = '0.5'; }
+                            if (emailInput) { emailInput.value = 'Consultando...'; emailInput.style.opacity = '0.5'; }
+
+                            try {
+                                const r = await fetch(`/superusuario/workers/${workerId}/datos`, {
+                                    cache: 'no-store',
+                                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                                });
+
+                                if (!r.ok) throw new Error('No se pudo obtener los datos del trabajador');
+                                const worker = await r.json();
+
+                                // Rellenar campos con datos reales del trabajador
+                                if (nameInput) {
+                                    nameInput.value = worker.nombre_completo || '';
+                                    nameInput.style.opacity = '1';
+                                    nameInput.setAttribute('readonly', true);
+                                    nameInput.style.background   = 'color-mix(in srgb, var(--bg-color), #10b981 8%)';
+                                    nameInput.style.borderColor  = '#10b981';
+                                    nameInput.style.cursor       = 'not-allowed';
+                                }
+
+                                if (emailInput) {
+                                    emailInput.value = worker.correo || '';
+                                    emailInput.style.opacity = '1';
+
+                                    if (worker.correo) {
+                                        // Si el trabajador tiene correo, bloquearlo
+                                        emailInput.setAttribute('readonly', true);
+                                        emailInput.style.background  = 'color-mix(in srgb, var(--bg-color), #10b981 8%)';
+                                        emailInput.style.borderColor = '#10b981';
+                                        emailInput.style.cursor      = 'not-allowed';
+                                    } else {
+                                        // Sin correo registrado → dejar editable con aviso
+                                        emailInput.removeAttribute('readonly');
+                                        emailInput.style.background  = 'color-mix(in srgb, var(--bg-color), #f59e0b 8%)';
+                                        emailInput.style.borderColor = '#f59e0b';
+                                        emailInput.style.cursor      = 'text';
+                                        emailInput.placeholder       = 'Trabajador sin correo, ingresa uno válido';
+                                    }
+                                }
+
+                                // Mostrar badge de confirmación junto al label de Nombre
+                                _showAutocompleteBadge();
+
+                                // Re-ejecutar validación con los nuevos valores
+                                if (typeof validateUserForm === 'function') validateUserForm();
+
+                            } catch (err) {
+                                if (nameInput)  { nameInput.value = '';  nameInput.style.opacity = '1'; }
+                                if (emailInput) { emailInput.value = ''; emailInput.style.opacity = '1'; }
+                                _setWorkerFieldsEditable(nameInput, emailInput);
+                                showUsersMsg('Error al cargar datos del trabajador: ' + err.message, 'error');
+                            }
+                        });
+                    }
+                } catch (e) { console.warn('loadWorkersForUsers error', e); }
+            };
+
+            /** Restaura los campos Nombre y Correo al estado editable normal */
+            function _setWorkerFieldsEditable(nameInput, emailInput) {
+                [nameInput, emailInput].forEach(inp => {
+                    if (!inp) return;
+                    inp.removeAttribute('readonly');
+                    inp.style.background  = '';
+                    inp.style.borderColor = '';
+                    inp.style.cursor      = '';
+                    inp.style.opacity     = '1';
+                    inp.placeholder       = inp.id === 'u-name' ? 'Nombre real' : 'correo@ejemplo.com';
+                });
+                _removeAutocompleteBadge();
+            }
+
+            /** Muestra un pequeño badge verde junto al label de Nombre Completo */
+            function _showAutocompleteBadge() {
+                _removeAutocompleteBadge();
+                const nameLabel = document.querySelector('label[for="u-name"], #user-form label:has(+ #u-name), #user-form .form-row label');
+                // Buscar el contenedor del campo u-name
+                const nameInput = document.getElementById('u-name');
+                if (!nameInput) return;
+                const badge = document.createElement('span');
+                badge.id = 'u-name-autocomplete-badge';
+                badge.textContent = '✓ Datos autocompletados desde nómina';
+                badge.style.cssText = 'display:inline-block;margin-top:5px;font-size:10px;font-weight:700;color:#10b981;background:rgba(16,185,129,0.1);padding:3px 8px;border-radius:20px;letter-spacing:0.3px;';
+                // Insertar debajo del input
+                nameInput.parentNode.insertBefore(badge, nameInput.nextSibling);
+            }
+
+            function _removeAutocompleteBadge() {
+                const old = document.getElementById('u-name-autocomplete-badge');
+                if (old) old.remove();
             }
 
             // Create default SuperUsuario button
@@ -4036,48 +5908,69 @@ function initPayrollPage() {
                 if (!el) return;
                 if (!users || !users.length) { el.innerHTML = '<p>No hay usuarios registrados.</p>'; return; }
 
+                // Inyectar estilos para el Toggle iOS si no existen
+                if (!document.getElementById('users-toggle-style')) {
+                    const style = document.createElement('style');
+                    style.id = 'users-toggle-style';
+                    style.textContent = `
+                        .ios-switch { position:relative; display:inline-block; width:44px; height:24px; cursor:pointer; }
+                        .ios-slider { position:absolute; top:0; left:0; right:0; bottom:0; background-color:#e4e4e7; transition:.3s cubic-bezier(0.4, 0, 0.2, 1); border-radius:24px; }
+                        .ios-slider::before { content:""; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background-color:white; transition:.3s cubic-bezier(0.4, 0, 0.2, 1); border-radius:50%; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+                        .toggle-status-cb:checked + .ios-slider { background-color:#10b981; }
+                        .toggle-status-cb:checked + .ios-slider::before { transform: translateX(20px); }
+                        body.dark-mode .ios-slider { background-color: #3f3f46; }
+                    `;
+                    document.head.appendChild(style);
+                }
+
                 const activeUsers = users.filter(u => u.Estado !== 'Inactivo');
                 const inactiveUsers = users.filter(u => u.Estado === 'Inactivo');
 
                 const buildTable = (list, title, titleColor) => {
                     if (!list.length) return '';
                     return `
-                        <h5 style="margin-top:20px; color:${titleColor}; border-bottom: 2px solid ${titleColor}; padding-bottom: 5px;">${title}</h5>
-                        <table style="width:100%;border-collapse:collapse; margin-bottom: 20px; background: var(--card-bg); border: 1px solid var(--border-color);">
+                        <h5 style="margin-top:24px; color:${titleColor}; border-bottom: 2px solid ${titleColor}; padding-bottom: 8px; font-weight:700;">${title}</h5>
+                        <table style="width:100%; border-collapse:collapse; margin-bottom: 24px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; overflow:hidden; box-shadow:0 4px 6px -1px rgba(0,0,0,0.02);">
                         <thead>
-                            <tr style="background:#3498db;color:#fff;">
-                                <th style="padding:8px">USUARIO</th>
-                                <th style="padding:8px">CORREO</th>
-                                <th style="padding:8px">ROL</th>
-                                <th style="padding:8px">ESTADO</th>
-                                <th style="padding:8px">TRABAJADOR</th>
-                                <th style="padding:8px">ACCIONES</th>
+                            <tr style="background:var(--bg-color); border-bottom:1.5px solid var(--border-color);">
+                                <th style="padding:14px; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:.8px;">Usuario</th>
+                                <th style="padding:14px; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:.8px;">Correo</th>
+                                <th style="padding:14px; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:.8px;">Rol</th>
+                                <th style="padding:14px; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:.8px;">Estado</th>
+                                <th style="padding:14px; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:.8px;">Trabajador Vinculado</th>
+                                <th style="padding:14px; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:.8px;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>${list.map(u => {
                         const isInactive = u.Estado === 'Inactivo';
-                        const statusColor = isInactive ? '#e74c3c' : '#27ae60';
-                        const statusLabel = u.Estado || 'Activo';
-
-                        // Prevent editing or deactivation for SuperUsuario accounts
                         const isSuper = ((u.Nombre_rol || '').toLowerCase() === 'superusuario');
-                        let actionsHtml = '';
+                        
+                        let statusHtml = '';
                         if (isSuper) {
-                            actionsHtml = `<span style="color:var(--primary);font-weight:bold">Cuenta de Sistema</span>`;
+                            statusHtml = `<span style="color:#f59e0b; font-weight:700; font-size:0.82rem; background:rgba(245,158,11,0.1); padding:4px 10px; border-radius:20px;">SISTEMA</span>`;
                         } else {
-                            actionsHtml += `<button class="edit-user-btn" data-id="${u.Id_Usuario}" data-username="${u.raw_username || ''}" data-name="${u.Nombre_completo || ''}" data-email="${u.Correo}" data-role="${u.Nombre_rol || ''}" data-worker-id="${u.Id_Trabajador || ''}" style="background:#3498db;color:#fff;border:none;padding:6px 8px;border-radius:4px;cursor:pointer;margin-right:6px;">Editar</button>`;
-                            actionsHtml += isInactive
-                                ? `<button class="activate-user-btn" data-id="${u.Id_Usuario}" style="background:#27ae60;color:#fff;border:none;padding:6px 8px;border-radius:4px;cursor:pointer;">Activar</button>`
-                                : `<button class="del-user-btn" data-id="${u.Id_Usuario}" style="background:#e74c3c;color:#fff;border:none;padding:6px 8px;border-radius:4px;cursor:pointer;">Desactivar</button>`;
+                            statusHtml = `
+                                <label class="ios-switch">
+                                    <input type="checkbox" class="toggle-status-cb" data-id="${u.Id_Usuario}" ${isInactive ? '' : 'checked'} style="opacity:0; width:0; height:0;">
+                                    <span class="ios-slider"></span>
+                                </label>
+                            `;
                         }
 
-                        return `<tr style="border-bottom: 1px solid var(--border-color);">
-                            <td style="padding:8px; color: var(--text-main);">${u.Nombre_usuario}</td>
-                            <td style="padding:8px; color: var(--text-main);">${u.Correo}</td>
-                            <td style="padding:8px; color: var(--text-main);">${u.Nombre_rol || ''}</td>
-                            <td style="padding:8px;"><span style="color:${statusColor};font-weight:bold">${statusLabel}</span></td>
-                            <td style="padding:8px; color: var(--text-main);">${u.Trabajador_Nombre || '—'}</td>
-                            <td style="padding:8px;">${actionsHtml}</td>
+                        let actionsHtml = '';
+                        if (isSuper) {
+                            actionsHtml = `<span style="color:var(--text-muted); font-size:0.85rem; font-weight:600;">Acceso Protegido</span>`;
+                        } else {
+                            actionsHtml += `<button class="edit-user-btn" data-id="${u.Id_Usuario}" data-username="${u.raw_username || ''}" data-name="${u.Nombre_completo || ''}" data-email="${u.Correo}" data-role="${u.Nombre_rol || ''}" data-worker-id="${u.Id_Trabajador || ''}" style="background:#3b82f6; color:#fff; border:none; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.8rem; transition:transform 0.15s ease;">Editar</button>`;
+                        }
+
+                        return `<tr style="border-bottom: 1px solid var(--border-color); transition:background .15s;">
+                            <td style="padding:14px; color: var(--text-main); font-weight:700;">${u.Nombre_usuario}</td>
+                            <td style="padding:14px; color: var(--text-muted); font-weight:500;">${u.Correo}</td>
+                            <td style="padding:14px; color: var(--text-main); font-weight:600;"><span style="font-size:0.8rem; padding:3px 8px; border-radius:20px; background:rgba(59,130,246,0.08); color:#3b82f6; font-weight:700;">${u.Nombre_rol || ''}</span></td>
+                            <td style="padding:14px; vertical-align: middle;">${statusHtml}</td>
+                            <td style="padding:14px; color: var(--text-muted); font-weight:600;">${u.Trabajador_Nombre || '—'}</td>
+                            <td style="padding:14px;">${actionsHtml}</td>
                             </tr>`;
                     }).join('')}</tbody></table>`;
                 };
@@ -4178,6 +6071,17 @@ function initPayrollPage() {
                 if (document.getElementById('u-worker')) document.getElementById('u-worker').value = '';
                 editUserId = null;
                 formTitle.textContent = 'Crear Usuario';
+                document.getElementById('u-pass-req-star').style.display = 'inline';
+                document.getElementById('u-passconf-req-star').style.display = 'inline';
+
+                // Restaurar campos Nombre y Correo a estado editable
+                if (typeof _setWorkerFieldsEditable === 'function') {
+                    _setWorkerFieldsEditable(
+                        document.getElementById('u-name'),
+                        document.getElementById('u-email')
+                    );
+                }
+
                 if (window.loadWorkersForUsers) window.loadWorkersForUsers();
             }
 
@@ -4250,198 +6154,497 @@ function initPayrollPage() {
 
             loadWorkersForUsers();
             loadAndRenderUsers();
-        }
-
-        contentDetails.innerHTML = `<p>Módulo '${name}' no implementado (SuperUsuario).</p>`;
     }
+
 
     // --- Módulo de Reportes (SuperUsuario) ---
     async function renderSuperReports() {
         if (!contentDetails) return;
-        contentDetails.innerHTML = '<p>Cargando reporte...</p>';
+        contentDetails.innerHTML = `
+            <div style="display:flex;align-items:center;gap:14px;padding:40px;color:var(--text-muted);">
+                <div style="width:28px;height:28px;border:3px solid var(--primary);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+                <span>Cargando reporte de usuarios...</span>
+            </div>`;
 
         try {
-            const res = await fetch('/superusuario/reports/users', { cache: 'no-store', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } });
-            if (!res.ok) throw new Error('Error al cargar datos');
+            const res = await fetch('/superusuario/reports/users', {
+                cache: 'no-store',
+                headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+            });
+            if (!res.ok) throw new Error(`Error ${res.status}`);
             const data = await res.json();
             const users = data.users || [];
+            const generatedAt = data.generated_at ? new Date(data.generated_at).toLocaleString('es-VE') : new Date().toLocaleString('es-VE');
 
-            // Estadísticas
-            const admins = users.filter(u => u.Nombre_rol === 'Administrativo' || u.Nombre_rol === 'SuperUsuario').length; // Asumiendo Super también cuenta o ajustar según lógica
-            const workers = users.filter(u => u.Nombre_rol === 'Trabajador').length;
-            const total = users.length;
-            const fechaEmision = new Date().toLocaleString('es-VE');
+            // ── Stats ──
+            const total      = users.length;
+            const superUs    = users.filter(u => u.Nombre_rol === 'SuperUsuario').length;
+            const admins     = users.filter(u => u.Nombre_rol === 'Administrativo').length;
+            const workers    = users.filter(u => u.Nombre_rol === 'Trabajador').length;
+            const activos    = users.filter(u => (u.Estado || 'Activo') !== 'Inactivo').length;
+            const inactivos  = total - activos;
+            const adminGroup = superUs + admins;
+            const totalForCalc = adminGroup + workers || 1;
+            const pctAdmin   = Math.round((adminGroup / totalForCalc) * 100);
+            const pctWorker  = Math.round((workers    / totalForCalc) * 100);
 
-            // Calcular porcentajes para gráfica simple
-            const totalForCalc = admins + workers || 1;
-            const pctAdmin = Math.round((admins / totalForCalc) * 100);
-            const pctWorker = Math.round((workers / totalForCalc) * 100);
+            // ── Cobertura de vinculación ──
+            const vinculados    = users.filter(u => u.Id_Trabajador && u.Id_Trabajador !== '').length;
+            const sinVincular   = total - vinculados;
+            const pctVinculados = total > 0 ? Math.round((vinculados / total) * 100) : 0;
 
-            // Renderizado inicial
+            // ── Seguridad de Cuentas ──
+            const conPreguntas   = users.filter(u => u.Tiene_Preguntas).length;
+            const sinPreguntas   = total - conPreguntas;
+            const pctSeguras     = total > 0 ? Math.round((conPreguntas / total) * 100) : 0;
+
+            // ── Sort state ──
+            let sortCol = '';
+            let sortDir = 'asc';
+
+            // ── CSV Export ──
+            function exportCSV(list) {
+                const headers = ['#','Usuario','Nombre Completo','Correo','Rol','Estado','Seguridad','Trabajador Vinculado','Último Acceso'];
+                const rows = list.map((u, i) => [
+                    i + 1,
+                    `"${(u.Nombre_usuario||'').replace(/"/g,'""')}"`,
+                    `"${(u.Nombre_completo||'—').replace(/"/g,'""')}"`,
+                    `"${(u.Correo||'—').replace(/"/g,'""')}"`,
+                    `"${(u.Nombre_rol||'').replace(/"/g,'""')}"`,
+                    `"${(u.Estado||'Activo').replace(/"/g,'""')}"`,
+                    `"${u.Tiene_Preguntas ? '🔒 Segura' : '⚠️ En riesgo'}"`,
+                    `"${(u.Trabajador_Nombre||'—').replace(/"/g,'""')}"`,
+                    `"${(u.Ultimo_Acceso||'—').replace(/"/g,'""')}"`,
+                ]);
+                const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+                const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `reporte_usuarios_${new Date().toISOString().slice(0,10)}.csv`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+            }
+
+            // ── Role badge config ──
+            const roleConfig = {
+                'SuperUsuario':   { bg: 'linear-gradient(135deg,#7c3aed,#4f46e5)', label: 'SuperUsuario' },
+                'Administrativo': { bg: 'linear-gradient(135deg,#1e40af,#2563eb)', label: 'Administrativo' },
+                'Trabajador':     { bg: 'linear-gradient(135deg,#065f46,#10b981)', label: 'Trabajador' },
+            };
+
+            // ── Main render ──
             function renderReportView(filteredUsers, filters = {}) {
-                const searchVal = filters.q || '';
-                const roleVal = filters.rol || '';
+                const searchVal = filters.q   || '';
+                const roleVal   = filters.rol || '';
                 const statusVal = filters.estado || '';
-                const savedColor = localStorage.getItem('primaryColor') || 'charcoal';
+                const securityVal = filters.seguridad || '';
+                const fTotal    = filteredUsers.length;
 
-                let html = `
-                <div class="report-module" style="background:var(--bg-color); min-height:100%; padding: 10px;">
-                    <!-- Navbar simulado (parte superior del reporte) -->
-                    <div style="display:flex; justify-content:space-between; background:var(--card-bg); padding:15px 25px; border-bottom:3px solid var(--primary); border-radius:8px; margin-bottom:20px; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
-                        <div>
-                            <h2 style="margin:0; color:var(--primary); font-size:24px;">LUFRA2020</h2>
-                            <p style="margin:0; font-size:12px; color:var(--text-muted);">RIF: J-50032437-5 | Gestión de Nómina</p>
-                        </div>
-                        <div style="text-align:right;">
-                            <h3 style="margin:0; color:var(--text-main); font-size:16px;">REPORTE DE USUARIOS</h3>
-                            <p style="margin:0; font-size:11px; color:var(--text-muted);">Emisión: ${fechaEmision}</p>
-                        </div>
-                    </div>
-
-                    <!-- Stats Grid -->
-                    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; margin-bottom:20px;">
-                        <div style="background:var(--card-bg); padding:20px; border-radius:12px; border:1px solid var(--border-color); box-shadow:0 2px 5px rgba(0,0,0,0.02);">
-                            <h4 style="margin:0 0 10px 0; font-size:11px; text-transform:uppercase; color:var(--text-muted); letter-spacing:1px;">Distribución de Personal</h4>
-                            <div style="font-size:13px; margin-bottom:5px; color:var(--text-main);">Admins: <strong>${admins}</strong> | Trabajadores: <strong>${workers}</strong></div>
-                            <div style="background:var(--bg-color); height:12px; border-radius:6px; overflow:hidden; display:flex;">
-                                <div style="background:var(--primary); width:${pctAdmin}%;"></div>
-                                <div style="background:#27ae60; width:${pctWorker}%;"></div>
-                            </div>
-                            <p style="font-size:9px; color:var(--text-muted); margin-top:5px;">${savedColor === 'charcoal' ? 'Gris' : 'Azul'}: Admins (${pctAdmin}%) | Verde: Trabajadores (${pctWorker}%)</p>
-                        </div>
-                        <div style="background:var(--card-bg); padding:20px; border-radius:12px; border:1px solid var(--border-color); box-shadow:0 2px 5px rgba(0,0,0,0.02);">
-                            <h4 style="margin:0 0 10px 0; font-size:11px; text-transform:uppercase; color:var(--text-muted); letter-spacing:1px;">Estado de Seguridad</h4>
-                            <div style="font-size:14px; color:#27ae60; font-weight:bold;">● Sistema Protegido</div>
-                            <div style="font-size:12px; color:var(--text-muted); margin-top:5px;">Cuentas Activas: ${filteredUsers.filter(u => u.Estado !== 'Inactivo').length}</div>
-                        </div>
-                        <div style="background:var(--card-bg); padding:20px; border-radius:12px; border:1px solid var(--border-color); box-shadow:0 2px 5px rgba(0,0,0,0.02);">
-                            <h4 style="margin:0 0 10px 0; font-size:11px; text-transform:uppercase; color:var(--text-muted); letter-spacing:1px;">Total Usuarios Registrados</h4>
-                            <div style="font-size:32px; font-weight:bold; color:var(--text-main);">${total}</div>
-                        </div>
-                    </div>
-
-                    <!-- Toolbar -->
-                    <div class="no-print" style="margin-bottom:20px; background:var(--card-bg); padding:15px 25px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; border:1px solid var(--border-color);">
-                        <div style="display:flex; gap:10px;">
-                            <input id="rep-search" type="text" value="${searchVal}" placeholder="Buscar usuario..." style="padding:8px; border-radius:5px; border:1px solid var(--border-color); background:var(--bg-color); color:var(--text-main);">
-                            <select id="rep-role" style="padding:8px; border-radius:5px; border:1px solid var(--border-color); background:var(--bg-color); color:var(--text-main);">
-                                <option value="">Todos los roles</option>
-                                <option value="SuperUsuario" ${roleVal === 'SuperUsuario' ? 'selected' : ''}>SuperUsuario</option>
-                                <option value="Administrativo" ${roleVal === 'Administrativo' ? 'selected' : ''}>Administrativo</option>
-                                <option value="Trabajador" ${roleVal === 'Trabajador' ? 'selected' : ''}>Trabajador</option>
-                            </select>
-                            <select id="rep-status" style="padding:8px; border-radius:5px; border:1px solid var(--border-color); background:var(--bg-color); color:var(--text-main);">
-                                <option value="">Todos los estados</option>
-                                <option value="Activo" ${statusVal === 'Activo' ? 'selected' : ''}>Activo</option>
-                                <option value="Inactivo" ${statusVal === 'Inactivo' ? 'selected' : ''}>Inactivo</option>
-                            </select>
-                            <button id="rep-filter-btn" style="background:var(--primary); color:white; padding:8px 18px; border-radius:6px; border:none; cursor:pointer;">Filtrar</button>
-                        </div>
-                        <div>
-                            <button id="rep-print-btn" style="background:var(--primary); color:white; padding:8px 18px; border-radius:6px; border:none; cursor:pointer; font-weight:600;">🖨️ Imprimir PDF</button>
-                        </div>
-                    </div>
-
-                    <!-- Tabla -->
-                    <div style="background:var(--card-bg); border-radius:12px; overflow:hidden; border:1px solid var(--border-color);">
-                        <table style="width:100%; border-collapse:collapse;">
-                            <thead>
-                                <tr style="background:var(--primary); color:white;">
-                                    <th style="padding:15px; text-align:left; font-size:11px; text-transform:uppercase;">Usuario</th>
-                                    <th style="padding:15px; text-align:left; font-size:11px; text-transform:uppercase;">Rol</th>
-                                    <th style="padding:15px; text-align:left; font-size:11px; text-transform:uppercase;">Estado</th>
-                                    <th style="padding:15px; text-align:left; font-size:11px; text-transform:uppercase;">Permisos de Acceso</th>
-                                    <th style="padding:15px; text-align:left; font-size:11px; text-transform:uppercase;">Última Conexión (Simulada)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                `;
-
-                if (filteredUsers.length === 0) {
-                    html += `<tr><td colspan="5" style="padding:20px; text-align:center; color: var(--text-main);">No se encontraron resultados</td></tr>`;
-                } else {
-                    filteredUsers.forEach(u => {
-                        const r = u.Nombre_rol || '';
-                        let roleClass = 'background:#27ae60'; // default worker
-                        if (r === 'SuperUsuario') roleClass = 'background:var(--primary)';
-                        if (r === 'Administrativo') roleClass = 'background:#34495e';
-
-                        let permisos = '<span style="background:var(--bg-color); border:1px solid var(--border-color); padding:3px 8px; border-radius:4px; font-size:10px; color:var(--text-main); margin-right:4px;">Solo Lectura</span>';
-                        if (r === 'SuperUsuario') permisos = '<span style="background:var(--bg-color); border:1px solid var(--border-color); padding:3px 8px; border-radius:4px; font-size:10px; color:var(--text-main); margin-right:4px;">Total</span><span style="background:var(--bg-color); border:1px solid var(--border-color); padding:3px 8px; border-radius:4px; font-size:10px; color:var(--text-main); margin-right:4px;">Nómina</span><span style="background:var(--bg-color); border:1px solid var(--border-color); padding:3px 8px; border-radius:4px; font-size:10px; color:var(--text-main); margin-right:4px;">Auditoría</span>';
-                        if (r === 'Administrativo') permisos = '<span style="background:var(--bg-color); border:1px solid var(--border-color); padding:3px 8px; border-radius:4px; font-size:10px; color:var(--text-main); margin-right:4px;">Lectura</span><span style="background:var(--bg-color); border:1px solid var(--border-color); padding:3px 8px; border-radius:4px; font-size:10px; color:var(--text-main); margin-right:4px;">Escritura</span>';
-
-                        const estado = u.Estado || 'Activo';
-                        const estadoColor = estado === 'Inactivo' ? '#e74c3c' : '#27ae60';
-                        const lastLogin = new Date();
-                        lastLogin.setHours(lastLogin.getHours() - Math.floor(Math.random() * 48));
-
-                        html += `
-                            <tr style="border-bottom:1px solid var(--border-color); background: var(--card-bg);">
-                                <td style="padding:15px; font-size:13px; color: var(--text-main);">
-                                    <strong>${u.Nombre_usuario}</strong>
-                                </td>
-                                <td style="padding:15px;">
-                                    <span style="${roleClass}; padding:5px 12px; border-radius:5px; font-weight:bold; font-size:10px; color:white; text-transform:uppercase;">${r}</span>
-                                </td>
-                                <td style="padding:15px; font-size:13px; color:${estadoColor}; font-weight:bold;">● ${estado}</td>
-                                <td style="padding:15px;">${permisos}</td>
-                                <td style="padding:15px; font-size:11px; color:var(--text-muted); font-style:italic;">${lastLogin.toLocaleString('es-VE')}</td>
-                            </tr>`;
-                    });
+                function arrow(col) {
+                    if (sortCol !== col) return '<span style="opacity:0.35;margin-left:3px;font-size:9px;">⇅</span>';
+                    return sortDir === 'asc'
+                        ? '<span style="margin-left:3px;font-size:9px;">▲</span>'
+                        : '<span style="margin-left:3px;font-size:9px;">▼</span>';
                 }
 
-                html += `
+                const html = `
+                <div style="background:var(--bg-color);min-height:100%;padding:10px;font-family:inherit;">
+
+                    <!-- ── INJECT STYLES ── -->
+                    <style>
+                        .rep-card { background:var(--card-bg);border-radius:14px;border:1px solid var(--border-color);padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.05);transition:transform .2s,box-shadow .2s;position:relative;overflow:hidden; }
+                        .rep-card:hover { transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.09); }
+                        .rep-card .icon-bg { position:absolute;right:-10px;top:-10px;width:60px;height:60px;border-radius:50%;opacity:0.08; }
+                        .rep-th { padding:13px 14px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.88);font-weight:700;white-space:nowrap; }
+                        .rep-th[data-sort] { cursor:pointer;user-select:none; }
+                        .rep-th[data-sort]:hover { color:#fff;background:rgba(255,255,255,0.08); }
+                        .rep-td { padding:13px 14px;font-size:12.5px;border-bottom:1px solid var(--border-color); }
+                        .rep-tr:last-child .rep-td { border-bottom:none; }
+                        .rep-tr { transition:background .12s; }
+                        .rep-tr:hover .rep-td { background:color-mix(in srgb,var(--primary) 7%,transparent) !important; }
+                        .rep-badge { display:inline-flex;align-items:center;padding:4px 11px;border-radius:20px;font-size:10px;font-weight:700;color:#fff;letter-spacing:0.4px;text-transform:uppercase; }
+                        .rep-btn { display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:8px;border:none;cursor:pointer;font-size:12.5px;font-weight:700;transition:opacity .15s,transform .1s; }
+                        .rep-btn:hover { opacity:.88;transform:translateY(-1px); }
+                        .rep-input { padding:9px 13px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-color);color:var(--text-main);font-size:13px;outline:none;transition:border-color .2s; }
+                        .rep-input:focus { border-color:var(--primary); }
+                    </style>
+
+                    <!-- ── HEADER ── -->
+                    <div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,var(--primary) 0%,color-mix(in srgb,var(--primary),#000 25%) 100%);padding:18px 26px;border-radius:14px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,0.15);position:relative;overflow:hidden;">
+                        <div style="position:absolute;right:-20px;top:-20px;width:120px;height:120px;background:rgba(255,255,255,0.06);border-radius:50%;"></div>
+                        <div style="position:absolute;right:40px;bottom:-30px;width:80px;height:80px;background:rgba(255,255,255,0.04);border-radius:50%;"></div>
+                        <div style="position:relative;">
+                            <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:2px;line-height:1;">LUFRA2020</div>
+                            <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:3px;">RIF: J-50032437-5 &nbsp;·&nbsp; Sistema de Gestión de Nómina</div>
+                        </div>
+                        <div style="text-align:right;position:relative;">
+                            <div style="font-size:17px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:1.5px;">Reporte de Usuarios</div>
+                            <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:3px;">Emisión: ${generatedAt}</div>
+                        </div>
+                    </div>
+
+                    <!-- ── KPI CARDS ── -->
+                    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px;">
+
+                        <!-- Total Usuarios -->
+                        <div class="rep-card">
+                            <div style="position:absolute;right:-10px;top:-10px;width:70px;height:70px;background:#6366f1;border-radius:50%;opacity:0.08;"></div>
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                <div style="width:36px;height:36px;background:linear-gradient(135deg,#6366f1,#4f46e5);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                </div>
+                                <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);font-weight:700;">Total Usuarios</div>
+                            </div>
+                            <div style="font-size:38px;font-weight:900;color:var(--text-main);line-height:1;letter-spacing:-1px;">${total}</div>
+                            <div style="font-size:10.5px;color:var(--text-muted);margin-top:5px;">registrados en el sistema</div>
+                        </div>
+
+                        <!-- Estado de Cuentas -->
+                        <div class="rep-card">
+                            <div style="position:absolute;right:-10px;top:-10px;width:70px;height:70px;background:#10b981;border-radius:50%;opacity:0.08;"></div>
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                <div style="width:36px;height:36px;background:linear-gradient(135deg,#10b981,#059669);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
+                                <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);font-weight:700;">Estado de Cuentas</div>
+                            </div>
+                            <div style="display:flex;align-items:baseline;gap:6px;">
+                                <span style="font-size:38px;font-weight:900;color:#10b981;line-height:1;letter-spacing:-1px;">${activos}</span>
+                                <span style="font-size:12px;color:var(--text-muted);">activas</span>
+                            </div>
+                            <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+                                <div style="flex:1;height:5px;border-radius:3px;background:var(--bg-color);overflow:hidden;">
+                                    <div style="height:100%;width:${total > 0 ? Math.round((activos/total)*100) : 0}%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:3px;transition:width .5s;"></div>
+                                </div>
+                                <span style="font-size:10px;color:#ef4444;font-weight:600;">${inactivos} inact.</span>
+                            </div>
+                        </div>
+
+                        <!-- Distribución de Personal -->
+                        <div class="rep-card">
+                            <div style="position:absolute;right:-10px;top:-10px;width:70px;height:70px;background:#f59e0b;border-radius:50%;opacity:0.08;"></div>
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                <div style="width:36px;height:36px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                                </div>
+                                <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);font-weight:700;">Distribución de Roles</div>
+                            </div>
+                            <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                                <span style="font-size:11px;color:var(--text-main);background:rgba(99,102,241,0.12);padding:3px 8px;border-radius:20px;font-weight:600;">SU: ${superUs}</span>
+                                <span style="font-size:11px;color:var(--text-main);background:rgba(37,99,235,0.12);padding:3px 8px;border-radius:20px;font-weight:600;">Admin: ${admins}</span>
+                                <span style="font-size:11px;color:var(--text-main);background:rgba(16,185,129,0.12);padding:3px 8px;border-radius:20px;font-weight:600;">Trab: ${workers}</span>
+                            </div>
+                            <div style="height:8px;border-radius:4px;overflow:hidden;display:flex;gap:1px;">
+                                <div style="background:linear-gradient(90deg,#7c3aed,#4f46e5);width:${total>0?Math.round((superUs/total)*100):0}%;transition:width .5s;border-radius:4px 0 0 4px;" title="SuperUsuarios: ${superUs}"></div>
+                                <div style="background:linear-gradient(90deg,#1e40af,#2563eb);width:${total>0?Math.round((admins/total)*100):0}%;transition:width .5s;" title="Administrativos: ${admins}"></div>
+                                <div style="background:linear-gradient(90deg,#065f46,#10b981);flex:1;transition:width .5s;border-radius:0 4px 4px 0;" title="Trabajadores: ${workers}"></div>
+                            </div>
+                            <div style="font-size:9.5px;color:var(--text-muted);margin-top:4px;">Morado: SU | Azul: Admin | Verde: Trab.</div>
+                        </div>
+
+                        <!-- Cobertura de Vinculación -->
+                        <div class="rep-card">
+                            <div style="position:absolute;right:-10px;top:-10px;width:70px;height:70px;background:#0ea5e9;border-radius:50%;opacity:0.08;"></div>
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                <div style="width:36px;height:36px;background:linear-gradient(135deg,#0ea5e9,#0369a1);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                </div>
+                                <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);font-weight:700;">Cobertura de Vinculación</div>
+                            </div>
+                            <div style="display:flex;align-items:baseline;gap:6px;">
+                                <span style="font-size:38px;font-weight:900;color:#0ea5e9;line-height:1;letter-spacing:-1px;">${pctVinculados}<span style="font-size:16px;">%</span></span>
+                            </div>
+                            <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+                                <div style="flex:1;height:5px;border-radius:3px;background:var(--bg-color);overflow:hidden;">
+                                    <div style="height:100%;width:${pctVinculados}%;background:linear-gradient(90deg,#0ea5e9,#38bdf8);border-radius:3px;transition:width .5s;"></div>
+                                </div>
+                            </div>
+                            <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">
+                                <span style="color:#10b981;font-weight:700;">${vinculados} vinculados</span>
+                                &nbsp;·&nbsp;
+                                <span style="color:${sinVincular > 0 ? '#f59e0b' : 'var(--text-muted)'};font-weight:${sinVincular > 0 ? '700' : '400'};">${sinVincular} sin vincular</span>
+                            </div>
+                        </div>
+
+                        <!-- Seguridad de Cuentas -->
+                        <div class="rep-card">
+                            <div style="position:absolute;right:-10px;top:-10px;width:70px;height:70px;background:#f59e0b;border-radius:50%;opacity:0.08;"></div>
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                <div style="width:36px;height:36px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                </div>
+                                <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);font-weight:700;">Seguridad de Cuentas</div>
+                            </div>
+                            <div style="display:flex;align-items:baseline;gap:6px;">
+                                <span style="font-size:38px;font-weight:900;color:#f59e0b;line-height:1;letter-spacing:-1px;">${pctSeguras}<span style="font-size:16px;">%</span></span>
+                            </div>
+                            <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+                                <div style="flex:1;height:5px;border-radius:3px;background:var(--bg-color);overflow:hidden;">
+                                    <div style="height:100%;width:${pctSeguras}%;background:linear-gradient(90deg,#f59e0b,#fbbf24);border-radius:3px;transition:width .5s;"></div>
+                                </div>
+                            </div>
+                            <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">
+                                <span style="color:#10b981;font-weight:700;">${conPreguntas} seguras</span>
+                                &nbsp;·&nbsp;
+                                <span style="color:${sinPreguntas > 0 ? '#ef4444' : 'var(--text-muted)'};font-weight:${sinPreguntas > 0 ? '700' : '400'};">${sinPreguntas} en riesgo</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── TOOLBAR ── -->
+                    <div style="background:var(--card-bg);padding:14px 18px;border-radius:12px;border:1px solid var(--border-color);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <div style="position:relative;">
+                                <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                <input id="rep-search" type="text" value="${searchVal}" placeholder="Buscar usuario, correo..."
+                                    class="rep-input" style="padding-left:32px;min-width:195px;">
+                            </div>
+                            <select id="rep-role" class="rep-input" style="cursor:pointer;">
+                                <option value="">Todos los roles</option>
+                                <option value="SuperUsuario"  ${roleVal==='SuperUsuario'  ? 'selected':''}>SuperUsuario</option>
+                                <option value="Administrativo" ${roleVal==='Administrativo' ? 'selected':''}>Administrativo</option>
+                                <option value="Trabajador"    ${roleVal==='Trabajador'    ? 'selected':''}>Trabajador</option>
+                            </select>
+                            <select id="rep-status" class="rep-input" style="cursor:pointer;">
+                                <option value="">Todos los estados</option>
+                                <option value="Activo"   ${statusVal==='Activo'   ? 'selected':''}>Activo</option>
+                                <option value="Inactivo" ${statusVal==='Inactivo' ? 'selected':''}>Inactivo</option>
+                            </select>
+                            <select id="rep-security" class="rep-input" style="cursor:pointer;">
+                                <option value="">Seguridad: Todas</option>
+                                <option value="segura" ${securityVal==='segura' ? 'selected':''}>🔒 Cuentas Seguras</option>
+                                <option value="riesgo" ${securityVal==='riesgo' ? 'selected':''}>⚠️ Cuentas en Riesgo</option>
+                            </select>
+                            <button id="rep-filter-btn" class="rep-btn" style="background:var(--primary);color:#fff;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                Filtrar
+                            </button>
+                            <button id="rep-clear-btn" class="rep-btn" style="background:var(--bg-color);color:var(--text-muted);border:1px solid var(--border-color);">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                Limpiar
+                            </button>
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <span id="rep-count" style="font-size:11.5px;color:var(--text-muted);white-space:nowrap;background:var(--bg-color);padding:5px 10px;border-radius:20px;border:1px solid var(--border-color);">
+                                ${fTotal === total
+                                    ? `<strong>${total}</strong> usuario(s)`
+                                    : `<strong style="color:var(--primary);">${fTotal}</strong> de ${total}`}
+                            </span>
+                            <button id="rep-csv-btn" class="rep-btn" title="Exportar a CSV/Excel" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                CSV
+                            </button>
+                            <button id="rep-print-btn" class="rep-btn" style="background:linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary),#000 20%));color:#fff;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                                PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ── TABLE ── -->
+                    <div style="background:var(--card-bg);border-radius:14px;overflow:hidden;border:1px solid var(--border-color);box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+                        <table style="width:100%;border-collapse:collapse;">
+                            <thead>
+                                <tr style="background:linear-gradient(90deg,var(--primary) 0%,color-mix(in srgb,var(--primary),#000 18%) 100%);">
+                                    <th class="rep-th" style="width:38px;">#</th>
+                                    <th class="rep-th" data-sort="Nombre_usuario">Usuario ${arrow('Nombre_usuario')}</th>
+                                    <th class="rep-th" data-sort="Nombre_completo">Nombre Completo ${arrow('Nombre_completo')}</th>
+                                    <th class="rep-th" data-sort="Correo">Correo ${arrow('Correo')}</th>
+                                    <th class="rep-th" data-sort="Nombre_rol">Rol ${arrow('Nombre_rol')}</th>
+                                    <th class="rep-th" data-sort="Estado">Estado ${arrow('Estado')}</th>
+                                    <th class="rep-th" data-sort="Tiene_Preguntas">Seguridad ${arrow('Tiene_Preguntas')}</th>
+                                    <th class="rep-th">Trabajador Vinculado</th>
+                                    <th class="rep-th" data-sort="Ultimo_Acceso">Último Acceso ${arrow('Ultimo_Acceso')}</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rep-tbody">
+                                ${renderRows(filteredUsers)}
                             </tbody>
+                            <tfoot>
+                                <tr style="background:var(--bg-color);border-top:2px solid var(--border-color);">
+                                    <td colspan="5" class="rep-td" style="font-size:11px;color:var(--text-muted);font-weight:600;border-bottom:none;">
+                                        Mostrando <strong style="color:var(--text-main);">${fTotal}</strong>${fTotal !== total ? ` de <strong style="color:var(--text-main);">${total}</strong>` : ''} usuario(s)
+                                        &nbsp;·&nbsp; Activos: <strong style="color:#10b981;">${filteredUsers.filter(u=>(u.Estado||'Activo')!=='Inactivo').length}</strong>
+                                        &nbsp;·&nbsp; Inactivos: <strong style="color:#ef4444;">${filteredUsers.filter(u=>u.Estado==='Inactivo').length}</strong>
+                                        &nbsp;·&nbsp; Seguros: <strong style="color:#f59e0b;">${filteredUsers.filter(u=>u.Tiene_Preguntas).length}</strong>
+                                    </td>
+                                    <td colspan="4" class="rep-td" style="font-size:11px;color:var(--text-muted);text-align:right;border-bottom:none;">
+                                        Generado: ${generatedAt}
+                                    </td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
-                </div>
-                `;
+                </div>`;
 
                 contentDetails.innerHTML = html;
 
-                // Bind events
-                document.getElementById('rep-filter-btn').addEventListener('click', () => {
-                    const q = document.getElementById('rep-search').value.toLowerCase();
-                    const r = document.getElementById('rep-role').value;
-                    const s = document.getElementById('rep-status').value;
-
-                    const filtered = users.filter(user => {
-                        const matchesSearch = (user.Nombre_usuario || '').toLowerCase().includes(q);
-                        const matchesRole = r ? (user.Nombre_rol === r) : true;
-                        const matchesStatus = s ? (user.Estado === s) : true;
-                        return matchesSearch && matchesRole && matchesStatus;
+                // ── Event bindings ──
+                function applyFilter() {
+                    const q  = (document.getElementById('rep-search')?.value || '').toLowerCase();
+                    const r  = document.getElementById('rep-role')?.value   || '';
+                    const s  = document.getElementById('rep-status')?.value || '';
+                    const sec = document.getElementById('rep-security')?.value || '';
+                    let list = users.filter(u => {
+                        const matchQ = (u.Nombre_usuario||'').toLowerCase().includes(q)
+                            || (u.Correo||'').toLowerCase().includes(q)
+                            || (u.Nombre_completo||'').toLowerCase().includes(q)
+                            || (u.Trabajador_Nombre||'').toLowerCase().includes(q);
+                        const matchR = r ? u.Nombre_rol === r : true;
+                        const matchS = s ? u.Estado === s : true;
+                        const matchSec = sec ? (sec === 'segura' ? u.Tiene_Preguntas : !u.Tiene_Preguntas) : true;
+                        return matchQ && matchR && matchS && matchSec;
                     });
+                    if (sortCol) {
+                        list = [...list].sort((a, b) => {
+                            let va = a[sortCol];
+                            let vb = b[sortCol];
+                            if (typeof va === 'boolean') {
+                                return sortDir === 'asc' ? (va === vb ? 0 : va ? 1 : -1) : (va === vb ? 0 : va ? -1 : 1);
+                            }
+                            va = (va || '').toString().toLowerCase();
+                            vb = (vb || '').toString().toLowerCase();
+                            return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+                        });
+                    }
+                    renderReportView(list, { q, rol: r, estado: s, seguridad: sec });
+                }
 
-                    renderReportView(filtered, { q, rol: r, estado: s });
+                document.getElementById('rep-filter-btn')?.addEventListener('click', applyFilter);
+                document.getElementById('rep-search')?.addEventListener('keyup', e => { if (e.key === 'Enter') applyFilter(); });
+                document.getElementById('rep-search')?.addEventListener('input', applyFilter);
+                document.getElementById('rep-security')?.addEventListener('change', applyFilter);
+                document.getElementById('rep-role')?.addEventListener('change', applyFilter);
+                document.getElementById('rep-status')?.addEventListener('change', applyFilter);
+
+                document.getElementById('rep-clear-btn')?.addEventListener('click', () => {
+                    sortCol = ''; sortDir = 'asc';
+                    renderReportView(users);
                 });
 
-                // Allow enter key in search
-                document.getElementById('rep-search').addEventListener('keyup', (e) => {
-                    if (e.key === 'Enter') document.getElementById('rep-filter-btn').click();
+                document.getElementById('rep-csv-btn')?.addEventListener('click', () => exportCSV(filteredUsers));
+
+                document.getElementById('rep-print-btn')?.addEventListener('click', () => {
+                    const q      = document.getElementById('rep-search')?.value || '';
+                    const rol    = document.getElementById('rep-role')?.value   || '';
+                    const estado = document.getElementById('rep-status')?.value || '';
+                    const seguridad = document.getElementById('rep-security')?.value || '';
+                    window.open(`/superusuario/admin/users?print=true&q=${encodeURIComponent(q)}&rol=${encodeURIComponent(rol)}&estado=${encodeURIComponent(estado)}&seguridad=${encodeURIComponent(seguridad)}`, '_blank');
                 });
 
-                document.getElementById('rep-print-btn').addEventListener('click', () => {
-                    const q = document.getElementById('rep-search').value;
-                    const rol = document.getElementById('rep-role').value;
-                    const estado = document.getElementById('rep-status').value;
-                    window.open(`/superusuario/admin/users?print=true&q=${encodeURIComponent(q)}&rol=${encodeURIComponent(rol)}&estado=${encodeURIComponent(estado)}`, '_blank');
+                document.querySelectorAll('th[data-sort]').forEach(th => {
+                    th.addEventListener('click', () => {
+                        const col = th.getAttribute('data-sort');
+                        sortDir = (sortCol === col && sortDir === 'asc') ? 'desc' : 'asc';
+                        sortCol = col;
+                        applyFilter();
+                    });
                 });
+            }
+
+            // ── Row builder ──
+            function renderRows(list) {
+                if (list.length === 0) {
+                    return `<tr><td colspan="9" class="rep-td" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px;border-bottom:none;">
+                        <div style="font-size:32px;margin-bottom:8px;">🔍</div>
+                        No se encontraron usuarios con los filtros aplicados.
+                    </td></tr>`;
+                }
+                return list.map((u, idx) => {
+                    const r   = u.Nombre_rol || '';
+                    const cfg = roleConfig[r] || { bg: 'linear-gradient(135deg,#374151,#6b7280)', label: r };
+
+                    const estado      = u.Estado || 'Activo';
+                    const isInactive  = estado === 'Inactivo';
+                    const ultimoAcceso= u.Ultimo_Acceso
+                        ? `<span style="font-family:monospace;font-size:11px;">${u.Ultimo_Acceso}</span>`
+                        : `<span style="color:var(--text-muted);font-style:italic;font-size:11px;">Sin registro</span>`;
+                    const correo = u.Correo
+                        ? `<span style="font-size:12px;">${u.Correo}</span>`
+                        : `<span style="color:var(--text-muted);">—</span>`;
+                    const nombreCompleto = (u.Nombre_completo && u.Nombre_completo !== u.Nombre_usuario)
+                        ? `<span style="font-size:12.5px;">${u.Nombre_completo}</span>`
+                        : `<span style="color:var(--text-muted);">—</span>`;
+                    const tieneVinculo = u.Id_Trabajador && u.Id_Trabajador !== '';
+                    const vinculado = tieneVinculo
+                        ? `<div style="display:flex;align-items:center;gap:5px;">
+                               <span style="width:6px;height:6px;background:#10b981;border-radius:50%;flex-shrink:0;"></span>
+                               <span style="font-size:11.5px;color:var(--text-main);">${u.Trabajador_Nombre || '—'}</span>
+                           </div>`
+                        : `<div style="display:flex;align-items:center;gap:5px;">
+                               <span style="width:6px;height:6px;background:#d1d5db;border-radius:50%;flex-shrink:0;"></span>
+                               <span style="font-size:11px;color:var(--text-muted);font-style:italic;">No vinculado</span>
+                           </div>`;
+
+                    const tienePreguntas = u.Tiene_Preguntas;
+                    const seguridad = tienePreguntas
+                        ? `<div style="display:flex;align-items:center;gap:5px;">
+                               <span style="width:6px;height:6px;background:#10b981;border-radius:50%;flex-shrink:0;box-shadow:0 0 4px #10b981;"></span>
+                               <span style="font-size:11.5px;color:#10b981;font-weight:700;">🔒 Segura</span>
+                           </div>`
+                        : `<div style="display:flex;align-items:center;gap:5px;">
+                               <span style="width:6px;height:6px;background:#ef4444;border-radius:50%;flex-shrink:0;box-shadow:0 0 4px #ef4444;"></span>
+                               <span style="font-size:11.5px;color:#ef4444;font-weight:700;" title="No ha configurado preguntas de seguridad">⚠️ En riesgo</span>
+                           </div>`;
+
+                    const rowBg = idx % 2 === 0
+                        ? 'var(--card-bg)'
+                        : 'color-mix(in srgb,var(--card-bg),var(--bg-color) 55%)';
+
+                    return `
+                        <tr class="rep-tr" style="background:${rowBg};">
+                            <td class="rep-td" style="color:var(--text-muted);font-size:11.5px;text-align:center;width:38px;">${idx + 1}</td>
+                            <td class="rep-td">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary),#fff 30%));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;text-transform:uppercase;">
+                                        ${(u.Nombre_usuario||'?').charAt(0)}
+                                    </div>
+                                    <strong style="font-size:13px;color:var(--text-main);">${u.Nombre_usuario}</strong>
+                                </div>
+                            </td>
+                            <td class="rep-td" style="color:var(--text-main);">${nombreCompleto}</td>
+                            <td class="rep-td" style="color:var(--text-muted);">${correo}</td>
+                            <td class="rep-td">
+                                <span class="rep-badge" style="background:${cfg.bg};">${cfg.label}</span>
+                            </td>
+                            <td class="rep-td">
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <span style="width:7px;height:7px;border-radius:50%;background:${isInactive ? '#ef4444' : '#10b981'};flex-shrink:0;${isInactive ? '' : 'box-shadow:0 0 5px #10b981;'}"></span>
+                                    <span style="font-size:12px;font-weight:700;color:${isInactive ? '#ef4444' : '#10b981'};">${estado}</span>
+                                </div>
+                            </td>
+                            <td class="rep-td">${seguridad}</td>
+                            <td class="rep-td">${vinculado}</td>
+                            <td class="rep-td">${ultimoAcceso}</td>
+                        </tr>`;
+                }).join('');
             }
 
             // Initial render
             renderReportView(users);
 
         } catch (e) {
-            contentDetails.innerHTML = `<p style="color:red">Error cargando reporte: ${e.message}</p>`;
+            contentDetails.innerHTML = `
+                <div style="padding:40px;text-align:center;">
+                    <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+                    <p style="color:#ef4444;font-weight:700;font-size:15px;">Error al cargar el reporte</p>
+                    <p style="color:var(--text-muted);font-size:13px;margin-top:4px;">${e.message}</p>
+                    <button onclick="renderSuperReports()" style="margin-top:16px;background:var(--primary);color:white;padding:10px 22px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-size:13px;">↺ Reintentar</button>
+                </div>`;
         }
     }
+
+
+
 
     // Mostrar usuario y logout
     const auth = sessionUser || {};
     const usernameDisplay = document.getElementById('username-display');
     if (usernameDisplay && auth) usernameDisplay.textContent = auth.username || auth.role || '';
     const logoutBtn = document.getElementById('logout-btn');
+    const logoutForm = document.querySelector('form[action$="logout"]');
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
+    if (logoutForm) logoutForm.addEventListener('submit', logout);
 
     // Cargar vista según rol autenticado (fallback administrativo)
     if (typeof loadRoleView === 'function') {
@@ -4595,3 +6798,423 @@ async function ensureAuthOnShow(event) {
 }
 window.addEventListener('pageshow', ensureAuthOnShow);
 window.addEventListener('popstate', ensureAuthOnShow);
+
+// --- SISTEMA DE AYUDA GLOBAL DENTRO DE CADA MÓDULO Y CAMPO ---
+(function() {
+    const HELP_DICTIONARY = {
+        "nombres": "Escriba los nombres completos del trabajador. Debe contener únicamente letras de la A a la Z, espacios y acentos.",
+        "apellidos": "Escriba los apellidos completos del trabajador. Debe contener únicamente letras de la A a la Z, espacios y acentos.",
+        "documento de identidad": "Introduzca la Cédula de Identidad única del trabajador en formato nacional. Ejemplo: V-12345678.",
+        "fecha de nacimiento": "Seleccione la fecha de nacimiento del trabajador para validar su mayoría de edad y registros legales.",
+        "género": "Indique el género biológico del trabajador para fines de clasificación y reportes.",
+        "estado civil": "Seleccione la situación civil del trabajador (soltero, casado, etc.) requerida para beneficios contractuales.",
+        "correo electrónico": "Correo corporativo del trabajador. Indique la dirección asignada por la compañía o, si no dispone de una propia, use su correo personal.",
+        "teléfono móvil": "Número telefónico principal del trabajador para contacto directo, en caso de no poseer uno propio agregar el de algún familiar cercano para emergencias.",
+        "dirección": "Indique la dirección exacta y completa de domicilio del trabajador para registros de personal.",
+        "cargo": "Seleccione el cargo o rol administrativo que desempeñará el trabajador en la empresa.",
+        "nivel educativo": "Seleccione el grado académico más alto que posea y haya certificado el trabajador.",
+        "fecha de ingreso": "Seleccione la fecha formal de inicio de labores del trabajador. Esta fecha determina su antigüedad laboral.",
+        "tipo de nómina": "Frecuencia de pago asociada al contrato del trabajador (Semanal o Quincenal).",
+        "tipo": "Seleccionar si será asignación, deducción o bonificación.",
+        "estado": "Indique si el trabajador está Activo o Inactivo en el sistema. No se refiere al estado civil.",
+        "observaciones": "Campo opcional para escribir notas de interés, observaciones médicas, contractuales o detalles especiales sobre el trabajador.",
+        "seleccionar trabajador": "Seleccione de la lista al trabajador que va a procesar. Solo se muestran trabajadores activos.",
+        "trabajador asignado": "Seleccione el trabajador que utilizará este usuario. Este campo vincula el usuario al registro laboral correspondiente.",
+        "salario mensual (bs.)": "Monto acordado mensual del trabajador. El sistema lo utilizará para calcular el salario diario promedio (mínimo Bs. 130.00).",
+        "salario base (bs.)": "Monto de sueldo base mensual a partir del cual se calculan los conceptos salariales.",
+        "año de pago": "Seleccione el año de período vacacional devengado y no pagado que se liquidará en esta transacción.",
+        "año de nómina": "El año calendario al que pertenece el período de pago de la nómina.",
+        "días de vacaciones": "Días calculados acumulados por antigüedad para el disfrute de vacaciones (mínimo 15 días + 1 día por cada año adicional, máx. 30).",
+        "días de bono vacacional": "Cantidad de días del bono vacacional de ley a cancelar al trabajador (equivalente a los días de vacaciones ganados).",
+        "fecha de pago": "Seleccione la fecha en que se procesará y hará efectivo el pago del recibo de nómina.",
+        "período de nómina": "Seleccione que semana o quincena del año se usará para calcular las fechas automáticamente.",
+        "desde:": "Fecha inicial que abarca el cálculo de los días trabajados en esta nómina.",
+        "hasta:": "Fecha final de corte que abarca el cálculo de los días trabajados en esta nómina.",
+        "seleccionar concepto": "Seleccione los conceptos que desea aplicar (Asignación y bonificación para sumas y Deducción para restas).",
+        "cantidad": "Multiplicador de unidades auxiliares a aplicar al concepto.",
+        "monto sugerido (bs.)": "Valor sugerido en Bolívares para este concepto, editable según sea necesario.",
+        "código de referencia": "Abreviatura única de contabilidad para identificar este concepto en fórmulas de nómina.",
+        "nombre del concepto": "Nombre descriptivo que aparecerá impreso en el desglose del recibo de pago.",
+        "tipo": "Determine si el concepto suma al neto del trabajador (Asignación), resta (Deducción) o es especial (Bonificación).",
+        "nombre del cargo": "Denominación técnica oficial del cargo en la empresa. Ejemplo: Analista de Sistemas.",
+        "área administrativa": "Seleccione o escriba el departamento o división de la empresa al que pertenece el cargo.",
+        "buscar": "Escriba texto libre (cédula, nombres, período) para realizar búsquedas instantáneas en la tabla inferior.",
+        "año pagado": "Filtre los registros mostrando únicamente los pagos correspondientes al año vacacional seleccionado.",
+        "fecha de registro": "Filtre el historial por la fecha exacta en la que se grabaron las transacciones en el sistema.",
+        "estatus": "Seleccione el estado actual de los recibos (Pendiente de cobro, Publicado al empleado, Anulado).",
+        "ordenar por:": "Permite reorganizar el listado en base a columnas específicas para mejor visualización.",
+        "ordenar:": "Reorganice la lista de cargos de forma ascendente o descendente.",
+        "nombre de usuario": "Introduzca su nombre de usuario tal como fue registrado en el sistema. Distingue entre mayúsculas y minúsculas.",
+        "contraseña": "Clave secreta de acceso. Debe tener al menos 8 caracteres, incluyendo mayúsculas, minúsculas, números y un símbolo especial.",
+        "nueva contraseña": "Establezca su nueva clave de acceso con mínimo 8 caracteres, una mayúscula, una minúscula, un número y un caracter especial.",
+        "confirmar contraseña": "Repita exactamente la nueva contraseña para confirmar que no hubo errores de escritura.",
+        "tipo de permiso": "Seleccione la categoría del permiso solicitado: Personal, Médico, Académico u otro tipo reconocido por la empresa.",
+        "fecha de inicio": "Seleccione el primer día del período de permiso o ausencia solicitado.",
+        "fecha de fin": "Seleccione el último día de la ausencia. El sistema calculará automáticamente el total de días hábiles.",
+        "motivo": "Describa de forma clara y concisa el motivo de la solicitud. Esta información la revisará el administrador.",
+        "descripción": "Proporcione detalles adicionales que justifiquen o complementen la solicitud enviada.",
+        "rol": "Asigne el nivel de acceso del usuario: Trabajador (consultas), Administrativo (nómina) o SuperUsuario (configuración total).",
+        "filtrar por año": "Restrinja el historial para mostrar únicamente los recibos correspondientes al año seleccionado.",
+        "filtrar por estatus": "Muestre solo los registros que coincidan con el estado de pago indicado (Pendiente, Publicado o Anulado).",
+        "período vacacional": "Seleccione el año de período vacacional a liquidar. Solo aparecen períodos pendientes de pago.",
+        "fecha de emisión": "Fecha oficial de emisión del documento o recibo. El sistema la establece automáticamente al procesar.",
+        "salario diario": "Valor calculado automáticamente dividiendo el salario mensual entre 30 días. Base para conceptos diarios.",
+        "total asignaciones": "Suma de todos los conceptos de tipo Asignación o Bonificación incluidos en este período de nómina.",
+        "total deducciones": "Suma de todos los descuentos aplicados al salario bruto del trabajador en este período.",
+        "neto a pagar": "Monto final que recibirá el trabajador: Total Asignaciones menos Total Deducciones.",
+        "buscar trabajador": "Filtre la lista escribiendo nombre, cédula o cargo para localizar rápidamente al empleado deseado.",
+        "filtrar por estado": "Filtre la tabla mostrando solo trabajadores Activos, Inactivos o todos simultáneamente.",
+        "razón de rechazo": "Especifique el motivo oficial por el cual se rechaza la solicitud de permiso o vacaciones del trabajador."
+    };
+
+    const HELP_FIELD_OVERRIDES = {
+        "u-username": "Ingresar nombre de usuario que utilizará el trabajador.",
+        "u-name": "Ingresar nombre real del trabajador al cuál se asignará el usuario.",
+        "u-worker": "Seleccione al trabajador que utilizará este usuario, (solo se pueden escoger trabajadores que aún no posean uno). En caso de obviarse este campo el usuario no contendrá datos personales ni será tomado en cuenta para procesos de nómina.",
+        "u-email": "Correo corporativo del trabajador. Indique la dirección asignada por la compañía o, si no dispone de una propia, use su correo personal.",
+        "w-correo": "Ingresar correo de uso personal del trabajador, en caso de no poseer puede obviarse este campo.",
+        "w-estado": "Seleccionar si el trabajador se encontrará activo (podrá ser tomado en cuenta para procesos de nómina) o inactivo (No existe una relación laboral confirmada con este trabajador)."
+    };
+
+    const MODULE_FIELD_HELP_OVERRIDES = {
+        "mi perfil": {
+            "correo electrónico": "Correo electrónico de uso personal.",
+            "cargo asignado": "Cargo que posee actualmente.",
+            "fecha de ingreso": "Fecha exacta del inicio de sus operaciones en la empresa.",
+            "dirección de habitación": "Dirección en dónde habita actualmente.",
+            "teléfono": "Teléfono de uso personal o de emergencia.",
+            "cédula de identidad": "Documento de identidad único y personal."
+        },
+        "panel de vacaciones": {
+            "fecha de ingreso": "Fecha de inicio de la relación laboral, debe ser superior a un año.",
+            "fecha_ingreso": "Fecha de inicio de la relación laboral, debe ser superior a un año."
+        },
+        "solicitud de vacaciones": {
+            "fecha de ingreso": "Fecha de inicio de la relación laboral, debe ser superior a un año.",
+            "fecha_ingreso": "Fecha de inicio de la relación laboral, debe ser superior a un año."
+        },
+        "pago de vacaciones": {
+            "fecha de ingreso": "Fecha de inicio de la relación laboral, debe ser superior a un año.",
+            "fecha_ingreso": "Fecha de inicio de la relación laboral, debe ser superior a un año."
+        }
+    };
+
+    const MODULE_HELP_DICTIONARY = {
+        "Registro de Trabajadores": {
+            title: "Ayuda: Registro de Trabajadores",
+            intro: "Administre el ciclo de vida del personal de la empresa. Registre nuevos trabajadores, actualice sus datos y gestione su estado laboral.",
+            steps: [
+                "**Registrar Nuevo Trabajador**: Haga clic en 'Registrar Nuevo Trabajador' y complete los datos biográficos (nombres, cédula, fecha de nacimiento), académicos (nivel educativo) y contractuales (cargo, tipo de nómina, fecha de ingreso).",
+                "**Editar Datos**: Haga clic en editar para abrir el formulario de edición y actualizar cualquier campo del trabajador.",
+                "**Activar / Desactivar**: Use el botón de estado para activar o desactivar un trabajador. Los inactivos no aparecen en los selectores de nómina y vacaciones."
+            ]
+        },
+        "Gestionar Personal": {
+            title: "Ayuda: Gestión de Personal",
+            intro: "Este módulo le permite administrar el ciclo de vida del talento humano en la organización de forma segura y estructurada.",
+            steps: [
+                "**Registrar Personal**: Haga clic en 'Registrar Nuevo Trabajador' para abrir el formulario y complete minuciosamente la ficha biográfica, académica y contractual del empleado.",
+                "**Editar y Actualizar**: Utilice la acción 'Editar' para corregir información preexistente o registrar ascensos y cambios de nómina.",
+                "**Desactivar/Activar**: Utilice el botón correspondiente para gestionar el estado del trabajador; al desactivarse, sus pagos automáticos de nómina se suspenderán."
+            ]
+        },
+        "Panel de Vacaciones": {
+            title: "Ayuda: Panel de Vacaciones (Administrador)",
+            intro: "Gestione el descanso legal de su plantilla laboral de manera controlada y precisa en base a la antigüedad y la ley vigente.",
+            steps: [
+                "**Solicitudes Recibidas**: En la pestaña 'Solicitudes' puede auditar las peticiones de los trabajadores, aprobándolas, rechazándolas con motivo de rechazo o revirtiendo decisiones.",
+                "**Procesar Pagos**: En la pestaña 'Pagos', presione 'Crear Nuevo Pago de Vacaciones', seleccione un trabajador y un año pendiente. El sistema autocalculará sus días correspondientes de vacaciones y su bono vacacional.",
+                "**Control de Historial**: En el historial inferior puede 'Publicar' recibos de pago (haciéndolos visibles al empleado), 'Anular' recibos inválidos, o 'Revertir' a pendiente los procesados hace menos de 24 horas."
+            ]
+        },
+        "Pago de Nómina": {
+            title: "Ayuda: Pago de Nómina",
+            intro: "Prepare, calcule y registre los pagos de nómina semanales o quincenales del personal activo de la empresa.",
+            steps: [
+                "**Seleccionar Tipo de nómina**: Especifique que tipo de nómina desea procesar (Sólo semanal, sólo mensual o todos).",
+                "**Seleccionar Trabajador**: Elija el trabajador activo desde el selector superior. Solo aparecen empleados activos con nómina configurada.",
+                "**Configurar Período**: Seleccione el periodo que desea pagar entre los disponibles para cada trabajador (Dicho periodo determinará la fecha de inicio y fecha fin).",
+                "**Agregar Conceptos**: Busque y añada asignaciones (Días trabajados o bonos) y deducciones (Días no laborados, etc). Ingrese la cantidad de unidades auxiliares para cada uno.",
+                "**Resumen de Nómina**: Revise el total de asignaciones, deducciones y neto a pagar antes de confirmar. El cálculo es en tiempo real.",
+                "**Confirmar Pago**: Presione 'Confirmar y procesar pago'. El recibo quedará en estado 'Pendiente' en el historial y podrá ser publicado o anulado luego.",
+                "**Historial**: En la pestaña 'Ver recibos' puede buscar, filtrar, publicar, anular o revertir recibos. Use la selección múltiple para acciones masivas."
+            ]
+        },
+        "Panel de Permisos": {
+            title: "Ayuda: Panel de Permisos (Administrador)",
+            intro: "Revise y resuelva las solicitudes de permisos laborales del personal. Apruebe ausencias justificadas o recháce las que no cumplan los criterios.",
+            steps: [
+                "**Revisar Solicitudes**: La tabla muestra todas las solicitudes recibidas con su trabajador solicitante, fechas y motivo declarado.",
+                "**Aprobar Permiso**: Haga clic en 'Aprobar' en la columna Acciones para autorizar la ausencia del trabajador en el período indicado y luego seleccione si dicha ausencia debe ser o no remunerada.",
+                "**Rechazar con Motivo**: Al rechazar, el sistema solicita una razón oficial que se comunicará al trabajador.",
+                "**Filtros**: Use los filtros por tipo de permiso, estado (Pendiente, Aprobado, Rechazado) o fecha para gestionar grandes volúmenes de solicitudes."
+            ]
+        },
+        "Gestión de Conceptos": {
+            title: "Ayuda: Gestión de Conceptos de Nómina",
+            intro: "Administre el catálogo de conceptos de nómina. Un concepto es cualquier ítem que suma (asignación) o resta (deducción) del salario del trabajador.",
+            steps: [
+                "**Crear Concepto**: Presione 'Nuevo Concepto', asigne un código único (ej: HEX), un nombre descriptivo (ej: 'Horas Extras'), seleccione el tipo (Asignación/Deducción/Bonificación) y el monto base.",
+                "**Conceptos Diarios**: Los conceptos basados en días (Dias laborados, Días no laborados) calculan su monto automáticamente con el salario diario del trabajador.",
+                "**Editar Concepto**: Haga clic en el ícono de edición para modificar nombre, tipo o monto. Los cambios solo afectan recibos futuros.",
+                "**Desactivar**: Use el botón de desactivar para que un concepto ya no sea utilizable en pagos futuros"
+            ]
+        },
+        "Gestión de Nóminas": {
+            title: "Ayuda: Gestión y Procesamiento de Nóminas",
+            intro: "Prepare y liquide periódicamente las obligaciones salariales semanales o quincenales de la organización.",
+            steps: [
+                "**Creación de Recibo**: Seleccione un trabajador activo, asigne el tipo de nómina e indique las fechas Desde/Hasta correspondientes.",
+                "**Adición de Conceptos**: Agregue asignaciones (como horas extras) o deducciones (como inasistencias o impuestos) especificando el multiplicador de cantidad.",
+                "**Procesamiento**: Presione 'Confirmar y procesar pago' para archivar el recibo en el historial con estado 'Pendiente'."
+            ]
+        },
+        "Historial de Nómina": {
+            title: "Ayuda: Historial de Nóminas Procesadas",
+            intro: "Controle y audite todos los recibos de nómina emitidos y su estado actual.",
+            steps: [
+                "**Visualización y PDF**: Presione 'Previsualizar recibo' para abrir o descargar el desglose de nómina en formato PDF.",
+                "**Acciones Masivas**: Utilice las casillas de verificación para procesar de forma masiva la aprobación, anulación o reversión de múltiples recibos elegibles simultáneamente."
+            ]
+        },
+        "Gestión de Cargos": {
+            title: "Ayuda: Gestión de Cargos y Áreas",
+            intro: "Defina la estructura organizativa de la empresa catalogando roles y departamentos.",
+            steps: [
+                "**Nuevo Cargo**: Cree nombres de profesión oficiales vinculándolos a un departamento o área administrativa.",
+                "**Control de Estado**: Habilite o deshabilite cargos. Los cargos inactivos no se mostrarán en la ficha de nuevos trabajadores."
+            ]
+        },
+        "Gestión de Cargos": {
+            title: "Ayuda: Gestión de Cargos y Areas",
+            intro: "Defina la estructura organizativa de la empresa catalogando roles y departamentos a los que pertenecen.",
+            steps: [
+                "**Nuevo Cargo**: Ingrese el nombre oficial del cargo (ej: Analista) y seleccione el area administrativa correspondiente (ej: Tecnologia). Se sugiere nombrar los cargos con información sobre el área al que pertenece (ej: Analista de Sistemas) para evitar errores por duplicidad.",
+                "**Area Administrativa**: Si el area no existe aún, escríbala directamente en el campo. El sistema la registrara automaticamente.",
+                "**Habilitar/Deshabilitar**: Los cargos inactivos no apareceran en el formulario de registro de nuevos trabajadores. Puede desactivar un area para desactivar todos los cargos asociados a ella. (Solo se pueden desactivar cargos que no estén asignados a ningún trabajador.",
+                "**Ver trabajadores**: Podrá visualizar los trabajadores que posean un cargo en específico."
+            ]
+        },
+        "Mi Perfil": {
+            title: "Ayuda: Mi Perfil",
+            intro: "Visualice de manera clara e integral su informacion personal, academica y de nomina registrada en la empresa.",
+            steps: [
+                "**Verificacion de Datos**: Revise detenidamente su Cedula, Nombre, Telefono, Direccion y fecha de ingreso.",
+                "**Datos Contractuales**: Confirme que su cargo, fecha de ingreso y datos registrados coincidan con su contrato laboral.",
+                "**Reportar Errores**: Si detecta alguna inconsistencia en sus datos, notifique de inmediato a un administrador para su corrección."
+            ]
+        },
+        "Historial de Pagos y Recibos": {
+            title: "Ayuda: Historial de Pagos y Recibos",
+            intro: "Consulte todos sus recibos de pago de nomina emitidos por la empresa y publicados.",
+            steps: [
+                "**Ver Recibo**: Haga clic en el icono de PDF para visualizar o descargar el desglose completo de un pago especifico.",
+                "**Buscar recibos**: Use la barra de busqueda para localizar un recibo en específico.",
+            ]
+        },
+        "Solicitud de Vacaciones": {
+            title: "Ayuda: Solicitud de Vacaciones",
+            intro: "Modulo de autogestion para planificar y consultar sus vacaciones anuales acumuladas por ley.",
+            steps: [
+                "**Verificar Elegibilidad**: Solo puede solicitar vacaciones si ha cumplido al menos 1 año continuo de servicio en la empresa.",
+                "**Consultar Periodos**: Presione Ver periodos disponibles para auditar que años vacacionales ya disfruto y cuales tiene pendientes.",
+                "**Nueva Solicitud**: Ingrese la fecha de inicio deseada y presione Enviar Solicitud al Administrador para iniciar el flujo de aprobacion.",
+                "**Historial de Pagos**: En la pestana Pagos puede visualizar y descargar en PDF los recibos de pago vacacionales que el administrador haya publicado.",
+                "**Estado de Solicitud**: Espere la respuesta del administrador. Recibirá notificacion de aprobacion o rechazo con motivo en este mismo modulo."
+            ]
+        },
+        "Solicitud de Permisos": {
+            title: "Ayuda: Solicitud de Permisos",
+            intro: "Solicite permisos de ausencia laboral. Su administrador revisara y aprobara o rechazara la solicitud.",
+            steps: [
+                "**Crear Solicitud**: Haga click en Nueva solicitud, indique las fechas de inicio y fin y escriba el motivo de forma clara y detallada.",
+                "**Documentacion**: Para permisos medicos o academicos, se sugiere tener a mano documentacion de respaldo que pueda solicitarle el administrador.",
+                "**Seguimiento**: Consulte el estado de sus solicitudes en la tabla de historial. Los estados posibles son: Pendiente, Aprobado o Rechazado.",
+            ]
+        },
+        "Gestion de Usuarios y Roles": {
+            title: "Ayuda: Gestion de Usuarios y Roles",
+            intro: "Panel de control total del sistema. Permite crear, editar, activar o desactivar usuarios y asignar roles de acceso al sistema de nominas.",
+            steps: [
+                "Dar click en 'Nuevo usuario' o 'editar' según sea el caso.",
+                "Llenar los campos necesarios.",
+                "Dar click en 'Guardar datos'.",
+                "El botón 'Desactivar' suspende el acceso de un determinado usuario hasta que este vuelva a reactivarse."
+            ]
+        },
+        "Gestión de Usuarios y Roles": {
+            title: "Ayuda: Gestion de Usuarios y Roles",
+            intro: "Panel de control total del sistema. Permite crear, editar, activar o desactivar usuarios y asignar roles de acceso al sistema de nominas.",
+            steps: [
+                "Dar click en 'Nuevo usuario' o 'editar' según sea el caso.",
+                "Llenar los campos necesarios.",
+                "Dar click en 'Guardar datos'.",
+                "El botón 'Desactivar' suspende el acceso de un determinado usuario hasta que este vuelva a reactivarse."
+            ]
+        },
+        "Generar Reportes de Usuario": {
+            title: "Ayuda: Generacion de Reportes de Usuario",
+            intro: "Genere reportes consolidados del sistema para auditoria, control de gestion o presentacion a gerencia.",
+            steps: [
+                "Señalar los datos que se requieren para el reporte.",
+                "Dar click en 'Filtrar'.",
+                "Dar click en 'Imprimir PDF'."
+            ]
+        }
+    };
+
+    let _lastHelpModule = null;
+    function injectHelpSystem() {
+        // 1. Inyectar/actualizar botón de Ayuda de Módulo en la cabecera
+        const contentHeader = document.getElementById('content-header');
+        if (contentHeader) {
+            const moduleName = window.currentActiveModule || "";
+            // Remove stale button if module changed
+            if (moduleName !== _lastHelpModule) {
+                const staleBtn = contentHeader.querySelector('#module-help-btn');
+                if (staleBtn) staleBtn.remove();
+                _lastHelpModule = moduleName;
+            }
+
+            if (moduleName && MODULE_HELP_DICTIONARY[moduleName]) {
+                let existingBtn = contentHeader.querySelector('#module-help-btn');
+                if (!existingBtn) {
+                    const h4 = contentHeader.querySelector('h4');
+                    if (h4) {
+                        h4.style.display = 'inline-flex';
+                        h4.style.alignItems = 'center';
+                        h4.style.gap = '10px';
+                        h4.style.flexWrap = 'wrap';
+                        
+                        const btn = document.createElement('button');
+                        btn.id = 'module-help-btn';
+                        btn.setAttribute('data-module', moduleName);
+                        btn.style.padding = '5px 14px';
+                        btn.style.fontSize = '0.78rem';
+                        btn.style.borderRadius = '20px';
+                        btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                        btn.style.color = '#fff';
+                        btn.style.border = 'none';
+                        btn.style.cursor = 'pointer';
+                        btn.style.fontWeight = '700';
+                        btn.style.display = 'inline-flex';
+                        btn.style.alignItems = 'center';
+                        btn.style.gap = '5px';
+                        btn.style.boxShadow = '0 3px 10px rgba(16, 185, 129, 0.3)';
+                        btn.style.transition = 'all 0.2s ease';
+                        btn.style.letterSpacing = '0.3px';
+                        btn.style.whiteSpace = 'nowrap';
+                        btn.title = 'Ver guia de uso de este modulo';
+                        
+                        btn.innerHTML = `
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            Ayuda
+                        `;
+                        
+                        btn.addEventListener('mouseenter', () => {
+                            btn.style.transform = 'translateY(-1px)';
+                            btn.style.boxShadow = '0 5px 15px rgba(16, 185, 129, 0.4)';
+                        });
+                        btn.addEventListener('mouseleave', () => {
+                            btn.style.transform = 'translateY(0)';
+                            btn.style.boxShadow = '0 3px 10px rgba(16, 185, 129, 0.3)';
+                        });
+                        
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const info = MODULE_HELP_DICTIONARY[btn.getAttribute('data-module')] || MODULE_HELP_DICTIONARY[moduleName];
+                            if (!info) return;
+                            showModal({
+                                type: 'info',
+                                title: info.title,
+                                html: `
+                                    <div style="text-align: left; color: var(--text-main); font-size: 0.95rem; line-height: 1.7;">
+                                        <p style="margin-top:0; font-weight:600; padding: 12px; background: rgba(16,185,129,0.08); border-radius: 8px; border-left: 3px solid #10b981;">${info.intro}</p>
+                                        <div style="margin: 12px 0 0 0;">
+                                            <span style="font-weight:700; display:block; margin-bottom:10px; font-size:0.82rem; text-transform:uppercase; letter-spacing:0.6px; color:#10b981;">Como usar este modulo:</span>
+                                            <ul style="margin:0; padding-left:18px; list-style: none;">
+                                                ${info.steps.map((s, i) => `<li style="margin-bottom:10px; padding: 8px 10px; background: rgba(0,0,0,0.02); border-radius: 6px; display: flex; gap: 8px; align-items: flex-start;"><span style="color:#10b981; font-weight:800; font-size:0.85rem; min-width:18px;">${i+1}.</span><span>${s.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</span></li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                `
+                            });
+                        });
+                        h4.appendChild(btn);
+                    }
+                }
+            }
+        }
+
+        // 2. Inyectar botones de ayuda [?] en CADA campo (etiqueta <label>)
+        const labels = document.querySelectorAll('label:not(.help-attached):not(.checkbox-container)');
+        labels.forEach(lbl => {
+            if (lbl.closest('[id*="filter"], [class*="filter"], [id*="f-"], [class*="f-"]')) return;
+            const rawText = lbl.textContent.replace('*', '').trim().toLowerCase();
+            const associatedInput = lbl.parentElement ? lbl.parentElement.querySelector('input[id], select[id], textarea[id]') : null;
+            const fieldId = associatedInput ? associatedInput.id : null;
+            const overrideText = fieldId ? HELP_FIELD_OVERRIDES[fieldId] : null;
+            const moduleNameKey = (window.currentActiveModule || '').toString().trim().toLowerCase();
+            const moduleOverrides = MODULE_FIELD_HELP_OVERRIDES[moduleNameKey] || {};
+            const moduleOverrideText = moduleOverrides[fieldId] || moduleOverrides[rawText] || null;
+            const dictKey = Object.keys(HELP_DICTIONARY).find(k => k === rawText) || Object.keys(HELP_DICTIONARY).find(k => rawText.startsWith(k) || k.startsWith(rawText));
+            const helpText = overrideText || moduleOverrideText || (dictKey ? HELP_DICTIONARY[dictKey] : null);
+            
+            if (helpText) {
+                lbl.classList.add('help-attached');
+                lbl.style.display = 'inline-flex';
+                lbl.style.alignItems = 'center';
+                lbl.style.gap = '6px';
+                lbl.style.flexWrap = 'wrap';
+
+                const helpBadge = document.createElement('span');
+                helpBadge.className = 'help-field-badge';
+                helpBadge.style.display = 'inline-flex';
+                helpBadge.style.alignItems = 'center';
+                helpBadge.style.justifyContent = 'center';
+                helpBadge.style.width = '15px';
+                helpBadge.style.height = '15px';
+                helpBadge.style.borderRadius = '50%';
+                helpBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+                helpBadge.style.color = '#10b981';
+                helpBadge.style.fontSize = '10px';
+                helpBadge.style.fontWeight = 'bold';
+                helpBadge.style.cursor = 'pointer';
+                helpBadge.style.transition = 'all 0.2s';
+                helpBadge.style.userSelect = 'none';
+                helpBadge.textContent = '?';
+                helpBadge.title = 'Click para ayuda sobre este campo';
+
+                helpBadge.addEventListener('mouseenter', () => {
+                    helpBadge.style.background = '#10b981';
+                    helpBadge.style.color = '#fff';
+                });
+                helpBadge.addEventListener('mouseleave', () => {
+                    helpBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+                    helpBadge.style.color = '#10b981';
+                });
+
+                helpBadge.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const cleanTitle = lbl.textContent.replace('?', '').replace('*', '').trim();
+                    showModal({
+                        type: 'info',
+                        title: `Ayuda: ${cleanTitle}`,
+                        html: `
+                            <div style="text-align: left; color: var(--text-main); font-size: 0.95rem; line-height: 1.6;">
+                                <p style="margin: 0; font-weight: 500;">${helpText}</p>
+                            </div>
+                        `
+                    });
+                });
+
+                lbl.appendChild(helpBadge);
+            }
+        });
+    }
+
+    // Ejecutar inmediatamente y registrar intervalos para capturar renderizados dinámicos
+    setInterval(injectHelpSystem, 600);
+})();

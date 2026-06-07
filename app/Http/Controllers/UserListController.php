@@ -8,7 +8,7 @@ class UserListController extends Controller
 {
     public function index(Request $request)
     {
-        $query = User::with('trabajador');
+        $query = User::with('trabajador')->withCount('respuestasSeguridad');
 
         if ($request->filled('q')) {
             $q = $request->q;
@@ -23,7 +23,6 @@ class UserListController extends Controller
         }
 
         if ($request->filled('rol')) {
-            // Mapeo inverso de nombre a ID
             $rolesMap = ['administrativo' => 1, 'trabajador' => 2, 'superusuario' => 3];
             $roleId = $rolesMap[strtolower($request->rol)] ?? null;
             if ($roleId) {
@@ -35,6 +34,14 @@ class UserListController extends Controller
             $query->where('Estado', $request->estado);
         }
 
+        if ($request->filled('seguridad')) {
+            if ($request->seguridad === 'segura') {
+                $query->has('respuestasSeguridad');
+            } elseif ($request->seguridad === 'riesgo') {
+                $query->doesntHave('respuestasSeguridad');
+            }
+        }
+
         $users = $query->get();
 
         if ($request->ajax() || $request->wantsJson()) {
@@ -42,16 +49,42 @@ class UserListController extends Controller
         }
 
         if ($request->has('print')) {
+            // Enriquecer con la última sesión real para la vista de impresión
+            $userIds     = $users->pluck('Id_Usuario')->all();
+            $lastSessions = \DB::table('sessions')
+                ->whereIn('user_id', $userIds)
+                ->select('user_id', \DB::raw('MAX(last_activity) as last_activity'))
+                ->groupBy('user_id')
+                ->pluck('last_activity', 'user_id');
+
+            $users->each(function($user) use ($lastSessions) {
+                $ts = $lastSessions[$user->Id_Usuario] ?? null;
+                $user->lastLoginAt = $ts ? \Carbon\Carbon::createFromTimestamp($ts) : null;
+            });
+
             return view('superusuario.report', compact('users'));
         }
 
         return view('admin.users', compact('users'));
     }
 
+
     public function getUsers()
     {
-        $users = User::with('trabajador')->get();
-        return response()->json(['users' => $this->formatUsers($users)]);
+        $users = User::with('trabajador')->withCount('respuestasSeguridad')->get();
+
+        // Obtener la última sesión real de cada usuario desde la tabla sessions
+        $userIds = $users->pluck('Id_Usuario')->all();
+        $lastSessions = \DB::table('sessions')
+            ->whereIn('user_id', $userIds)
+            ->select('user_id', \DB::raw('MAX(last_activity) as last_activity'))
+            ->groupBy('user_id')
+            ->pluck('last_activity', 'user_id');
+
+        return response()->json([
+            'users'        => $this->formatUsers($users, $lastSessions),
+            'generated_at' => now()->toISOString(),
+        ]);
     }
 
     public function store(Request $request)
@@ -82,6 +115,8 @@ class UserListController extends Controller
             'Estado' => 'Activo',
         ]);
 
+        \App\Models\SystemLog::write('Gestión de Usuarios', "Se ha creado el usuario '{$user->Nombre_usuario}' con rol '{$validated['role']}'.");
+
         return response()->json(['message' => 'Usuario creado exitosamente', 'user' => $user]);
     }
 
@@ -110,6 +145,8 @@ class UserListController extends Controller
         $user->Id_Trabajador = ($request->filled('Id_Trabajador') && $request->Id_Trabajador !== '') ? $request->Id_Trabajador : null;
         $user->save();
 
+        \App\Models\SystemLog::write('Gestión de Usuarios', "Se ha actualizado la información del usuario '{$user->Nombre_usuario}'.");
+
         return response()->json(['message' => 'Usuario actualizado exitosamente']);
     }
 
@@ -118,6 +155,7 @@ class UserListController extends Controller
         $user = User::findOrFail($id);
         $user->Estado = 'Activo';
         $user->save();
+        \App\Models\SystemLog::write('Gestión de Usuarios', "Se ha activado al usuario '{$user->Nombre_usuario}'.");
         return response()->json(['message' => 'Usuario activado']);
     }
 
@@ -126,6 +164,7 @@ class UserListController extends Controller
         $user = User::findOrFail($id);
         $user->Estado = 'Inactivo';
         $user->save();
+        \App\Models\SystemLog::write('Gestión de Usuarios', "Se ha desactivado al usuario '{$user->Nombre_usuario}'.");
         return response()->json(['message' => 'Usuario desactivado']);
     }
 
@@ -148,23 +187,32 @@ class UserListController extends Controller
         return response()->json(['message' => 'SuperUsuario creado', 'username' => 'superadmin', 'password' => $tempPass]);
     }
 
-    private function formatUsers($users)
+    private function formatUsers($users, $lastSessions = [])
     {
-        return $users->map(function($user) {
+        return $users->map(function($user) use ($lastSessions) {
+            $lastActivity = $lastSessions[$user->Id_Usuario] ?? null;
+            $ultimoAcceso = $lastActivity
+                ? \Carbon\Carbon::createFromTimestamp($lastActivity)->format('d/m/Y H:i')
+                : null;
+
             return [
-                'Id_Usuario' => $user->Id_Usuario,
-                'Nombre_usuario' => $user->Nombre_usuario,
-                'raw_username' => $user->Nombre_usuario,
-                'Nombre_completo' => $user->name, // Usa el accessor que creamos
-                'Correo' => $user->Correo,
-                'Nombre_rol' => [
+                'Id_Usuario'      => $user->Id_Usuario,
+                'Nombre_usuario'  => $user->Nombre_usuario,
+                'raw_username'    => $user->Nombre_usuario,
+                'Nombre_completo' => $user->name,
+                'Correo'          => $user->Correo,
+                'Nombre_rol'      => [
                     'administrativo' => 'Administrativo',
-                    'trabajador' => 'Trabajador',
-                    'superusuario' => 'SuperUsuario'
-                ][$user->role] ?? ucfirst($user->role),
-                'Estado' => $user->Estado ?? 'Activo',
-                'Id_Trabajador' => $user->Id_Trabajador,
-                'Trabajador_Nombre' => $user->trabajador ? ($user->trabajador->Nombre_Completo . ' ' . $user->trabajador->Apellidos) : '—',
+                    'trabajador'     => 'Trabajador',
+                    'superusuario'   => 'SuperUsuario',
+                ][strtolower($user->role)] ?? ucfirst($user->role),
+                'Estado'          => $user->Estado ?? 'Activo',
+                'Id_Trabajador'   => $user->Id_Trabajador,
+                'Trabajador_Nombre' => $user->trabajador
+                    ? ($user->trabajador->Nombre_Completo . ' ' . $user->trabajador->Apellidos)
+                    : '—',
+                'Ultimo_Acceso'   => $ultimoAcceso,
+                'Tiene_Preguntas' => ($user->respuestas_seguridad_count ?? $user->respuestasSeguridad()->count()) > 0,
             ];
         });
     }

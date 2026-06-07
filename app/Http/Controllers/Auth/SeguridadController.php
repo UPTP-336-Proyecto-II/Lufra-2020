@@ -39,10 +39,13 @@ class SeguridadController extends Controller
             'pregunta_id' => 'required|exists:preguntas_seguridad,id',
             'respuesta' => 'required|string|max:255',
             'current_password' => 'required|string',
+            'new_password' => 'nullable|string|min:8|confirmed',
         ], [
             'pregunta_id.required' => 'Debe seleccionar una pregunta de seguridad.',
             'respuesta.required' => 'Debe ingresar una respuesta.',
-            'current_password.required' => 'La contraseña actual es obligatoria para verificar tu identidad.'
+            'current_password.required' => 'La contraseña actual es obligatoria para verificar tu identidad.',
+            'new_password.min' => 'La nueva contraseña debe tener al menos 8 caracteres.',
+            'new_password.confirmed' => 'La confirmación de la nueva contraseña no coincide.'
         ]);
 
         $usuario = Auth::user();
@@ -53,7 +56,66 @@ class SeguridadController extends Controller
 
         // Verificar la contraseña actual
         if (!Hash::check($request->current_password, $usuario->Contraseña)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'errors' => ['current_password' => ['La contraseña ingresada es incorrecta.']]
+                ], 422);
+            }
             return redirect()->back()->withErrors(['current_password' => 'La contraseña ingresada es incorrecta.'])->withInput();
+        }
+
+        // Si desea cambiar la contraseña
+        if ($request->filled('new_password')) {
+            $newPassword = $request->new_password;
+
+            // 1. Verificar si coincide con la contraseña actual
+            if (Hash::check($newPassword, $usuario->Contraseña)) {
+                $errorResponse = ['errors' => ['new_password' => ['No puedes establecer esta contraseña porque ya la utilizaste recientemente.']]];
+                if ($request->expectsJson()) {
+                    return response()->json($errorResponse, 422);
+                }
+                return redirect()->back()->withErrors($errorResponse['errors'])->withInput();
+            }
+
+            // 2. Verificar contra el historial de contraseñas
+            $history = DB::table('password_history')
+                ->where('user_id', $usuario->Id_Usuario)
+                ->orderBy('id', 'desc')
+                ->take(9)
+                ->get();
+
+            foreach ($history as $record) {
+                if (Hash::check($newPassword, $record->password_hash)) {
+                    $errorResponse = ['errors' => ['new_password' => ['No puedes establecer esta contraseña porque ya la utilizaste recientemente.']]];
+                    if ($request->expectsJson()) {
+                        return response()->json($errorResponse, 422);
+                    }
+                    return redirect()->back()->withErrors($errorResponse['errors'])->withInput();
+                }
+            }
+
+            // 3. Guardar la contraseña actual en el historial
+            // Asegurar que la tabla de historial exista
+            if (!DB::getSchemaBuilder()->hasTable('password_history')) {
+                \Illuminate\Support\Facades\Schema::create('password_history', function ($table) {
+                    $table->increments('id');
+                    $table->integer('user_id');
+                    $table->string('password_hash');
+                    $table->timestamp('created_at')->useCurrent();
+                });
+            }
+
+            DB::table('password_history')->insert([
+                'user_id' => $usuario->Id_Usuario,
+                'password_hash' => $usuario->Contraseña,
+                'created_at' => now(),
+            ]);
+
+            // 4. Actualizar la contraseña
+            $usuario->Contraseña = Hash::make($newPassword);
+            $usuario->save();
+
+            \App\Models\SystemLog::write('Cambio de Contraseña', "El usuario '{$usuario->Nombre_usuario}' ha actualizado su contraseña desde el panel de seguridad.");
         }
 
         // Limpiamos y encriptamos la respuesta ya que el validador usa Hash::check
@@ -74,8 +136,40 @@ class SeguridadController extends Controller
             ]
         );
 
-        // Redirigimos de vuelta a la misma pantalla con el aviso de éxito en verde
-        return redirect()->back()->with('success', '¡Configuración de seguridad guardada con éxito!');
+        \App\Models\SystemLog::write('Preguntas de Seguridad', "El usuario '{$usuario->Nombre_usuario}' ha actualizado sus parámetros de seguridad (preguntas secretas).");
+
+        // Redirigimos al panel principal del usuario tras guardar correctamente
+        if ($request->expectsJson()) {
+            $redirectUrl = route('trabajador.dashboard');
+            if (strtolower($usuario->role) === 'superusuario') {
+                $redirectUrl = route('superusuario.dashboard');
+            } elseif (strtolower($usuario->role) === 'administrativo') {
+                $redirectUrl = route('administrativo.dashboard');
+            }
+            return response()->json([
+                'success' => true,
+                'message' => '¡Configuración de seguridad guardada con éxito!',
+                'redirect' => $redirectUrl
+            ]);
+        }
+
+        return $this->redirectUserToPanel($usuario)->with('success', '¡Configuración de seguridad guardada con éxito!');
+    }
+
+    /**
+     * Redirige al usuario al panel correcto según su rol.
+     */
+    private function redirectUserToPanel($usuario)
+    {
+        switch (strtolower($usuario->role)) {
+            case 'superusuario':
+                return redirect()->route('superusuario.dashboard');
+            case 'administrativo':
+                return redirect()->route('administrativo.dashboard');
+            case 'trabajador':
+            default:
+                return redirect()->route('trabajador.dashboard');
+        }
     }
 
     /**
@@ -164,8 +258,49 @@ class SeguridadController extends Controller
         $usuario = User::where('Correo', $email)->first();
 
         if ($usuario) {
+            // Asegurar que la tabla de historial exista
+            if (!DB::getSchemaBuilder()->hasTable('password_history')) {
+                \Illuminate\Support\Facades\Schema::create('password_history', function ($table) {
+                    $table->increments('id');
+                    $table->integer('user_id');
+                    $table->string('password_hash');
+                    $table->timestamp('created_at')->useCurrent();
+                });
+            }
+
+            // 1. Verificar si coincide con la contraseña actual (la última usada)
+            if (Hash::check($request->password, $usuario->Contraseña)) {
+                return response()->json([
+                    'message' => 'No puedes establecer esta contraseña porque ya la utilizaste recientemente'
+                ], 422);
+            }
+
+            // 2. Verificar contra las últimas 9 contraseñas guardadas en el historial (en total suman 10)
+            $history = DB::table('password_history')
+                ->where('user_id', $usuario->Id_Usuario)
+                ->orderBy('id', 'desc')
+                ->take(9)
+                ->get();
+
+            foreach ($history as $record) {
+                if (Hash::check($request->password, $record->password_hash)) {
+                    return response()->json([
+                        'message' => 'No puedes establecer esta contraseña porque ya la utilizaste recientemente'
+                    ], 422);
+                }
+            }
+
+            // Guardar la contraseña anterior en el historial antes de actualizarla
+            DB::table('password_history')->insert([
+                'user_id' => $usuario->Id_Usuario,
+                'password_hash' => $usuario->Contraseña,
+                'created_at' => now(),
+            ]);
+
             $usuario->Contraseña = Hash::make($request->password);
             $usuario->save();
+
+            \App\Models\SystemLog::write('Recuperación de Contraseña', "El usuario '{$usuario->Nombre_usuario}' ha restablecido su contraseña de forma autónoma.");
 
             Session::forget('reset_email');
 
@@ -205,6 +340,8 @@ class SeguridadController extends Controller
         $usuario->Contraseña = Hash::make($request->password);
         $usuario->save();
 
+        \App\Models\SystemLog::write('Restablecer Clave (Admin)', "El administrador '" . Auth::user()->Nombre_usuario . "' restableció la contraseña del usuario '{$usuario->Nombre_usuario}' (ID: {$usuario->Id_Usuario}).");
+
         return response()->json(['message' => 'Contraseña restablecida con éxito por el Administrador.']);
     }
 
@@ -217,8 +354,13 @@ class SeguridadController extends Controller
             return response()->json(['message' => 'Acción no autorizada.'], 403);
         }
 
+        $usuarioAfectado = User::find($id);
+        $nombreAfectado = $usuarioAfectado ? $usuarioAfectado->Nombre_usuario : "ID $id";
+
         // Eliminamos el registro de preguntas para limpiar sus parámetros de seguridad
         DB::table('respuestas_seguridad_usuario')->where('user_id', $id)->delete();
+
+        \App\Models\SystemLog::write('Limpiar Preguntas (Admin)', "El administrador '" . Auth::user()->Nombre_usuario . "' eliminó las preguntas de seguridad del usuario '{$nombreAfectado}' (ID: {$id}).");
 
         return response()->json(['message' => 'Parámetros de seguridad blanqueados correctamente.']);
     }

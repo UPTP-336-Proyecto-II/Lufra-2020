@@ -1,0 +1,80 @@
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
+/**
+* @see \App\Http\Controllers\AdminController::status
+* @see app/Http/Controllers/AdminController.php:1510
+* @route '/administrativo/permission-requests/{id}/status'
+*/
+export const status = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: status.url(args, options),
+    method: 'post',
+})
+
+status.definition = {
+    methods: ["post"],
+    url: '/administrativo/permission-requests/{id}/status',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\AdminController::status
+* @see app/Http/Controllers/AdminController.php:1510
+* @route '/administrativo/permission-requests/{id}/status'
+*/
+status.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            id: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        id: args.id,
+    }
+
+    return status.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\AdminController::status
+* @see app/Http/Controllers/AdminController.php:1510
+* @route '/administrativo/permission-requests/{id}/status'
+*/
+status.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: status.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\AdminController::status
+* @see app/Http/Controllers/AdminController.php:1510
+* @route '/administrativo/permission-requests/{id}/status'
+*/
+const statusForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: status.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\AdminController::status
+* @see app/Http/Controllers/AdminController.php:1510
+* @route '/administrativo/permission-requests/{id}/status'
+*/
+statusForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: status.url(args, options),
+    method: 'post',
+})
+
+status.form = statusForm
+
+const permission_requests = {
+    status: Object.assign(status, status),
+}
+
+export default permission_requests

@@ -14,8 +14,32 @@ type Props = {
     user: User;
 };
 
-const handleLogout = () => {
-    router.flushAll();
+const handleLogout = async (event?: Event) => {
+    try {
+        const res = await fetch('/session/alive', { credentials: 'same-origin' });
+        const data = await res.json();
+        if (!data.alive) {
+            window.location.href = '/login';
+            return;
+        }
+
+        const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+        const token = tokenMeta ? tokenMeta.getAttribute('content') : null;
+
+        await fetch('/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': token || ''
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({})
+        });
+
+        window.location.href = '/login';
+    } catch (e) {
+        window.location.href = '/login';
+    }
 };
 
 defineProps<Props>();
@@ -37,16 +61,14 @@ defineProps<Props>();
         </DropdownMenuItem>
     </DropdownMenuGroup>
     <DropdownMenuSeparator />
-    <DropdownMenuItem :as-child="true">
-        <Link
-            class="block w-full cursor-pointer"
-            :href="logout()"
-            @click="handleLogout"
-            as="button"
+    <DropdownMenuItem>
+        <button
+            class="block w-full text-left px-1 py-1.5"
+            @click.prevent="handleLogout"
             data-test="logout-button"
         >
             <LogOut class="mr-2 h-4 w-4" />
             Log out
-        </Link>
+        </button>
     </DropdownMenuItem>
 </template>

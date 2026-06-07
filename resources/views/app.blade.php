@@ -11,6 +11,13 @@
 <body>
     @inertia
     @auth
+        <script>
+            window.laravelUser = {
+                id: "{{ auth()->user()->id }}",
+                name: "{{ auth()->user()->name }}",
+                role: "{{ auth()->user()->role }}"
+            };
+        </script>
         <script src="{{ asset('js/session-timeout.js') }}"></script>
     @endauth
 </body>

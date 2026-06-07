@@ -24,6 +24,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Auth\Events\Logout::class, function (\Illuminate\Auth\Events\Logout $event) {
+            if ($event->user) {
+                \App\Models\SystemLog::write('Cierre de Sesión', "El usuario '{$event->user->Nombre_usuario}' ha cerrado su sesión.");
+            }
+        });
     }
 
     /**
